@@ -1,0 +1,532 @@
+/**
+ * council-prompts.ts — Prompt builders, seat templates, and planner functions
+ * for the Council debate engine.
+ */
+
+import { runLLM } from "./claude";
+import type {
+  CouncilSeat,
+  CouncilSession,
+  CouncilTurn,
+  CouncilConclusion,
+  CouncilEvidenceSource,
+  CouncilPlan,
+  CouncilPlanInput,
+} from "./council-types";
+import { sanitizeText, clamp } from "./council-db";
+
+// ─── Debate brief / round prompts ─────────────────────────────────────────────
+
+export function buildDebateBrief(session: Pick<CouncilSession, "topic" | "context" | "goal">): string {
+  return [
+    "Debate topic:",
+    session.topic,
+    session.goal ? `\nDecision goal:\n${session.goal}` : "",
+    session.context ? `\nContext:\n${session.context}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "context" | "goal">): string {
+  return [
+    buildDebateBrief(session),
+    "",
+    "You are speaking in round 1.",
+    "Use tools if you need evidence before making claims.",
+    "State your recommendation, key assumptions, main risks, and the strongest counterargument against your view.",
+    "If you used tools, end with an 'Evidence' section listing the concrete URLs, files, or document titles you relied on.",
+  ].join("\n");
+}
+
+export function buildRound2Prompt(
+  session: Pick<CouncilSession, "topic" | "context" | "goal">,
+  round1Turns: CouncilTurn[],
+  round2TurnsSoFar: CouncilTurn[] = []
+): string {
+  const round1Section = round1Turns
+    .map((turn) => `### ${turn.role}\n${turn.content}`)
+    .join("\n\n");
+
+  const parts: string[] = [
+    buildDebateBrief(session),
+    "",
+    "Round 1 positions:",
+    round1Section,
+  ];
+
+  if (round2TurnsSoFar.length > 0) {
+    const round2Section = round2TurnsSoFar
+      .map((turn) => `### ${turn.role} (Round 2 — already argued)\n${turn.content}`)
+      .join("\n\n");
+    parts.push(
+      "",
+      "Round 2 arguments already made by other seats — read before you respond:",
+      round2Section,
+    );
+  }
+
+  parts.push(
+    "",
+    "Now make your Round 2 argument.",
+    "Rebut the strongest opposing Round 1 positions.",
+    round2TurnsSoFar.length > 0
+      ? "The Round 2 arguments above are live — address them specifically if they challenge or support your view."
+      : "",
+    "Update your recommendation only if the evidence requires it.",
+    "When claims conflict, use tools to verify the disputed points.",
+    "If you used tools, end with an 'Evidence' section listing the concrete URLs, files, or document titles you relied on.",
+  );
+
+  return parts.filter(Boolean).join("\n");
+}
+
+// ─── Moderator prompt ──────────────────────────────────────────────────────────
+
+export const MODERATOR_SYSTEM_PROMPT = [
+  "You are the council moderator.",
+  "Synthesize the debate into structured JSON only.",
+  "The summary must be concise and actionable.",
+  "Do not wrap the answer in markdown fences.",
+  "Each seat in the transcript is annotated with [cited URLs: N]. This counts real URLs the seat retrieved — not tool calls, only verified web/file citations.",
+  "Use this to weight arguments: seats with more cited URLs have harder evidence. A seat with 0 cited URLs is arguing from priors only.",
+  "Set confidence based on URL citation quality across the debate:",
+  '  "high"   — multiple seats cite real URLs, claims are cross-verified, positions largely converge',
+  '  "medium" — some URLs cited but coverage is uneven, or meaningful dissent remains',
+  '  "low"    — most seats cite no URLs, arguments are opinion-based, or positions strongly diverge',
+  "Return this JSON shape exactly:",
+  "{",
+  '  "summary": "2-4 sentences",',
+  '  "consensus": "shared conclusion or null",',
+  '  "dissent": "main disagreement or null",',
+  '  "action_items": ["action 1", "action 2"],',
+  '  "veto": "blocking concern or null",',
+  '  "confidence": "high|medium|low",',
+  '  "confidence_reason": "one sentence explaining the confidence level"',
+  "}",
+].join("\n");
+
+export function buildModeratorPrompt(
+  session: Pick<CouncilSession, "topic" | "context" | "goal">,
+  allTurns: CouncilTurn[],
+  evidenceCounts: Record<string, number> = {}
+): string {
+  const formatted = allTurns
+    .map((turn) => {
+      const count = evidenceCounts[turn.role] ?? 0;
+      const evidenceTag = `[cited URLs: ${count}]`;
+      return `### [Round ${turn.round}] ${turn.role} ${evidenceTag}\n${turn.content}`;
+    })
+    .join("\n\n");
+
+  return [
+    buildDebateBrief(session),
+    "",
+    "Debate transcript:",
+    formatted,
+    "",
+    "Return the final JSON conclusion.",
+  ].join("\n");
+}
+
+// ─── JSON extraction + conclusion normalizer ───────────────────────────────────
+
+export function extractFirstJsonObject(raw: string): string | null {
+  const text = raw
+    .replace(/```json/gi, "```")
+    .replace(/```/g, "")
+    .trim();
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+
+  return null;
+}
+
+export function normalizeConclusion(raw: string): Omit<CouncilConclusion, "id" | "session_id" | "created_at"> {
+  const fallback = {
+    summary: raw.trim(),
+    consensus: null,
+    dissent: null,
+    action_items: [] as string[],
+    veto: null,
+    confidence: null as CouncilConclusion["confidence"],
+    confidence_reason: null,
+  };
+
+  try {
+    const jsonText = extractFirstJsonObject(raw);
+    if (!jsonText) return fallback;
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+
+    const rawConfidence = sanitizeText(parsed.confidence).toLowerCase();
+    const confidence: CouncilConclusion["confidence"] =
+      rawConfidence === "high" || rawConfidence === "medium" || rawConfidence === "low"
+        ? rawConfidence
+        : null;
+
+    return {
+      summary: sanitizeText(parsed.summary) || fallback.summary,
+      consensus: sanitizeText(parsed.consensus) || null,
+      dissent: sanitizeText(parsed.dissent) || null,
+      action_items: Array.isArray(parsed.action_items)
+        ? parsed.action_items.map((item) => sanitizeText(item)).filter(Boolean)
+        : [],
+      veto: sanitizeText(parsed.veto) || null,
+      confidence,
+      confidence_reason: sanitizeText(parsed.confidence_reason) || null,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+// ─── Evidence source extractor ─────────────────────────────────────────────────
+
+export function cleanSnippet(text: string, max = 220): string | null {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  return cleaned.length > max ? `${cleaned.slice(0, max - 3)}...` : cleaned;
+}
+
+export function extractLineSnippet(result: string, token: string): string | null {
+  const line = result
+    .split(/\r?\n/)
+    .find((candidate) => candidate.includes(token));
+  return line ? cleanSnippet(line) : cleanSnippet(result);
+}
+
+export function extractEvidenceSources(
+  tool: string,
+  args: Record<string, unknown>,
+  result: string,
+): CouncilEvidenceSource[] {
+  const refs: CouncilEvidenceSource[] = [];
+  const seen = new Set<string>();
+
+  const addRef = (label: string, uri?: string | null, snippet?: string | null) => {
+    const cleanLabel = sanitizeText(label);
+    const cleanUri = sanitizeText(uri) || null;
+    const cleanSnippetValue = cleanSnippet(snippet ?? "");
+    if (!cleanLabel) return;
+    const dedupeKey = `${cleanLabel}|${cleanUri ?? ""}`;
+    if (seen.has(dedupeKey)) return;
+    seen.add(dedupeKey);
+    refs.push({ label: cleanLabel, uri: cleanUri, snippet: cleanSnippetValue });
+  };
+
+  if (tool === "fetch_url" && typeof args.url === "string") {
+    addRef(args.url, args.url, result);
+  }
+  if (tool === "read_file" && typeof args.path === "string") {
+    addRef(args.path, args.path, result);
+  }
+  if (tool === "read_document" && typeof args.documentId === "string") {
+    addRef(`document:${args.documentId}`, String(args.documentId), result);
+  }
+  if (tool === "list_documents" && typeof args.tag === "string") {
+    addRef(`documents tag:${args.tag}`, null, result);
+  }
+  if (tool === "rag_query" && typeof args.question === "string") {
+    addRef(`rag:${args.question}`, null, result);
+  }
+  if (tool === "semantic_search" && typeof args.query === "string") {
+    addRef(`semantic:${args.query}`, null, result);
+  }
+
+  for (const match of result.matchAll(/https?:\/\/[^\s)\]>"]+/g)) {
+    const url = match[0];
+    addRef(url, url, extractLineSnippet(result, url));
+    if (refs.length >= 8) break;
+  }
+
+  for (const line of result.split(/\r?\n/)) {
+    const titleMatch = line.match(/^(?:##\s*\d+\.\s*|\[\d+\]\s*)(.+)$/);
+    if (!titleMatch) continue;
+    addRef(titleMatch[1], null, line);
+    if (refs.length >= 8) break;
+  }
+
+  if (!refs.length && result.trim()) {
+    addRef(`${tool} result`, null, result);
+  }
+
+  return refs.slice(0, 8);
+}
+
+// ─── Seat helpers ──────────────────────────────────────────────────────────────
+
+export function buildSeatRuntimePrompt(seat: CouncilSeat): string {
+  return [
+    seat.systemPrompt,
+    seat.bias ? `Bias:\n${seat.bias}` : "",
+    "Maintain this point of view unless the evidence clearly disproves it.",
+    "Do not act like a neutral moderator. Argue from your seat's perspective, then note where your own view is weak.",
+  ].filter(Boolean).join("\n\n");
+}
+
+export function buildSeat(
+  role: string,
+  systemPrompt: string,
+  model: string,
+  options?: { bias?: string; tools?: string[]; allowElevatedTools?: boolean }
+): CouncilSeat {
+  const hasTools = Boolean(options?.tools?.length);
+  // If the seat declares tools, auto-enable allowElevatedTools so elevated_runtime
+  // models (Codex, Gemini, OpenAI) aren't silently stripped of their tool access.
+  // Callers can still override by passing allowElevatedTools: false explicitly.
+  const allowElevatedTools = options?.allowElevatedTools !== false && hasTools ? true : options?.allowElevatedTools;
+  return {
+    role,
+    model,
+    systemPrompt,
+    bias: options?.bias,
+    tools: hasTools ? options!.tools : undefined,
+    allowElevatedTools,
+  };
+}
+
+export function buildTemplateSeats(
+  template: CouncilPlan["template"],
+  model: string,
+  seatCount: number
+): CouncilSeat[] {
+  const libraries: Record<CouncilPlan["template"], CouncilSeat[]> = {
+    architecture: [
+      buildSeat("Architect", "You are the principal architect. Focus on architecture quality, system boundaries, and implementation feasibility.", model, {
+        bias: "Bias toward boring, maintainable designs with clear boundaries and low coupling.",
+        tools: ["list_directory", "read_file", "list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Skeptic Reviewer", "You are the skeptic reviewer. Attack weak assumptions, hidden coupling, and likely failure modes.", model, {
+        bias: "Bias toward disproving optimistic claims and exposing hidden failure modes early.",
+        tools: ["list_directory", "read_file", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Security Engineer", "You are the security engineer. Focus on auth, data exposure, abuse paths, secrets, and operational blast radius.", model, {
+        bias: "Bias toward least privilege, blast-radius reduction, and exploitability over convenience.",
+        tools: ["read_file", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("SRE", "You are the SRE. Focus on reliability, observability, deployment safety, rollback, and incident response.", model, {
+        bias: "Bias toward operability, safe rollback paths, and reducing pager load.",
+        tools: ["read_file", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Cost Engineer", "You are the cost engineer. Focus on runtime cost, model cost, infra efficiency, and maintenance overhead.", model, {
+        bias: "Bias toward durable margin and lower long-term operating complexity.",
+        tools: ["read_file", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+    ],
+    growth: [
+      buildSeat("Growth Strategist", "You are the growth strategist. Focus on distribution, offer clarity, and measurable acquisition channels.", model, {
+        bias: "Bias toward channels that can compound and be systematized instead of one-off hacks.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Content Lead", "You are the content lead. Focus on messaging, hooks, content format, and conversion path.", model, {
+        bias: "Bias toward clearer positioning, sharper hooks, and reusable content assets.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Performance Marketer", "You are the performance marketer. Focus on funnels, tests, CAC, CTR, and rapid iteration.", model, {
+        bias: "Bias toward measurable experiments, short feedback loops, and hard unit economics.",
+        tools: ["list_documents", "read_document", "web_search", "fetch_url"],
+      }),
+      buildSeat("Audience Researcher", "You are the audience researcher. Focus on demand signals, objections, and segment-specific language.", model, {
+        bias: "Bias toward actual audience pain and language over internal assumptions.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Skeptic Operator", "You are the skeptic operator. Challenge plans that sound good but are hard to execute repeatedly.", model, {
+        bias: "Bias toward repeatability and operational feasibility over polished strategy decks.",
+        tools: ["list_documents", "read_document", "web_search", "fetch_url"],
+      }),
+    ],
+    business: [
+      buildSeat("Product Strategist", "You are the product strategist. Focus on product scope, wedge, differentiation, and sequencing.", model, {
+        bias: "Bias toward a sharp wedge and a sequence that reaches revenue before complexity explodes.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Customer Voice", "You are the customer voice. Focus on jobs-to-be-done, objections, and decision friction.", model, {
+        bias: "Bias toward customer pains, switching costs, and purchase friction.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("GTM Lead", "You are the GTM lead. Focus on launch path, positioning, pricing surface, and sales motion.", model, {
+        bias: "Bias toward fastest credible route to distribution and conversion.",
+        tools: ["list_documents", "read_document", "web_search", "fetch_url"],
+      }),
+      buildSeat("Finance Lead", "You are the finance lead. Focus on margin, payback, cash risk, and pricing mechanics.", model, {
+        bias: "Bias toward cash discipline, payback speed, and margin durability.",
+        tools: ["list_documents", "read_document", "web_search", "fetch_url"],
+      }),
+      buildSeat("Risk Manager", "You are the risk manager. Focus on downside protection, compliance, dependency risk, and failure containment.", model, {
+        bias: "Bias toward downside containment and reducing irreversible exposure.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+    ],
+    general: [
+      buildSeat("Research Analyst", "You are the research analyst. Focus on clear facts, assumptions, and the minimum evidence needed to decide.", model, {
+        bias: "Bias toward decision-grade evidence instead of hand-wavy opinions.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Operator", "You are the operator. Focus on implementation speed, bottlenecks, and execution sequence.", model, {
+        bias: "Bias toward execution speed, sequencing, and reducing coordination drag.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Skeptic", "You are the skeptic. Challenge missing evidence, optimism bias, and weak logic.", model, {
+        bias: "Bias toward attacking weak evidence and overconfident framing.",
+        tools: ["rag_query", "web_search", "fetch_url"],
+      }),
+      buildSeat("Risk Manager", "You are the risk manager. Focus on downside, reversibility, and hidden dependencies.", model, {
+        bias: "Bias toward reversible decisions and explicit downside control.",
+        tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
+      }),
+    ],
+  };
+
+  return libraries[template].slice(0, clamp(seatCount, 2, libraries[template].length));
+}
+
+// ─── Planner ───────────────────────────────────────────────────────────────────
+
+const HAS_CJK_RE = /[\u3400-\u9fff]/;
+
+export function buildHeuristicPlan(input: CouncilPlanInput, defaultSeatModel: string, defaultModeratorModel: string): CouncilPlan {
+  const topic = sanitizeText(input.topic);
+  const context = sanitizeText(input.context);
+  const goal = sanitizeText(input.goal);
+  const text = [topic, context, goal].filter(Boolean).join(" ").toLowerCase();
+  const hasCjk = HAS_CJK_RE.test([topic, context, goal].join(" "));
+
+  const isArchitecture = /(repo|code|bug|api|database|postgres|schema|migration|deploy|infra|architecture|system design|typescript|next\.js|react|security|auth|latency|performance|sre|codebase|程式|程式碼|錯誤|除錯|架構|系統設計|資料庫|遷移|部署|基礎設施|權限|驗證|效能|延遲|監控|可觀測性|資安|維運|可靠性)/.test(text);
+  const isGrowth = /(seo|content|traffic|ads|facebook|threads|pinterest|landing page|funnel|distribution|viral|lead|audience|social post|gumroad|growth|成長|增長|流量|廣告|社群|貼文|漏斗|轉換|受眾|導流|內容行銷|自然流量|擴散)/.test(text);
+  const isBusiness = /(pricing|sales|offer|market|customer|product|roadmap|launch|subscription|revenue|margin|monetize|business model|定價|銷售|報價|市場|客戶|產品|路線圖|上線|訂閱|營收|毛利|獲利|商業模式|變現)/.test(text);
+  const highStake = /(security|auth|incident|outage|migration|payment|pricing|legal|compliance|production|customer data|revenue|資安|安全|權限|事故|停機|遷移|付款|金流|法務|合規|正式環境|客戶資料|營收)/.test(text);
+  const comparison = /(compare|choose|tradeoff|debate|versus|\bvs\b|option a|option b|review|strategy|比較|選擇|取捨|辯論|對比|方案a|方案b|評估|審查|策略|是否|該不該|值不值得|可不可行)/.test(text);
+
+  let template: CouncilPlan["template"] = "general";
+  if (isArchitecture) template = "architecture";
+  else if (isGrowth) template = "growth";
+  else if (isBusiness) template = "business";
+
+  let score = 0;
+  if (topic.length > 120 || text.length > 240) score += 1;
+  if (highStake) score += 2;
+  if (comparison) score += 1;
+  if ((isArchitecture ? 1 : 0) + (isGrowth ? 1 : 0) + (isBusiness ? 1 : 0) > 1) score += 1;
+  if (hasCjk && (context.length > 32 || goal.length > 16)) score += 1;
+  if (/(enterprise|framework|pilot|organization|org|policy|workflow|企業|框架|導入|內推|治理|流程)/.test(text)) score += 1;
+
+  const complexity: CouncilPlan["complexity"] = score >= 3 ? "high" : score >= 1 ? "medium" : "low";
+  const shouldUseCouncil = complexity !== "low" || comparison;
+
+  const preferredModel = sanitizeText(input.preferredModel) || defaultSeatModel;
+  const seatCount = input.maxSeats
+    ? clamp(input.maxSeats, 2, 5)
+    : complexity === "high"
+      ? 5
+      : complexity === "medium"
+        ? 4
+        : 3;
+
+  const reasoning = [
+    hasCjk ? "language=cjk_or_mixed" : "language=latin",
+    `template=${template}`,
+    `complexity=${complexity}`,
+    highStake ? "high_stakes=true" : "high_stakes=false",
+    comparison ? "comparison=true" : "comparison=false",
+    shouldUseCouncil ? "escalate=yes" : "escalate=no",
+  ];
+
+  return {
+    shouldUseCouncil,
+    template,
+    complexity,
+    title: topic.length > 72 ? `${topic.slice(0, 69)}...` : topic,
+    rounds: complexity === "low" ? 1 : 2,
+    moderator_model: defaultModeratorModel,
+    seats: buildTemplateSeats(template, preferredModel, seatCount),
+    reasoning,
+  };
+}
+
+export function shouldUsePlannerClassifier(input: CouncilPlanInput, heuristic: CouncilPlan): boolean {
+  const text = [input.topic, input.context, input.goal].filter(Boolean).join(" ");
+  // Always use LLM when:
+  // - Text contains CJK (regex patterns are weaker for Chinese)
+  // - Topic is a comparison / decision (high ambiguity)
+  // - Topic is high-stakes (wrong template = bad seat selection)
+  // - Heuristic landed on general+low but text is substantial (likely mis-classified)
+  const highStake = /(security|auth|incident|outage|migration|payment|pricing|legal|compliance|production|customer data|revenue|資安|安全|權限|事故|停機|遷移|付款|金流|法務|合規|正式環境|客戶資料|營收)/.test(text.toLowerCase());
+  const comparison = /(compare|choose|tradeoff|debate|versus|\bvs\b|option a|option b|review|strategy|比較|選擇|取捨|辯論|對比|方案a|方案b|評估|審查|策略|是否|該不該|值不值得|可不可行)/.test(text.toLowerCase());
+  return (
+    HAS_CJK_RE.test(text) ||
+    highStake ||
+    comparison ||
+    (heuristic.template === "general" && heuristic.complexity === "low" && text.length > 80)
+  );
+}
+
+export async function classifyPlanWithLLM(
+  input: CouncilPlanInput,
+  defaultPlanClassifierModel: string
+): Promise<Pick<CouncilPlan, "template" | "complexity" | "shouldUseCouncil" | "reasoning"> | null> {
+  const topic = sanitizeText(input.topic);
+  if (!topic) return null;
+
+  const prompt = [
+    "Classify whether this topic should escalate into a multi-agent council.",
+    "Return JSON only with this exact shape:",
+    '{ "template": "architecture|growth|business|general", "complexity": "low|medium|high", "shouldUseCouncil": true, "reasoning": ["short signal"] }',
+    "",
+    `Topic: ${topic}`,
+    input.context ? `Context: ${sanitizeText(input.context)}` : "",
+    input.goal ? `Goal: ${sanitizeText(input.goal)}` : "",
+  ].filter(Boolean).join("\n");
+
+  try {
+    const raw = await runLLM(prompt, "You are a strict classifier. Output JSON only.", defaultPlanClassifierModel);
+    const jsonText = extractFirstJsonObject(raw);
+    if (!jsonText) return null;
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    const template = ["architecture", "growth", "business", "general"].includes(String(parsed.template))
+      ? String(parsed.template) as CouncilPlan["template"]
+      : null;
+    const complexity = ["low", "medium", "high"].includes(String(parsed.complexity))
+      ? String(parsed.complexity) as CouncilPlan["complexity"]
+      : null;
+    const reasoning = Array.isArray(parsed.reasoning)
+      ? parsed.reasoning.map((item) => sanitizeText(item)).filter(Boolean).slice(0, 6)
+      : [];
+
+    if (!template || !complexity || typeof parsed.shouldUseCouncil !== "boolean") {
+      return null;
+    }
+
+    return {
+      template,
+      complexity,
+      shouldUseCouncil: parsed.shouldUseCouncil,
+      reasoning: reasoning.length ? ["planner=llm", ...reasoning] : ["planner=llm"],
+    };
+  } catch {
+    return null;
+  }
+}
