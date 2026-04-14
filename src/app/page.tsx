@@ -27,15 +27,23 @@ export default function HomePage() {
         justifyContent: "space-between",
       }}>
         <span style={{ fontWeight: 700, fontSize: 18, color: "var(--accent)" }}>Council</span>
-        <a href="/analyze" style={{
-          background: "var(--accent)",
-          color: "#fff",
-          padding: "6px 16px",
-          borderRadius: 6,
-          fontSize: 13,
-          fontWeight: 600,
-          textDecoration: "none",
-        }}>Start Review</a>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <a href="/keys" style={{
+            color: "var(--text-secondary)",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+          }}>API Keys</a>
+          <a href="/analyze" style={{
+            background: "var(--accent)",
+            color: "#fff",
+            padding: "6px 16px",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}>Start Review</a>
+        </div>
       </nav>
 
       {/* Hero */}
