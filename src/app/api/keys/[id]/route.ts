@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { revokeApiKey } from "@/lib/api-keys";
 
-export async function DELETE(
-  _req: NextRequest,
+export const DELETE = auth(async (
+  req,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
+  if (!req.auth?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     await revokeApiKey(id);
@@ -13,4 +18,4 @@ export async function DELETE(
     const message = error instanceof Error ? error.message : "Failed to revoke API key";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});

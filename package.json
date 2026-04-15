@@ -6,7 +6,8 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -14,6 +15,7 @@
     "lucide-react": "^0.577.0",
     "nanoid": "^5.1.5",
     "next": "^16.1.6",
+    "next-auth": "^5.0.0-beta.30",
     "pdf-parse": "^1.1.1",
     "pg": "^8.13.1",
     "react": "^19.0.0",
@@ -23,6 +25,7 @@
     "stripe": "^22.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.4",
     "@types/pg": "^8.11.10",

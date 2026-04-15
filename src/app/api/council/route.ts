@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { createCouncilSession, listSessions } from "@/lib/council";
 
-export async function GET() {
+export const GET = auth(async (req) => {
+  if (!req.auth?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const sessions = await listSessions();
   return NextResponse.json(sessions);
-}
+});
 
 export async function POST(req: NextRequest) {
   try {

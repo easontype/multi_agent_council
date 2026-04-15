@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Council — 完整架構流程圖</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #8b949e;
+    font-size: 0.95rem;
+    margin-bottom: 32px;
+  }
+  .section {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .section h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #58a6ff;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #21262d;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: #8b949e;
+  }
+  .legend-box {
+    width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag-blue { background: #1f3a5f; color: #58a6ff; border: 1px solid #1f6feb; }
+  .tag-purple { background: #2d1a4d; color: #bc8cff; border: 1px solid #7d4fc3; }
+  .tag-green { background: #1a3a2a; color: #3fb950; border: 1px solid #238636; }
+  .tag-orange { background: #3a2a1a; color: #f0883e; border: 1px solid #9e6a03; }
+  .tag-red { background: #3a1a1a; color: #f85149; border: 1px solid #da3633; }
+</style>
+</head>
+<body>
+
+<h1>Council — 架構流程圖</h1>
+<p class="subtitle">從資料輸入 → 論文攝取 → 辯論執行 → 版主綜合 → 結果輸出</p>
+
+<!-- SECTION 1: 完整主流程 -->
+<div class="section">
+  <h2>① 完整主流程（端對端）</h2>
+  <div class="mermaid">
+flowchart TD
+    subgraph USER["👤 使用者介面層"]
+      UI1["📄 Analyze Form\n/analyze"]
+      UI2["🏠 Session Dashboard\n/home"]
+      UI3["🔑 API Keys\n/keys"]
+    end
+
+    subgraph INGEST["📥 論文攝取層"]
+      ING1["POST /api/papers/ingest"]
+      ING2["paper-ingest.ts\n提取 + 存儲"]
+      ING3[("documents\ntable")]
+      ING4["triggerEmbedding()\nGemini 768-dim"]
+      ING5[("document_chunks\ntable")]
+    end
+
+    subgraph SESSION["🧩 Session 建立層"]
+      SES1["POST /api/council"]
+      SES2["planCouncil()\nautoPlan = true"]
+      SES3["classifyPlanWithLLM()\nSonnet 4.5"]
+      SES4["buildAcademicCritiqueSeats()\nor buildGapAnalysisSeats()"]
+      SES5[("council_sessions\ntable")]
+    end
+
+    subgraph DEBATE["⚖️ 辯論執行層"]
+      DEB1["POST /api/council/:id/run\nSSE Stream"]
+      DEB2["runCouncilSession()"]
+      DEB3["ROUND 1\n全 seats 並行"]
+      DEB4["classifyDivergence()\nHaiku"]
+      DEB5{{"divergence\nlevel?"}}
+      DEB6["ROUND 2\n全 seats 循序"]
+      DEB7["runModeratorTurn()\nOpus 4.6"]
+    end
+
+    subgraph TOOLS["🛠️ 工具層"]
+      T1["rag_query()\n語意檢索"]
+      T2["web_search()\nBrave/DuckDuckGo"]
+      T3["fetch_url()\nHTML 抓取"]
+      T4["semantic_search()\n向量相似"]
+    end
+
+    subgraph OUTPUT["📊 輸出層"]
+      OUT1["council_conclusions\ntable"]
+      OUT2["SSE Events\nturn_delta / tool_call\nconclusion / session_done"]
+      OUT3["結果頁面\n共識 + 分歧 + 行動項目"]
+    end
+
+    UI1 -->|"arXiv ID / PDF / text"| ING1
+    ING1 --> ING2
+    ING2 -->|"title + content"| ING3
+    ING2 -->|"async"| ING4
+    ING4 -->|"libraryId tag"| ING5
+
+    UI1 -->|"topic + seats config"| SES1
+    SES1 --> SES2
+    SES2 --> SES3
+    SES3 -->|"complexity / template"| SES4
+    SES4 --> SES5
+
+    UI2 -->|"點擊 Run"| DEB1
+    DEB1 --> DEB2
+    DEB2 --> DEB3
+    DEB3 -->|"每個 seat 呼叫"| TOOLS
+    TOOLS -->|"rag_query 查 libraryId"| ING5
+    TOOLS -->|"web_search"| T2
+    DEB3 --> DEB4
+    DEB4 --> DEB5
+    DEB5 -->|"moderate / high"| DEB6
+    DEB5 -->|"low / none"| DEB7
+    DEB6 -->|"每個 seat 循序"| TOOLS
+    DEB6 --> DEB7
+    DEB7 -->|"buildModeratorPrompt()\n含 evidence 計數"| OUT1
+    DEB7 --> OUT2
+    OUT2 --> OUT3
+
+    style USER fill:#1f2a3a,stroke:#1f6feb,color:#58a6ff
+    style INGEST fill:#1a2a1a,stroke:#238636,color:#3fb950
+    style SESSION fill:#2a1f3a,stroke:#7d4fc3,color:#bc8cff
+    style DEBATE fill:#3a2a1a,stroke:#9e6a03,color:#f0883e
+    style TOOLS fill:#1a2a3a,stroke:#0d8598,color:#56d364
+    style OUTPUT fill:#3a1a2a,stroke:#da3633,color:#f85149
+  </div>
+</div>
+
+<!-- SECTION 2: 論文攝取細節 -->
+<div class="section">
+  <h2>② 論文攝取細節流程</h2>
+  <div class="mermaid">
+flowchart LR
+    IN1(["arXiv ID\ne.g. 2401.12345"])
+    IN2(["PDF 檔案上傳"])
+    IN3(["PDF URL"])
+    IN4(["Raw Text"])
+
+    IN1 -->|"fetch arxiv.org/pdf/:id"| F1["下載 PDF Buffer"]
+    IN2 --> F1
+    IN3 -->|"fetch URL"| F1
+    IN4 --> F2
+
+    F1 -->|"pdf-parse"| F2["extractTextFromPdfBuffer()\n純文字"]
+
+    F2 --> G1["ingestPaper()"]
+    G1 --> G2["INSERT documents\n+ tag: council:lib:{nanoid}"]
+    G2 --> G3["triggerEmbedding()\nasync"]
+    G3 --> G4["Gemini embed 每個 chunk\n~600 chars, 768-dim"]
+    G4 --> G5["INSERT document_chunks\n(id, chunk, embedding)"]
+
+    G2 -->|"return"| R1["{ documentId, libraryId,\ntitle, wordCount, source }"]
+
+    style IN1 fill:#1f2a3a,stroke:#1f6feb
+    style IN2 fill:#1f2a3a,stroke:#1f6feb
+    style IN3 fill:#1f2a3a,stroke:#1f6feb
+    style IN4 fill:#1f2a3a,stroke:#1f6feb
+  </div>
+</div>
+
+<!-- SECTION 3: Seat 執行細節 -->
+<div class="section">
+  <h2>③ 單一 Seat 執行細節（AgenticRuntime）</h2>
+  <div class="mermaid">
+flowchart TD
+    S1["runSeatTurn(\n  session, seat, round, prompt\n)"]
+    S1 --> S2["AgenticRuntime 初始化\n工具: rag/web/fetch/semantic"]
+
+    S2 --> LOOP_START["🔄 Agentic Loop 開始\n最多 10 輪工具迭代"]
+
+    LOOP_START --> S3["buildMessages()\n系統提示 + 對話歷史"]
+    S3 --> S4["LLM 呼叫 (streaming)\nclaude.ts Router"]
+
+    subgraph LLM_ROUTER["claude.ts — LLM 路由"]
+      R1{"model 類型?"}
+      R1 -->|"claude-*"| R2["runClaude()\nAnthropic SDK"]
+      R1 -->|"codex/*"| R3["runCodex()\n實驗性 API"]
+      R1 -->|"gemini-*"| R4["runGemini()\nGoogle SDK"]
+      R1 -->|"gpt-*, o1-*"| R5["runOpenAI()\nOpenAI SDK"]
+      R1 -->|"ollama:*"| R6["runOllama()\n本機推論"]
+    end
+
+    S4 --> LLM_ROUTER
+    LLM_ROUTER -->|"streaming chunks"| S5["累積 delta\n解析 tool calls"]
+
+    S5 --> S6{{"有 tool call?"}}
+    S6 -->|"有"| S7["執行工具\ntool-handlers/"]
+
+    subgraph TOOL_EXEC["工具執行"]
+      T1["rag_query(question, tag)\n→ 向量 + 關鍵字搜尋\n→ libraryId 過濾"]
+      T2["semantic_search(query)\n→ Gemini embed 查詢\n→ cosine similarity"]
+      T3["web_search(query)\n→ Brave API\n→ fallback: DuckDuckGo"]
+      T4["fetch_url(url)\n→ HTML → 純文字\n→ 截斷 5000 chars"]
+    end
+
+    S7 --> TOOL_EXEC
+    TOOL_EXEC -->|"結果 + sourceRefs"| S8["記錄 council_evidence\nstatus: completed"]
+    S8 -->|"tool_result 加入對話"| LOOP_START
+
+    S6 -->|"無 tool call"| S9["最終回應 完整"]
+    S9 --> S10["saveTurn()\nINSERT council_turns"]
+    S10 --> S11["emit turn_done event"]
+
+    style LLM_ROUTER fill:#2a1f3a,stroke:#7d4fc3
+    style TOOL_EXEC fill:#1a2a3a,stroke:#0d8598
+  </div>
+</div>
+
+<!-- SECTION 4: 辯論輪次邏輯 -->
+<div class="section">
+  <h2>④ 辯論輪次邏輯與版主綜合</h2>
+  <div class="mermaid">
+flowchart TD
+    START(["runCouncilSession() 開始"])
+    START --> E1["emit session_start"]
+    E1 --> R1_START["emit round_start { round: 1 }"]
+
+    subgraph ROUND1["⚡ ROUND 1 — 並行執行"]
+      direction LR
+      SEAT_A["Seat A\nMethods Critic"]
+      SEAT_B["Seat B\nLiterature Auditor"]
+      SEAT_C["Seat C\nReplication Skeptic"]
+      SEAT_D["Seat D\nContribution Evaluator"]
+      SEAT_E["Seat E\nConstructive Advocate"]
+    end
+
+    R1_START --> ROUND1
+    ROUND1 -->|"Promise.all()"| R1_END["所有 Round 1 turns 完成"]
+
+    R1_END --> DIV1["classifyDivergence(round1Turns)\nHaiku 分類"]
+    DIV1 --> DIV2{"divergence_level?"}
+
+    DIV2 -->|"none / low"| SKIP["emit round2_skipped\n直接進版主"]
+    DIV2 -->|"moderate / high"| R2_START["emit round_start { round: 2 }"]
+
+    subgraph ROUND2["🔄 ROUND 2 — 循序執行（互相看到對方）"]
+      direction LR
+      R2A["Seat A 回應\n看到 R1 全部 + R2 前面 seats"]
+      R2B["Seat B 回應\n→"]
+      R2C["Seat C 回應\n→"]
+      R2D["Seat D 回應\n→"]
+      R2E["Seat E 回應"]
+    end
+
+    R2_START --> ROUND2
+    ROUND2 --> R2_END["Round 2 完成"]
+    R2_END --> MOD_START
+
+    SKIP --> MOD_START
+
+    subgraph MODERATOR["🏛️ 版主綜合 (Claude Opus 4.6)"]
+      MOD_START["emit moderator_start"]
+      MOD1["統計 evidence 引用數\nSELECT DISTINCT url per role"]
+      MOD2["buildModeratorPrompt()\n完整辯論紀錄 + 引用標注"]
+      MOD3["Streaming JSON 生成"]
+      MOD4["解析 JSON 結論"]
+    end
+
+    MOD_START --> MOD1 --> MOD2 --> MOD3 --> MOD4
+
+    MOD4 --> CONC["saveConclusion()\nINSERT council_conclusions"]
+    CONC --> E_DONE["emit conclusion\nemit session_done"]
+
+    subgraph CONCLUSION_STRUCT["📋 結論結構"]
+      direction LR
+      C1["summary\n2-4 句總結"]
+      C2["consensus\n共識結論"]
+      C3["dissent\n主要分歧"]
+      C4["action_items[]\n行動項目"]
+      C5["veto\n阻塞性問題"]
+      C6["confidence\nhigh/medium/low"]
+    end
+
+    E_DONE --> CONCLUSION_STRUCT
+
+    style ROUND1 fill:#1a3a2a,stroke:#238636
+    style ROUND2 fill:#3a2a1a,stroke:#9e6a03
+    style MODERATOR fill:#2a1f3a,stroke:#7d4fc3
+    style CONCLUSION_STRUCT fill:#1f3a3a,stroke:#0d8598
+  </div>
+</div>
+
+<!-- SECTION 5: 資料庫 Schema -->
+<div class="section">
+  <h2>⑤ 資料庫 Schema 關聯圖</h2>
+  <div class="mermaid">
+erDiagram
+    council_sessions {
+      TEXT id PK
+      TEXT title
+      TEXT topic
+      TEXT context
+      TEXT goal
+      TEXT status "pending|running|concluded|failed"
+      INT rounds "1 or 2"
+      TEXT moderator_model
+      JSONB seats "CouncilSeat[]"
+      TEXT divergence_level
+      TIMESTAMPTZ created_at
+      TIMESTAMPTZ started_at
+      TIMESTAMPTZ concluded_at
+    }
+
+    council_turns {
+      TEXT id PK
+      TEXT session_id FK
+      INT round "1|2|99=moderator"
+      TEXT role
+      TEXT model
+      TEXT content
+      INT input_tokens
+      INT output_tokens
+      TIMESTAMPTZ created_at
+    }
+
+    council_conclusions {
+      TEXT id PK
+      TEXT session_id FK
+      TEXT summary
+      TEXT consensus
+      TEXT dissent
+      JSONB action_items
+      TEXT veto
+      TEXT confidence "high|medium|low"
+      TEXT confidence_reason
+      TIMESTAMPTZ created_at
+    }
+
+    council_evidence {
+      TEXT id PK
+      TEXT session_id FK
+      INT round
+      TEXT role
+      TEXT tool "rag_query|web_search|fetch_url"
+      TEXT status "requested|completed|failed"
+      JSONB args
+      TEXT result
+      JSONB source_refs
+      TIMESTAMPTZ created_at
+    }
+
+    documents {
+      UUID id PK
+      TEXT title
+      TEXT content "max 200k chars"
+      JSONB tags "council:lib:{nanoid}"
+      TEXT source_url
+      BOOL done "embedding 完成?"
+    }
+
+    document_chunks {
+      UUID id PK
+      UUID document_id FK
+      TEXT chunk "~600 chars"
+      VECTOR embedding "768-dim Gemini"
+    }
+
+    council_sessions ||--o{ council_turns : "has"
+    council_sessions ||--o| council_conclusions : "has"
+    council_sessions ||--o{ council_evidence : "has"
+    documents ||--o{ document_chunks : "chunked into"
+  </div>
+</div>
+
+<!-- SECTION 6: SSE 事件流 -->
+<div class="section">
+  <h2>⑥ SSE 事件流時序圖</h2>
+  <div class="mermaid">
+sequenceDiagram
+    participant UI as 前端 UI
+    participant API as /api/council/:id/run
+    participant ENG as council.ts
+    participant SEAT as Seat (AgenticRuntime)
+    participant LLM as LLM API
+    participant TOOL as Tool Handler
+    participant MOD as Moderator (Opus)
+    participant DB as PostgreSQL
+
+    UI->>API: POST (SSE 連線)
+    API->>ENG: runCouncilSession()
+    ENG-->>UI: {type:"session_start"}
+    ENG-->>UI: {type:"round_start", round:1}
+
+    Note over ENG,SEAT: 並行啟動所有 seats
+
+    loop 每個 Seat
+      ENG->>SEAT: runSeatTurn(round=1)
+      ENG-->>UI: {type:"turn_start", role, model}
+      SEAT->>LLM: buildMessages() + stream
+      LLM-->>UI: {type:"turn_delta", delta} (串流)
+
+      opt 工具呼叫
+        SEAT-->>UI: {type:"tool_call", tool, args}
+        SEAT->>TOOL: 執行工具
+        TOOL->>DB: rag_query / web_search
+        DB-->>TOOL: 結果
+        TOOL-->>SEAT: 結果 + sourceRefs
+        SEAT-->>UI: {type:"tool_result", result}
+        Note over SEAT: 繼續 agentic loop
+      end
+
+      SEAT->>DB: saveTurn()
+      SEAT-->>UI: {type:"turn_done", turn}
+    end
+
+    ENG->>ENG: classifyDivergence()
+    ENG-->>UI: {type:"divergence_check", level, proceed_to_round2}
+
+    alt divergence = moderate/high
+      ENG-->>UI: {type:"round_start", round:2}
+      Note over ENG,SEAT: 循序執行 seats（每個看到前面所有 R2）
+      loop 每個 Seat (循序)
+        ENG->>SEAT: runSeatTurn(round=2)
+        Note right of SEAT: 同 Round 1 流程
+      end
+    else divergence = low/none
+      ENG-->>UI: {type:"round2_skipped"}
+    end
+
+    ENG-->>UI: {type:"moderator_start"}
+    ENG->>MOD: buildModeratorPrompt() + stream
+    MOD-->>UI: {type:"moderator_delta", delta} (JSON 串流)
+    MOD->>DB: saveConclusion()
+    ENG-->>UI: {type:"conclusion", conclusion}
+    ENG-->>UI: {type:"session_done"}
+  </div>
+</div>
+
+<!-- SECTION 7: 外部 API 流程 -->
+<div class="section">
+  <h2>⑦ 外部 API v1 流程（Bearer Token）</h2>
+  <div class="mermaid">
+flowchart TD
+    EXT["外部呼叫者\n(Python / curl / SDK)"]
+
+    EXT -->|"POST /api/v1/analyze\nAuthorization: Bearer {key}\n{ arxivId, topic, goal, rounds }"| V1A["v1/analyze route.ts"]
+
+    V1A --> K1["驗證 Bearer Token\napi-keys.ts\nSHA-256 hash 比對"]
+    K1 -->|"quota 檢查\n(daily_limit)"| K2{"quota ok?"}
+    K2 -->|"超額"| ERR1["429 Too Many Requests"]
+    K2 -->|"通過"| V1B["ingestPaper(arxivId)"]
+
+    V1B --> V1C["建立 CouncilSession\nlibraryId 綁定"]
+    V1C --> V1D["fire-and-forget\nrunCouncilSession() async"]
+    V1D -->|"不等完成"| V1E["202 Accepted\n{ sessionId, pollUrl }"]
+
+    EXT -->|"輪詢 GET /api/v1/sessions/:id\nAuthorization: Bearer {key}"| V1F["v1/sessions route.ts"]
+    V1F --> V1G["getCouncilSessionBundle()"]
+    V1G -->|"status: running"| V1H["200 { status: running, turns: [] }"]
+    V1G -->|"status: concluded"| V1I["200 { status: concluded,\nconclusion, turns, evidence }"]
+
+    style EXT fill:#1f2a3a,stroke:#1f6feb
+    style ERR1 fill:#3a1a1a,stroke:#da3633
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1f3a5f',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#1f6feb',
+      lineColor: '#8b949e',
+      secondaryColor: '#2d1a4d',
+      tertiaryColor: '#1a3a2a',
+      background: '#161b22',
+      mainBkg: '#161b22',
+      nodeBorder: '#30363d',
+      clusterBkg: '#0d1117',
+      titleColor: '#e6edf3',
+      edgeLabelBackground: '#161b22',
+      fontSize: '14px'
+    },
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+      rankSpacing: 60,
+      nodeSpacing: 40
+    }
+  });
+</script>
+</body>
+</html>
