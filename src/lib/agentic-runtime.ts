@@ -59,6 +59,8 @@ const SAFE_PLATFORM_TOOL_HANDLERS = {
   read_document: filesHandlers.read_document,
   web_search: webHandlers.web_search,
   fetch_url: webHandlers.fetch_url,
+  search_papers: webHandlers.search_papers,
+  fetch_paper: webHandlers.fetch_paper,
   rag_query: ragHandlers.rag_query,
   semantic_search: ragHandlers.semantic_search,
 } as const;
@@ -69,6 +71,8 @@ const SAFE_PLATFORM_TOOL_DOCS: Record<string, string> = {
   read_document: "args: { documentId } - Read a saved platform document.",
   web_search: "args: { query, count? } - Search the web for current information.",
   fetch_url: "args: { url, selector? } - Fetch a URL and extract readable text.",
+  search_papers: "args: { query, source?, limit? } - Search academic databases. source: 'openalex'|'arxiv'|'semantic_scholar'|'both' (default both = OpenAlex + arXiv).",
+  fetch_paper: "args: { identifier } - Fetch a paper by arXiv ID (e.g. '2301.07041'), DOI, or arXiv URL and ingest it into the session library for rag_query.",
   rag_query: "args: { question, limit?, tag? } - Query the internal RAG knowledge base.",
   semantic_search: "args: { query, limit?, tag? } - Search similar internal knowledge chunks.",
 };
@@ -423,6 +427,9 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
     "Prefer repo files, saved documents, and RAG knowledge before web search when the answer is likely internal.",
     toolsRestricted
       ? "This model runs in elevated_runtime mode. Per-seat tool allowlists are not treated as a hard safety boundary here, so external tools are disabled unless the seat is explicitly trusted."
+      : null,
+    allowedTools.length > 0
+      ? "After receiving a tool result, your next response MUST explicitly reference at least one specific finding from that result (e.g. a paper title, a URL, a quoted passage, or a concrete data point). If the result was not useful, say so explicitly and explain what you concluded instead. Never silently ignore a tool result."
       : null,
     "If you used tools, cite the concrete URLs, files, or document titles you relied on under an 'Evidence' section.",
     toolGuide,

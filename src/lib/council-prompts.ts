@@ -31,9 +31,14 @@ export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "conte
     buildDebateBrief(session),
     "",
     "You are speaking in round 1.",
-    "Use tools if you need evidence before making claims.",
-    "State your recommendation, key assumptions, main risks, and the strongest counterargument against your view.",
-    "If you used tools, end with an 'Evidence' section listing the concrete URLs, files, or document titles you relied on.",
+    "Use tools if you need evidence before making claims. Do not assert facts you cannot verify.",
+    "",
+    "Structure your response with these sections:",
+    "**Position** — Your core stance in 1-2 sentences.",
+    "**Key Assumptions** — What must be true for your position to hold.",
+    "**Main Risks** — The top 1-2 risks from your perspective.",
+    "**Strongest Counterargument** — The best case against your own view, stated honestly.",
+    "If you used tools, end with an **Evidence** section listing the concrete URLs, files, or document titles you relied on.",
   ].join("\n");
 }
 
@@ -67,13 +72,16 @@ export function buildRound2Prompt(
   parts.push(
     "",
     "Now make your Round 2 argument.",
-    "Rebut the strongest opposing Round 1 positions.",
+    "Structure your response with these sections:",
+    "**Rebuttal** — Name the seat(s) and specific claim you are challenging. State why their evidence or logic is insufficient.",
     round2TurnsSoFar.length > 0
-      ? "The Round 2 arguments above are live — address them specifically if they challenge or support your view."
+      ? "**Response to Round 2** — If any Round 2 argument above directly challenges or supports your view, address it explicitly."
       : "",
-    "Update your recommendation only if the evidence requires it.",
+    "**Position Update** — State whether your Round 1 stance has changed. If yes, explain what evidence changed it. If no, explain why the opposing arguments failed to move you.",
+    "**Remaining Disagreement** — Identify the one most important unresolved point the moderator must decide between your view and the opposition.",
+    "Update your position only if the evidence requires it. Do not capitulate to social pressure.",
     "When claims conflict, use tools to verify the disputed points.",
-    "If you used tools, end with an 'Evidence' section listing the concrete URLs, files, or document titles you relied on.",
+    "If you used tools, end with an **Evidence** section listing the concrete URLs, files, or document titles you relied on.",
   );
 
   return parts.filter(Boolean).join("\n");
@@ -82,25 +90,39 @@ export function buildRound2Prompt(
 // ─── Moderator prompt ──────────────────────────────────────────────────────────
 
 export const MODERATOR_SYSTEM_PROMPT = [
-  "You are the council moderator.",
-  "Synthesize the debate into structured JSON only.",
-  "The summary must be concise and actionable.",
-  "Do not wrap the answer in markdown fences.",
-  "Each seat in the transcript is annotated with [cited URLs: N]. This counts real URLs the seat retrieved — not tool calls, only verified web/file citations.",
-  "Use this to weight arguments: seats with more cited URLs have harder evidence. A seat with 0 cited URLs is arguing from priors only.",
-  "Set confidence based on URL citation quality across the debate:",
-  '  "high"   — multiple seats cite real URLs, claims are cross-verified, positions largely converge',
-  '  "medium" — some URLs cited but coverage is uneven, or meaningful dissent remains',
-  '  "low"    — most seats cite no URLs, arguments are opinion-based, or positions strongly diverge',
-  "Return this JSON shape exactly:",
+  "You are the council moderator. Your job is to synthesize a structured debate transcript into a final, actionable conclusion.",
+  "",
+  "## Evidence weighting",
+  "Each seat is annotated with [cited URLs: N]. Use this to calibrate how much to trust each seat's claims:",
+  "  - N ≥ 2  → strong evidence; weight this seat's claims heavily",
+  "  - N = 1  → partial evidence; weight with moderate confidence",
+  "  - N = 0  → opinion only; note the claim but do not let it override evidence-backed claims",
+  "When an evidence-backed seat and an opinion-only seat contradict each other, side with the evidence-backed seat unless the logic gap is obvious.",
+  "",
+  "## Conflict resolution rules",
+  "When seats disagree:",
+  "  1. If the disagreement is empirical (facts, data, code behavior) — report it in 'dissent' and set confidence to 'medium' or lower.",
+  "  2. If the disagreement is strategic (tradeoffs, priorities, risk appetite) — acknowledge both in 'dissent'; let action_items reflect the conservative path.",
+  "  3. If only one seat raises a blocking concern — include it in 'veto' only if it is specific, plausible, and not already addressed by another seat.",
+  "  4. If all seats reach the same conclusion — set consensus and leave dissent null.",
+  "",
+  "## Confidence calibration",
+  '  "high"   — ≥2 seats cite real URLs, claims are cross-verified across seats, no unresolved blocking concern',
+  '  "medium" — some URL evidence but uneven across seats, OR one meaningful unresolved disagreement, OR a veto that is partially addressed',
+  '  "low"    — most seats cite no URLs and argue from priors, OR strong irreconcilable disagreement, OR a veto that is unaddressed',
+  "",
+  "## Output format",
+  "Return ONLY valid JSON — no prose, no markdown fences, no trailing text.",
+  "Fill every field. Use null explicitly if a field does not apply.",
+  "action_items must be concrete and specific (start with a verb, name the thing to act on). No vague items like 'consider improving X'.",
   "{",
-  '  "summary": "2-4 sentences",',
-  '  "consensus": "shared conclusion or null",',
-  '  "dissent": "main disagreement or null",',
-  '  "action_items": ["action 1", "action 2"],',
-  '  "veto": "blocking concern or null",',
+  '  "summary": "2-4 sentences covering the core conclusion and most important tradeoff",',
+  '  "consensus": "the shared conclusion all or most seats agree on, or null",',
+  '  "dissent": "the main unresolved disagreement, which seats hold it, and why it matters — or null",',
+  '  "action_items": ["Verb + specific action. Example: Migrate auth to JWT before next release.", "..."],',
+  '  "veto": "a specific blocking concern that must be resolved before proceeding — or null",',
   '  "confidence": "high|medium|low",',
-  '  "confidence_reason": "one sentence explaining the confidence level"',
+  '  "confidence_reason": "one sentence: what evidence or lack thereof drives this confidence level"',
   "}",
 ].join("\n");
 
@@ -279,10 +301,19 @@ export function extractEvidenceSources(
 
 // ─── Seat helpers ──────────────────────────────────────────────────────────────
 
-export function buildSeatRuntimePrompt(seat: CouncilSeat): string {
+export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat[]): string {
+  const otherRoles = allSeats
+    ? allSeats.filter((s) => s.role !== seat.role).map((s) => s.role)
+    : [];
+
+  const councilContext = otherRoles.length > 0
+    ? `You are one of ${otherRoles.length + 1} seats in this council. The other seats are: ${otherRoles.join(", ")}. Stake out a position that is distinct from theirs — do not repeat what they are likely to say. Your unique lens is your value.`
+    : "";
+
   return [
     seat.systemPrompt,
     seat.bias ? `Bias:\n${seat.bias}` : "",
+    councilContext,
     "Maintain this point of view unless the evidence clearly disproves it.",
     "Do not act like a neutral moderator. Argue from your seat's perspective, then note where your own view is weak.",
   ].filter(Boolean).join("\n\n");

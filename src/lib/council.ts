@@ -147,7 +147,7 @@ async function runSeatTurn(
 
     runtimeResult = await runAgenticRuntime({
       prompt,
-      systemPrompt: buildSeatRuntimePrompt(seat),
+      systemPrompt: buildSeatRuntimePrompt(seat, session.seats),
       model: seat.model,
       toolAgentId: session.owner_agent_id,
       runtimeId: `council:${session.id}:${seat.role}`,
@@ -157,6 +157,7 @@ async function runSeatTurn(
       toolArgOverrides: libraryTag ? {
         rag_query: { tag: libraryTag },
         semantic_search: { tag: libraryTag },
+        fetch_paper: { library_id: seat.library_id },
       } : undefined,
       onTextDelta: async (delta) => {
         onEvent({ type: "turn_delta", round, role: seat.role, delta });
