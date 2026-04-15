@@ -433,11 +433,15 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
   const rounds = clamp(input.rounds ?? planned?.rounds ?? 1, 1, 2);
   const moderatorModel = sanitizeText(input.moderator_model) || planned?.moderator_model || DEFAULT_MODERATOR_MODEL;
   const ownerAgentId = sanitizeText(input.ownerAgentId);
+  const ownerUserEmail = sanitizeText(input.ownerUserEmail).toLowerCase() || null;
+  const accessTokenHash = sanitizeText(input.accessTokenHash) || null;
   const id = nanoid();
 
   const { rows } = await db.query(
-    `INSERT INTO council_sessions (id, title, topic, context, goal, rounds, moderator_model, seats, owner_agent_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO council_sessions (
+       id, title, topic, context, goal, rounds, moderator_model, seats, owner_agent_id, owner_user_email, access_token_hash
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [
       id,
@@ -449,6 +453,8 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
       moderatorModel,
       JSON.stringify(seats),
       UUID_RE.test(ownerAgentId) ? ownerAgentId : null,
+      ownerUserEmail,
+      accessTokenHash,
     ]
   );
 
@@ -617,8 +623,17 @@ export async function getSession(id: string): Promise<CouncilSession | null> {
   return rows[0] ? _mapSessionRow(rows[0] as Record<string, unknown>) : null;
 }
 
-export async function listSessions(): Promise<(CouncilSession & { has_veto: boolean })[]> {
+export async function listSessions(ownerUserEmail?: string | null): Promise<(CouncilSession & { has_veto: boolean })[]> {
   await getSchemaReady();
+  const normalizedOwnerUserEmail = sanitizeText(ownerUserEmail).toLowerCase();
+  const params: unknown[] = [];
+  const where = normalizedOwnerUserEmail
+    ? `WHERE s.owner_user_email = $1`
+    : "";
+  if (normalizedOwnerUserEmail) {
+    params.push(normalizedOwnerUserEmail);
+  }
+
   const { rows } = await db.query(
     `SELECT s.id, s.title, s.topic, s.context, s.goal, s.status, s.rounds, s.moderator_model, s.seats,
             s.owner_agent_id, s.created_at, s.started_at, s.heartbeat_at, s.concluded_at,
@@ -626,7 +641,10 @@ export async function listSessions(): Promise<(CouncilSession & { has_veto: bool
             (c.veto IS NOT NULL AND c.veto <> '') AS has_veto
      FROM council_sessions s
      LEFT JOIN council_conclusions c ON c.session_id = s.id
+     ${where}
      ORDER BY s.created_at DESC`
+    ,
+    params,
   );
   return rows.map((row) => ({
     ..._mapSessionRow(row as Record<string, unknown>),

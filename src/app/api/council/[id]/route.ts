@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getCouncilSessionBundle } from "@/lib/council";
+import { canAccessCouncilSession, clearCouncilSessionCookie } from "@/lib/council-access";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const allowed = await canAccessCouncilSession(req, id);
+  if (!allowed) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
   const bundle = await getCouncilSessionBundle(id);
 
   if (!bundle.session) {
@@ -17,15 +22,18 @@ export async function GET(
   return NextResponse.json(bundle);
 }
 
-export const DELETE = auth(async (
-  req,
+export async function DELETE(
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) => {
-  if (!req.auth?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+) {
+  const { id } = await params;
+  const allowed = await canAccessCouncilSession(req, id);
+  if (!allowed) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const { id } = await params;
   await db.query(`DELETE FROM council_sessions WHERE id = $1`, [id]);
-  return NextResponse.json({ ok: true });
-});
+  const response = NextResponse.json({ ok: true });
+  clearCouncilSessionCookie(response, id);
+  return response;
+}

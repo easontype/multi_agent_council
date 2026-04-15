@@ -125,6 +125,8 @@ export interface CouncilCreateInput {
   maxSeats?: number;
   autoPlan?: boolean;
   ownerAgentId?: string;
+  ownerUserEmail?: string;
+  accessTokenHash?: string;
 }
 
 export interface CouncilRunOptions {

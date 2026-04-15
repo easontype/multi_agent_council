@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
+import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   try {
+    const quota = await enforceAnonymousWebQuota(req, "paper_ingest", [
+      { limit: 6, windowSeconds: 10 * 60, label: "10 minutes" },
+      { limit: 15, windowSeconds: 24 * 60 * 60, label: "day" },
+    ]);
+    if (!quota.ok) {
+      return NextResponse.json(
+        { error: quota.error },
+        {
+          status: 429,
+          headers: quota.retryAfterSeconds
+            ? { "Retry-After": String(quota.retryAfterSeconds) }
+            : undefined,
+        },
+      );
+    }
+
     const contentType = req.headers.get("content-type") ?? "";
 
     // Support both JSON and multipart/form-data (PDF upload)
@@ -22,6 +41,12 @@ export async function POST(req: NextRequest) {
       libraryId = form.get("libraryId") as string | undefined ?? undefined;
       const file = form.get("file") as File | null;
       if (file) {
+        if (file.size > MAX_UPLOAD_BYTES) {
+          return NextResponse.json(
+            { error: "PDF upload exceeds the 20 MB limit" },
+            { status: 413 },
+          );
+        }
         uploadedPdfBuffer = Buffer.from(await file.arrayBuffer());
         if (!title) title = file.name.replace(/\.pdf$/i, "");
       }

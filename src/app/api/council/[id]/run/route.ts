@@ -1,11 +1,32 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { runCouncilSession, type CouncilEvent } from "@/lib/council";
+import { canAccessCouncilSession } from "@/lib/council-access";
+import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const allowed = await canAccessCouncilSession(req, id);
+  if (!allowed) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
+  const quota = await enforceAnonymousWebQuota(req, "review_run", [
+    { limit: 10, windowSeconds: 10 * 60, label: "10 minutes" },
+  ]);
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: quota.error },
+      {
+        status: 429,
+        headers: quota.retryAfterSeconds
+          ? { "Retry-After": String(quota.retryAfterSeconds) }
+          : undefined,
+      },
+    );
+  }
 
   let options: { resume?: boolean; forceRestart?: boolean; staleAfterMs?: number } = {};
   try {

@@ -89,12 +89,15 @@ export async function ensureCouncilSchema() {
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS context TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS goal TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_agent_id UUID;
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_user_email TEXT;
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS access_token_hash TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS last_error TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS run_attempts INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
         CREATE INDEX IF NOT EXISTS idx_council_turns_session ON council_turns(session_id, round, created_at);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_status ON council_sessions(status, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_user_email ON council_sessions(owner_user_email, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_evidence_session ON council_evidence(session_id, round, created_at);
       `);
     })().catch((error) => {
