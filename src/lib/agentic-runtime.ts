@@ -8,6 +8,7 @@ import { ANTHROPIC_PLATFORM_TOOL_SCHEMAS } from "./tools/schema";
 import { handlers as webHandlers } from "./tools/handlers/web";
 import { handlers as ragHandlers } from "./tools/handlers/rag";
 import { parseToolCalls } from "./tools/parser";
+import { compressToolResult } from "./tool-compressor";
 
 // Stubs for removed platform dependencies
 async function listMCPTools(_serverId: string, _tool: Tool): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> { return []; }
@@ -492,11 +493,12 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         const effectiveInput = withOverrides(toolUse.name, toolUse.input);
         await input.onToolCall?.(toolUse.name, effectiveInput);
         const result = await executeRuntimeTool(toolUse.name, effectiveInput, input.toolAgentId, toolSpec);
-        await input.onToolResult?.(toolUse.name, result);
+        const compressedResult = await compressToolResult(toolUse.name, result);
+        await input.onToolResult?.(toolUse.name, compressedResult);
         toolResults.push({
           type: "tool_result",
           tool_use_id: toolUse.id,
-          content: result.slice(0, 10000),
+          content: compressedResult,
         });
       }
 
@@ -553,8 +555,9 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         const effectiveArgs = withOverrides(toolCall.tool, toolCall.args);
         await input.onToolCall?.(toolCall.tool, effectiveArgs);
         const result = await executeRuntimeTool(toolCall.tool, effectiveArgs, input.toolAgentId, toolSpec);
-        await input.onToolResult?.(toolCall.tool, result);
-        toolResultsBlock += `\n[TOOL_RESULT tool="${toolCall.tool}"]\n${result}\n[/TOOL_RESULT]`;
+        const compressedResult = await compressToolResult(toolCall.tool, result);
+        await input.onToolResult?.(toolCall.tool, compressedResult);
+        toolResultsBlock += `\n[TOOL_RESULT tool="${toolCall.tool}"]\n${compressedResult}\n[/TOOL_RESULT]`;
       }
 
       if (!toolResultsBlock) break;
