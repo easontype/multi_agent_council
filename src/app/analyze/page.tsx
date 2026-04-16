@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { takePendingUpload } from "@/lib/pending-upload";
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/council-academic";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,14 +35,21 @@ function AnalyzeForm() {
 
   const initialArxiv = searchParams.get("arxiv") ?? "";
   const initialMode = searchParams.get("mode") === "gap" ? "gap" : "critique";
-  const [activeTab, setActiveTab] = useState<"arxiv" | "upload">("arxiv");
+  const initialTab = searchParams.get("tab") === "upload" ? "upload" : "arxiv";
+  const [activeTab, setActiveTab] = useState<"arxiv" | "upload">(initialTab);
   const [arxivId, setArxivId] = useState(initialArxiv);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [model, setModel] = useState("codex/codex");
   const [template, setTemplate] = useState(initialMode);
   const [rounds, setRounds] = useState("2");
   const [loading, setLoading] = useState(false);
-  const [statusStep, setStatusStep] = useState(0); // 0=idle 1=ingesting 2=creating 3=redirecting
+  const [statusStep, setStatusStep] = useState(0);
+
+  useEffect(() => {
+    const file = takePendingUpload();
+    if (file) setPdfFile(file);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 0=idle 1=ingesting 2=creating 3=redirecting
   const [error, setError] = useState("");
   const [fieldError, setFieldError] = useState("");
 

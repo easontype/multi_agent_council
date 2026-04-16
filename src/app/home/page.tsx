@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { setPendingUpload } from "@/lib/pending-upload";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SessionItem {
@@ -211,6 +212,18 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
   const [mode, setMode] = useState<"critique" | "gap">("critique");
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleUploadClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingUpload(file);
+    router.push(`/analyze?tab=upload&mode=${mode}`);
+  }
 
   function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -223,7 +236,8 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file?.type === "application/pdf") {
-      router.push(`/analyze?mode=${mode}`);
+      setPendingUpload(file);
+      router.push(`/analyze?tab=upload&mode=${mode}`);
     }
   }
 
@@ -283,12 +297,19 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
               {/* Upload button */}
               <button
                 type="button"
-                onClick={() => router.push(`/analyze?mode=${mode}`)}
+                onClick={handleUploadClick}
                 title="Upload PDF"
                 className="bg-transparent border-none cursor-pointer text-muted-foreground p-2 rounded-lg flex transition-colors duration-150 hover:text-[#6366f1]"
               >
                 <UploadIcon />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={handleFileChange}
+              />
 
               {/* Submit button */}
               <button
