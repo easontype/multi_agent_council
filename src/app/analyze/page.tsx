@@ -74,7 +74,7 @@ function AnalyzeContent() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <a
-            href="/"
+            href="/home"
             style={{
               display: 'flex',
               alignItems: 'center',

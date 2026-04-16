@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function HomePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [arxivId, setArxivId] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,15 +32,26 @@ export default function HomePage() {
           <a href="#pricing" className="text-sm font-medium text-muted-foreground no-underline hover:text-foreground transition-colors">
             Pricing
           </a>
-          <a href="/login" className="text-sm font-medium text-muted-foreground no-underline hover:text-foreground transition-colors">
-            Sign in
-          </a>
-          <a
-            href="/login"
-            className="rounded-md bg-[#6366f1] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#4f46e5] transition-colors"
-          >
-            Get started
-          </a>
+          {session?.user ? (
+            <a
+              href="/home"
+              className="rounded-md bg-[#6366f1] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#4f46e5] transition-colors"
+            >
+              Dashboard
+            </a>
+          ) : (
+            <>
+              <a href="/login" className="text-sm font-medium text-muted-foreground no-underline hover:text-foreground transition-colors">
+                Sign in
+              </a>
+              <a
+                href="/login"
+                className="rounded-md bg-[#6366f1] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#4f46e5] transition-colors"
+              >
+                Get started
+              </a>
+            </>
+          )}
         </div>
       </nav>
 

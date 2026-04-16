@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { setPendingUpload } from "@/lib/pending-upload";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SessionItem {
@@ -116,7 +117,7 @@ function Sidebar({
     }}>
       {/* Logo + collapse */}
       <div style={{ padding: "16px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <a href="/" style={{ fontSize: 17, fontWeight: 800, color: "#6366f1", textDecoration: "none", letterSpacing: "-0.03em", whiteSpace: "nowrap" }}>
+        <a href="/home" style={{ fontSize: 17, fontWeight: 800, color: "#6366f1", textDecoration: "none", letterSpacing: "-0.03em", whiteSpace: "nowrap" }}>
           Council
         </a>
         <button onClick={onToggle} style={{ background: "none", border: "none", cursor: "pointer", color: "#999", padding: 6, borderRadius: 6, display: "flex" }}
@@ -165,7 +166,7 @@ function Sidebar({
                 return (
                   <button
                     key={s.id}
-                    onClick={() => router.push(`/results/${s.id}`)}
+                    onClick={() => router.push(`/analyze`)}
                     style={{
                       width: "100%", display: "flex", alignItems: "center", gap: 8,
                       background: isActive ? "#ebebeb" : "transparent",
@@ -214,6 +215,15 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
   const [arxivId, setArxivId] = useState("");
   const [mode, setMode] = useState<"critique" | "gap">("critique");
   const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleUploadClick() { fileInputRef.current?.click(); }
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingUpload(file);
+    router.push(`/analyze?tab=upload&mode=${mode}`);
+  }
   const [greeting, setGreeting] = useState("Hello");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -234,7 +244,8 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file?.type === "application/pdf") {
-      router.push(`/analyze?mode=${mode}`);
+      setPendingUpload(file);
+      router.push(`/analyze?tab=upload&mode=${mode}`);
     }
   }
 
@@ -315,7 +326,7 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
               {/* Upload button */}
               <button
                 type="button"
-                onClick={() => router.push(`/analyze?mode=${mode}`)}
+                onClick={handleUploadClick}
                 title="Upload PDF"
                 style={{
                   background: "none", border: "none", cursor: "pointer",
@@ -327,6 +338,7 @@ function MainArea({ user }: { user: { name: string; image?: string } }) {
               >
                 <UploadIcon />
               </button>
+              <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }} onChange={handleFileChange} />
 
               {/* Submit button */}
               <button

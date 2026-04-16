@@ -115,7 +115,7 @@ export default function KeysPage() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <a href="/" style={{ fontWeight: 700, fontSize: 18, color: "var(--accent)", textDecoration: "none" }}>Council</a>
+        <a href="/home" style={{ fontWeight: 700, fontSize: 18, color: "var(--accent)", textDecoration: "none" }}>Council</a>
         <a href="/analyze" style={{
           background: "var(--accent)", color: "#fff",
           padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: "none",
@@ -313,7 +313,7 @@ export default function KeysPage() {
                 >
                   Upgrade to Pro — $19
                 </button>
-                <a href="/" style={{
+                <a href="/home" style={{
                   flex: 1, textAlign: "center", color: "var(--text-secondary)",
                   border: "1px solid var(--border)", borderRadius: 8, padding: "10px 16px",
                   fontSize: 14, fontWeight: 500, textDecoration: "none",
