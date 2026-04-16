@@ -41,22 +41,41 @@ function AnalyzeForm() {
   const [template, setTemplate] = useState(initialMode);
   const [rounds, setRounds] = useState("2");
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState("");
+  const [statusStep, setStatusStep] = useState(0); // 0=idle 1=ingesting 2=creating 3=redirecting
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
+
+  function validateArxivId(id: string) {
+    const clean = id.trim().replace(/^arxiv:/i, "");
+    // Accept YYMM.NNNNN or YYMM.NNNN or category/YYMMNNN formats
+    if (!/^\d{4}\.\d{4,5}$/.test(clean) && !/^[a-z.-]+\/\d{7}$/i.test(clean)) {
+      return "Enter a valid arXiv ID (e.g. 2301.07041)";
+    }
+    return "";
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!arxivId.trim() && activeTab === "arxiv") {
-      setError("Please enter an arXiv ID");
-      return;
+    setFieldError("");
+    setError("");
+
+    if (activeTab === "arxiv") {
+      const validationError = validateArxivId(arxivId);
+      if (!arxivId.trim()) {
+        setFieldError("arXiv ID is required");
+        return;
+      }
+      if (validationError) {
+        setFieldError(validationError);
+        return;
+      }
     }
     if (!pdfFile && activeTab === "upload") {
-      setError("Please select a PDF file");
+      setFieldError("Please select a PDF file");
       return;
     }
     setLoading(true);
-    setError("");
-    setStatus("Fetching and ingesting paper...");
+    setStatusStep(1);
 
     try {
       // Step 1: Ingest paper
@@ -78,7 +97,7 @@ function AnalyzeForm() {
       }
       const ingestData = await ingestRes.json() as { libraryId: string; title: string };
 
-      setStatus("Creating review session...");
+      setStatusStep(2);
 
       // Step 2: Build seats
       const seats = template === "gap"
@@ -110,12 +129,12 @@ function AnalyzeForm() {
       }
       const { id } = await councilRes.json() as { id: string };
 
-      setStatus("Redirecting...");
+      setStatusStep(3);
       router.push(`/results/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setLoading(false);
-      setStatus("");
+      setStatusStep(0);
     }
   }
 
@@ -158,13 +177,24 @@ function AnalyzeForm() {
                   <Input
                     type="text"
                     value={arxivId}
-                    onChange={(e) => setArxivId(e.target.value)}
+                    onChange={(e) => { setArxivId(e.target.value); setFieldError(""); }}
                     placeholder="e.g. 2301.07041 or arxiv:2301.07041"
-                    className="h-11 text-[15px]"
+                    className={cn("h-11 text-[15px]", fieldError && "border-red-400 focus-visible:ring-red-300")}
+                    aria-invalid={!!fieldError}
+                    aria-describedby={fieldError ? "arxiv-error" : undefined}
                   />
-                  <div className="mt-1.5 text-xs text-muted-foreground">
-                    The PDF will be fetched directly from arxiv.org
-                  </div>
+                  {fieldError ? (
+                    <p id="arxiv-error" className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      {fieldError}
+                    </p>
+                  ) : (
+                    <div className="mt-1.5 text-xs text-muted-foreground">
+                      The PDF will be fetched directly from arxiv.org
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -175,7 +205,7 @@ function AnalyzeForm() {
                     htmlFor="pdf-upload"
                     className={cn(
                       "block cursor-pointer rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors duration-150",
-                      pdfFile ? "border-[#6366f1] bg-[#eef2ff]" : "border-border bg-card hover:border-[#6366f1]/50"
+                      pdfFile ? "border-[#6366f1] bg-[#eef2ff]" : fieldError ? "border-red-400 bg-red-50" : "border-border bg-card hover:border-[#6366f1]/50"
                     )}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
@@ -259,13 +289,46 @@ function AnalyzeForm() {
               </div>
 
               {error && (
-                <div className="rounded-md border border-red-400 bg-red-500/[0.13] px-[14px] py-2.5 text-[13px] text-red-600">
-                  {error}
+                <div className="rounded-md border border-red-400 bg-red-500/[0.13] px-[14px] py-2.5 text-[13px] text-red-600 flex items-start gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-[1px]">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span className="flex-1">{error}</span>
+                  <button
+                    type="button"
+                    onClick={() => setError("")}
+                    className="text-red-400 hover:text-red-600 transition-colors ml-auto shrink-0"
+                    aria-label="Dismiss error"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
                 </div>
               )}
 
-              {status && (
-                <div className="text-[13px] text-muted-foreground">{status}</div>
+              {statusStep > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { step: 1, label: "Fetching & ingesting paper" },
+                    { step: 2, label: "Creating review session" },
+                    { step: 3, label: "Redirecting to results" },
+                  ].map(({ step, label }) => (
+                    <div key={step} className={cn(
+                      "flex items-center gap-2 text-[13px] transition-colors",
+                      statusStep > step ? "text-green-600" : statusStep === step ? "text-[#6366f1]" : "text-muted-foreground/40"
+                    )}>
+                      {statusStep > step ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      ) : statusStep === step ? (
+                        <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#6366f1]/20 border-t-[#6366f1]" />
+                      ) : (
+                        <span className="inline-block h-3.5 w-3.5 rounded-full border border-muted-foreground/20" />
+                      )}
+                      {label}
+                    </div>
+                  ))}
+                </div>
               )}
 
               <Button
@@ -273,10 +336,10 @@ function AnalyzeForm() {
                 disabled={loading}
                 className={cn(
                   "h-12 w-full rounded-lg bg-[#6366f1] text-[15px] font-bold text-white hover:bg-[#4f46e5]",
-                  loading && "opacity-70"
+                  loading && "opacity-70 cursor-not-allowed"
                 )}
               >
-                {loading ? "Processing..." : "Start Review Committee"}
+                {loading ? "Running..." : "Start Review Committee"}
               </Button>
             </form>
           </CardContent>

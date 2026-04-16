@@ -93,19 +93,16 @@ export const authConfig = {
   providers,
   callbacks: {
     authorized({ request, auth }) {
-      const isProtectedHomeRoute = request.nextUrl.pathname.startsWith("/home");
+      const { pathname } = request.nextUrl;
+      const isProtected =
+        pathname.startsWith("/home") ||
+        pathname.startsWith("/results");
 
-      if (!isProtectedHomeRoute) {
-        return true;
-      }
-
-      if (auth?.user) {
-        return true;
-      }
+      if (!isProtected) return true;
+      if (auth?.user) return true;
 
       const loginUrl = new URL("/login", request.url);
-      const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-      loginUrl.searchParams.set("redirectTo", nextPath);
+      loginUrl.searchParams.set("redirectTo", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     },
   },

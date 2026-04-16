@@ -312,7 +312,28 @@ export default function ResultsPage() {
 
   if (!session) return (
     <Shell>
-      <div className="p-12 text-red-500">Session not found.</div>
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="text-center">
+          <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <h2 className="text-[18px] font-semibold text-foreground mb-1.5">Session not found</h2>
+          <p className="text-[14px] text-muted-foreground mb-6">This review session doesn&apos;t exist or you don&apos;t have access.</p>
+          <div className="flex gap-3 justify-center">
+            <a href="/home" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#6366f1] text-white text-[13px] font-semibold no-underline hover:bg-[#5558e8] transition-colors">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              Back to Dashboard
+            </a>
+            <a href="/analyze" className="inline-flex items-center px-4 py-2 rounded-lg border border-border text-[13px] font-medium text-foreground no-underline hover:bg-muted transition-colors">
+              New Review
+            </a>
+          </div>
+        </div>
+      </div>
     </Shell>
   );
 
@@ -320,8 +341,17 @@ export default function ResultsPage() {
     <Shell>
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border flex items-center px-6 z-[100] gap-3">
-        <a href="/" className="font-bold text-base text-[#6366f1] no-underline shrink-0">Council</a>
-        <span className="text-border">›</span>
+        <a
+          href="/home"
+          className="flex items-center gap-1.5 text-muted-foreground no-underline hover:text-foreground transition-colors shrink-0 group"
+          title="Back to Dashboard"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-0.5 transition-transform">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+          <span className="font-bold text-base text-[#6366f1]">Council</span>
+        </a>
+        <span className="text-border shrink-0">›</span>
         <span className="text-[13px] text-foreground font-semibold flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{session.title}</span>
         <StatusPill status={session.status} running={running} />
         {running && <span className="text-[12px] text-muted-foreground shrink-0">Round {speaker?.round ?? 1}</span>}

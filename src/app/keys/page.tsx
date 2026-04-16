@@ -21,6 +21,7 @@ export default function KeysPage() {
   const [freeLoading, setFreeLoading] = useState(false);
   const [freeResult, setFreeResult] = useState<KeyResult | null>(null);
   const [freeError, setFreeError] = useState<string | null>(null);
+  const [freeFieldErrors, setFreeFieldErrors] = useState<{ name?: string; email?: string }>({});
   const [freeCopied, setFreeCopied] = useState(false);
 
   // Pro form state
@@ -28,10 +29,22 @@ export default function KeysPage() {
   const [proEmail, setProEmail] = useState("");
   const [proLoading, setProLoading] = useState(false);
   const [proError, setProError] = useState<string | null>(null);
+  const [proFieldErrors, setProFieldErrors] = useState<{ name?: string; email?: string }>({});
+
+  function validateEmail(email: string) {
+    if (!email.trim()) return "";
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "" : "Enter a valid email address";
+  }
 
   async function handleFreeSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFreeError(null);
+    const errors: { name?: string; email?: string } = {};
+    if (!freeName.trim()) errors.name = "Name or project label is required";
+    const emailErr = validateEmail(freeEmail);
+    if (emailErr) errors.email = emailErr;
+    if (Object.keys(errors).length) { setFreeFieldErrors(errors); return; }
+    setFreeFieldErrors({});
     setFreeLoading(true);
     try {
       const res = await fetch("/api/keys", {
@@ -65,6 +78,12 @@ export default function KeysPage() {
   async function handleProSubmit(e: React.FormEvent) {
     e.preventDefault();
     setProError(null);
+    const errors: { name?: string; email?: string } = {};
+    if (!proName.trim()) errors.name = "Name or project label is required";
+    const emailErr = validateEmail(proEmail);
+    if (emailErr) errors.email = emailErr;
+    if (Object.keys(errors).length) { setProFieldErrors(errors); return; }
+    setProFieldErrors({});
     setProLoading(true);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -171,34 +190,47 @@ export default function KeysPage() {
               background: "var(--bg-card)", border: "1px solid var(--border)",
               borderRadius: 12, padding: 28, display: "flex", flexDirection: "column", gap: 18,
             }}>
-              <Field label="Name or project label" required>
+              <Field label="Name or project label" required error={freeFieldErrors.name}>
                 <input
                   type="text"
                   placeholder="e.g. My Research Tool"
                   value={freeName}
-                  onChange={(e) => setFreeName(e.target.value)}
-                  required
-                  style={{ width: "100%" }}
+                  onChange={(e) => { setFreeName(e.target.value); setFreeFieldErrors((p) => ({ ...p, name: undefined })); }}
+                  style={{
+                    width: "100%",
+                    outline: "none",
+                    border: `1px solid ${freeFieldErrors.name ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
+                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
+                    background: freeFieldErrors.name ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </Field>
-              <Field label="Email" note="optional">
+              <Field label="Email" note="optional" error={freeFieldErrors.email}>
                 <input
                   type="email"
                   placeholder="you@example.com"
                   value={freeEmail}
-                  onChange={(e) => setFreeEmail(e.target.value)}
-                  style={{ width: "100%" }}
+                  onChange={(e) => { setFreeEmail(e.target.value); setFreeFieldErrors((p) => ({ ...p, email: undefined })); }}
+                  style={{
+                    width: "100%",
+                    outline: "none",
+                    border: `1px solid ${freeFieldErrors.email ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
+                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
+                    background: freeFieldErrors.email ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </Field>
               {freeError && <ErrorBox>{freeError}</ErrorBox>}
               <button
                 type="submit"
-                disabled={freeLoading || !freeName.trim()}
+                disabled={freeLoading}
                 style={{
-                  background: freeLoading || !freeName.trim() ? "var(--bg-elevated)" : "var(--accent)",
-                  color: freeLoading || !freeName.trim() ? "var(--text-muted)" : "#fff",
+                  background: freeLoading ? "var(--bg-elevated)" : "var(--accent)",
+                  color: freeLoading ? "var(--text-muted)" : "#fff",
                   border: "none", borderRadius: 8, padding: "12px 24px",
-                  fontSize: 15, fontWeight: 600, cursor: freeLoading || !freeName.trim() ? "not-allowed" : "pointer",
+                  fontSize: 15, fontWeight: 600, cursor: freeLoading ? "not-allowed" : "pointer",
                 }}
               >
                 {freeLoading ? "Generating…" : "Generate API Key"}
@@ -313,23 +345,36 @@ export default function KeysPage() {
               background: "var(--bg-card)", border: "1px solid var(--border-accent)",
               borderRadius: 12, padding: 28, display: "flex", flexDirection: "column", gap: 18,
             }}>
-              <Field label="Name or project label" required>
+              <Field label="Name or project label" required error={proFieldErrors.name}>
                 <input
                   type="text"
                   placeholder="e.g. My Research Tool"
                   value={proName}
-                  onChange={(e) => setProName(e.target.value)}
-                  required
-                  style={{ width: "100%" }}
+                  onChange={(e) => { setProName(e.target.value); setProFieldErrors((p) => ({ ...p, name: undefined })); }}
+                  style={{
+                    width: "100%",
+                    outline: "none",
+                    border: `1px solid ${proFieldErrors.name ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
+                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
+                    background: proFieldErrors.name ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </Field>
-              <Field label="Email" note="optional — for key recovery">
+              <Field label="Email" note="optional — for key recovery" error={proFieldErrors.email}>
                 <input
                   type="email"
                   placeholder="you@example.com"
                   value={proEmail}
-                  onChange={(e) => setProEmail(e.target.value)}
-                  style={{ width: "100%" }}
+                  onChange={(e) => { setProEmail(e.target.value); setProFieldErrors((p) => ({ ...p, email: undefined })); }}
+                  style={{
+                    width: "100%",
+                    outline: "none",
+                    border: `1px solid ${proFieldErrors.email ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
+                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
+                    background: proFieldErrors.email ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </Field>
 
@@ -434,8 +479,8 @@ function PricingCard({
   );
 }
 
-function Field({ label, required, note, children }: {
-  label: string; required?: boolean; note?: string; children: React.ReactNode;
+function Field({ label, required, note, error, children }: {
+  label: string; required?: boolean; note?: string; error?: string; children: React.ReactNode;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -445,6 +490,14 @@ function Field({ label, required, note, children }: {
         {note && <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> ({note})</span>}
       </label>
       {children}
+      {error && (
+        <p style={{ margin: 0, fontSize: 12, color: "var(--danger)", display: "flex", alignItems: "center", gap: 4 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
