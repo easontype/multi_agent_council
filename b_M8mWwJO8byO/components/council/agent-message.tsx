@@ -98,7 +98,7 @@ export function AgentMessage({ message }: AgentMessageProps) {
                       }}
                     />
                   )}
-                  <style>{`
+                  <style jsx>{`
                     @keyframes blink {
                       0%, 50% { opacity: 1; }
                       51%, 100% { opacity: 0; }

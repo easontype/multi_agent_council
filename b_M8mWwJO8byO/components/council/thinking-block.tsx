@@ -132,7 +132,7 @@ export function ThinkingBlock({ content, isStreaming, agentColor }: ThinkingBloc
         </div>
       )}
 
-      <style>{`
+      <style jsx>{`
         .streaming-dots {
           animation: blink 1s infinite;
         }
