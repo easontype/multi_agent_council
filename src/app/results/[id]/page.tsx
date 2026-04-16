@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,8 @@ interface Bundle {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
+  const { data: authSession } = useSession();
+  const homeHref = authSession?.user ? "/home" : "/analyze";
   const [session, setSession] = useState<CouncilSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -322,11 +325,11 @@ export default function ResultsPage() {
           <h2 className="text-[18px] font-semibold text-foreground mb-1.5">Session not found</h2>
           <p className="text-[14px] text-muted-foreground mb-6">This review session doesn&apos;t exist or you don&apos;t have access.</p>
           <div className="flex gap-3 justify-center">
-            <a href="/home" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#6366f1] text-white text-[13px] font-semibold no-underline hover:bg-[#5558e8] transition-colors">
+            <a href={homeHref} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#6366f1] text-white text-[13px] font-semibold no-underline hover:bg-[#5558e8] transition-colors">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
               </svg>
-              Back to Dashboard
+              {authSession?.user ? "Back to Dashboard" : "New Review"}
             </a>
             <a href="/analyze" className="inline-flex items-center px-4 py-2 rounded-lg border border-border text-[13px] font-medium text-foreground no-underline hover:bg-muted transition-colors">
               New Review
@@ -342,9 +345,9 @@ export default function ResultsPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border flex items-center px-6 z-[100] gap-3">
         <a
-          href="/home"
+          href={homeHref}
           className="flex items-center gap-1.5 text-muted-foreground no-underline hover:text-foreground transition-colors shrink-0 group"
-          title="Back to Dashboard"
+          title={authSession?.user ? "Back to Dashboard" : "New Review"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-0.5 transition-transform">
             <path d="m15 18-6-6 6-6"/>
