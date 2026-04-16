@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { cn } from "@/lib/utils";
 import type {
   CouncilSession,
   CouncilTurn,
@@ -131,7 +132,6 @@ export default function ResultsPage() {
       for (const t of data.turns.filter((x) => x.round === r)) {
         const turnEvidence = (data.evidence ?? []).filter((e) => e.round === r && e.role === t.role && e.status === "completed");
         const segments: Segment[] = [];
-        // Insert tool blocks before the text so sources are visible at the top of expanded view
         for (const ev of turnEvidence) {
           const call: ToolCall = {
             id: ev.id,
@@ -304,32 +304,36 @@ export default function ResultsPage() {
 
   if (loading) return (
     <Shell>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "80px 48px", color: "#6b7280" }}>
+      <div className="flex items-center gap-3 px-12 py-20 text-muted-foreground">
         <Spinner /> Preparing review committee...
       </div>
     </Shell>
   );
 
-  if (!session) return <Shell><div style={{ padding: 48, color: "#ef4444" }}>Session not found.</div></Shell>;
+  if (!session) return (
+    <Shell>
+      <div className="p-12 text-red-500">Session not found.</div>
+    </Shell>
+  );
 
   return (
     <Shell>
       {/* Nav */}
-      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, height: 56, background: "#fff", borderBottom: "1px solid #e5e5e3", display: "flex", alignItems: "center", padding: "0 24px", zIndex: 100, gap: 12 }}>
-        <a href="/" style={{ fontWeight: 700, fontSize: 16, color: "#6366f1", textDecoration: "none", flexShrink: 0 }}>Council</a>
-        <span style={{ color: "#d1d5db" }}>›</span>
-        <span style={{ fontSize: 13, color: "#374151", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.title}</span>
+      <nav className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border flex items-center px-6 z-[100] gap-3">
+        <a href="/" className="font-bold text-base text-[#6366f1] no-underline shrink-0">Council</a>
+        <span className="text-border">›</span>
+        <span className="text-[13px] text-foreground font-semibold flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{session.title}</span>
         <StatusPill status={session.status} running={running} />
-        {running && <span style={{ fontSize: 12, color: "#9ca3af", flexShrink: 0 }}>Round {speaker?.round ?? 1}</span>}
+        {running && <span className="text-[12px] text-muted-foreground shrink-0">Round {speaker?.round ?? 1}</span>}
       </nav>
 
       {/* Body */}
-      <div style={{ display: "flex", marginTop: 56, height: "calc(100vh - 56px)" }}>
+      <div className="flex mt-14 h-[calc(100vh-56px)]">
         {/* Sidebar */}
-        <aside style={{ width: 248, flexShrink: 0, borderRight: "1px solid #e5e5e3", background: "#fafaf9", overflowY: "auto", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "20px 14px 12px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.1em", marginBottom: 10 }}>COMMITTEE</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <aside className="w-[248px] shrink-0 border-r border-border bg-muted overflow-y-auto flex flex-col">
+          <div className="px-3.5 pt-5 pb-3">
+            <div className="text-[10px] font-bold text-muted-foreground tracking-[0.1em] mb-2.5">COMMITTEE</div>
+            <div className="flex flex-col gap-1">
               {statuses.map((a) => (
                 <AgentRow key={a.role} role={a.role} model={a.model} status={a.status}
                   isActive={speaker?.role === a.role} color={getColor(a.role, seats)} />
@@ -338,16 +342,19 @@ export default function ResultsPage() {
           </div>
 
           {divergence && divergence.level !== "none" && (
-            <div style={{ margin: "8px 14px", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid #e5e5e3" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#9ca3af", marginBottom: 6 }}>DIVERGENCE</div>
+            <div className="mx-3.5 my-2 p-3 bg-background rounded-lg border border-border">
+              <div className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground mb-1.5">DIVERGENCE</div>
               <DivMeter level={divergence.level} />
-              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 6, lineHeight: 1.5 }}>{divergence.summary}</div>
+              <div className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{divergence.summary}</div>
             </div>
           )}
 
           {isPending && !running && (
-            <div style={{ padding: "12px 14px" }}>
-              <button onClick={startDebate} style={{ width: "100%", background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            <div className="px-3.5 py-3">
+              <button
+                onClick={startDebate}
+                className="w-full bg-[#6366f1] text-white border-none rounded-lg py-2.5 text-[14px] font-semibold cursor-pointer hover:opacity-90 transition-opacity"
+              >
                 Start Debate
               </button>
             </div>
@@ -355,14 +362,14 @@ export default function ResultsPage() {
         </aside>
 
         {/* Main */}
-        <main ref={mainRef} style={{ flex: 1, overflowY: "auto", padding: "28px 36px" }}>
+        <main ref={mainRef} className="flex-1 overflow-y-auto px-9 py-7">
           {error && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginBottom: 20, color: "#ef4444", fontSize: 13 }}>{error}</div>
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5 text-red-500 text-[13px]">{error}</div>
           )}
           {speaker && <ActivePanel speaker={speaker} seats={seats} />}
           {floor.length > 0 && <Floor items={floor} seats={seats} />}
           {!speaker && floor.length === 0 && !running && (
-            <div style={{ color: "#9ca3af", fontSize: 14, paddingTop: 60, textAlign: "center" }}>
+            <div className="text-muted-foreground text-[14px] pt-[60px] text-center">
               {isPending ? "Click \"Start Debate\" to begin." : "No turns recorded."}
             </div>
           )}
@@ -375,8 +382,15 @@ export default function ResultsPage() {
 // ─── Shell ────────────────────────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)" }}>
-      <style>{`@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }`}</style>
+    <div className="min-h-screen bg-background text-foreground">
+      <style>{`
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .animate-pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+        .animate-blink { animation: blink 1s infinite; }
+        .animate-spin-custom { animation: spin 0.8s linear infinite; }
+      `}</style>
       {children}
     </div>
   );
@@ -386,11 +400,20 @@ function Shell({ children }: { children: React.ReactNode }) {
 function StatusPill({ status, running }: { status: string; running: boolean }) {
   const s = running ? "running" : status;
   const map: Record<string, [string, string]> = {
-    pending: ["#fef3c7", "#d97706"], running: ["#ede9fe", "#7c3aed"],
-    concluded: ["#dcfce7", "#16a34a"], failed: ["#fee2e2", "#dc2626"],
+    pending: ["#fef3c7", "#d97706"],
+    running: ["#ede9fe", "#7c3aed"],
+    concluded: ["#dcfce7", "#16a34a"],
+    failed: ["#fee2e2", "#dc2626"],
   };
   const [bg, text] = map[s] ?? ["#f3f4f6", "#6b7280"];
-  return <span style={{ background: bg, color: text, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, letterSpacing: "0.05em", textTransform: "uppercase", flexShrink: 0 }}>{s}</span>;
+  return (
+    <span
+      className="text-[11px] font-bold px-2 py-0.5 rounded tracking-[0.05em] uppercase shrink-0"
+      style={{ background: bg, color: text }}
+    >
+      {s}
+    </span>
+  );
 }
 
 // ─── Agent row ────────────────────────────────────────────────────────────────
@@ -400,17 +423,46 @@ function AgentRow({ role, model, status, isActive, color }: {
 }) {
   const shortModel = model.replace(/^claude-/, "").replace(/-\d{8}$/, "").replace("claude-", "");
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: isActive ? color.bg : "transparent", border: `1px solid ${isActive ? color.border : "transparent"}`, transition: "all 200ms ease" }}>
-      <div style={{ width: 26, height: 26, borderRadius: "50%", background: status === "waiting" ? "#f3f4f6" : color.bg, border: `2px solid ${status === "waiting" ? "#d1d5db" : color.main}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: status === "waiting" ? "#9ca3af" : color.main, flexShrink: 0 }}>
+    <div
+      className="flex items-center gap-2 py-[7px] px-2.5 rounded-lg transition-all duration-200"
+      style={{
+        background: isActive ? color.bg : "transparent",
+        border: `1px solid ${isActive ? color.border : "transparent"}`,
+      }}
+    >
+      <div
+        className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0"
+        style={{
+          background: status === "waiting" ? "#f3f4f6" : color.bg,
+          border: `2px solid ${status === "waiting" ? "#d1d5db" : color.main}`,
+          color: status === "waiting" ? "#9ca3af" : color.main,
+        }}
+      >
         {role.slice(0, 2).toUpperCase()}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: status === "waiting" ? "#9ca3af" : "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role}</div>
-        <div style={{ fontSize: 10, color: "#9ca3af" }}>{shortModel}</div>
+      <div className="flex-1 min-w-0">
+        <div
+          className="text-[12px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap"
+          style={{ color: status === "waiting" ? "#9ca3af" : "#1a1a1a" }}
+        >
+          {role}
+        </div>
+        <div className="text-[10px] text-muted-foreground">{shortModel}</div>
       </div>
-      {status === "waiting" && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#e5e7eb", flexShrink: 0 }} />}
-      {status === "thinking" && <div style={{ width: 7, height: 7, borderRadius: "50%", background: color.main, flexShrink: 0, animation: "pulse-dot 1.4s ease-in-out infinite" }} />}
-      {status === "done" && <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#dcfce7", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#16a34a", flexShrink: 0 }}>✓</div>}
+      {status === "waiting" && (
+        <div className="w-[7px] h-[7px] rounded-full bg-[#e5e7eb] shrink-0" />
+      )}
+      {status === "thinking" && (
+        <div
+          className="w-[7px] h-[7px] rounded-full shrink-0 animate-pulse-dot"
+          style={{ background: color.main }}
+        />
+      )}
+      {status === "done" && (
+        <div className="w-4 h-4 rounded-full bg-[#dcfce7] border border-[#bbf7d0] flex items-center justify-center text-[9px] text-[#16a34a] shrink-0">
+          ✓
+        </div>
+      )}
     </div>
   );
 }
@@ -420,8 +472,11 @@ function DivMeter({ level }: { level: DivState["level"] }) {
   const widths = { none: "0%", low: "25%", moderate: "60%", high: "100%" };
   const colors = { none: "#22c55e", low: "#86efac", moderate: "#f59e0b", high: "#ef4444" };
   return (
-    <div style={{ height: 5, background: "#e5e5e3", borderRadius: 3, overflow: "hidden" }}>
-      <div style={{ height: "100%", borderRadius: 3, width: widths[level], background: colors[level], transition: "width 700ms ease, background 700ms ease" }} />
+    <div className="h-[5px] bg-[#e5e5e3] rounded-full overflow-hidden">
+      <div
+        className="h-full rounded-full transition-[width,background] duration-700 ease-in-out"
+        style={{ width: widths[level], background: colors[level] }}
+      />
     </div>
   );
 }
@@ -431,28 +486,49 @@ function ActivePanel({ speaker, seats }: { speaker: Speaker; seats: { role: stri
   const color = getColor(speaker.role, seats);
   const isMod = speaker.role.toLowerCase().includes("moderator");
   return (
-    <div style={{ marginBottom: 24, border: `1px solid ${color.border}`, borderLeft: `4px solid ${color.main}`, borderRadius: "0 12px 12px 0", background: "#fff", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+    <div
+      className="mb-6 rounded-[0_12px_12px_0] bg-background overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.07)]"
+      style={{
+        border: `1px solid ${color.border}`,
+        borderLeft: `4px solid ${color.main}`,
+      }}
+    >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 20px", borderBottom: `1px solid ${color.border}`, background: color.bg }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#fff", border: `2px solid ${color.main}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: color.main }}>
+      <div
+        className="flex items-center gap-3 px-5 py-[13px] border-b"
+        style={{ borderColor: color.border, background: color.bg }}
+      >
+        <div
+          className="w-[34px] h-[34px] rounded-full bg-background flex items-center justify-center text-[11px] font-extrabold"
+          style={{ border: `2px solid ${color.main}`, color: color.main }}
+        >
           {speaker.role.slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="text-[14px] font-bold text-foreground flex items-center gap-2">
             {speaker.role}
-            {isMod && <span style={{ fontSize: 10, fontWeight: 700, background: "#374151", color: "#fff", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>MODERATOR</span>}
+            {isMod && (
+              <span className="text-[10px] font-bold bg-[#374151] text-white px-1.5 py-px rounded tracking-[0.06em]">
+                MODERATOR
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: 11, color: "#9ca3af" }}>{speaker.model}</div>
+          <div className="text-[11px] text-muted-foreground">{speaker.model}</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: color.main, animation: "pulse-dot 1.4s ease-in-out infinite" }} />
-          <span style={{ fontSize: 11, color: color.main, fontWeight: 600 }}>Speaking</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <div
+            className="w-1.5 h-1.5 rounded-full animate-pulse-dot"
+            style={{ background: color.main }}
+          />
+          <span className="text-[11px] font-semibold" style={{ color: color.main }}>Speaking</span>
         </div>
       </div>
       {/* Content */}
-      <div style={{ padding: "20px 24px" }}>
+      <div className="px-6 py-5">
         {speaker.segments.length === 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#9ca3af", fontSize: 13 }}><Spinner small /> Gathering thoughts...</div>
+          <div className="flex items-center gap-2 text-muted-foreground text-[13px]">
+            <Spinner small /> Gathering thoughts...
+          </div>
         ) : (
           speaker.segments.map((seg, i) =>
             seg.type === "text"
@@ -467,9 +543,11 @@ function ActivePanel({ speaker, seats }: { speaker: Speaker; seats: { role: stri
 
 function StreamText({ text, showCursor }: { text: string; showCursor: boolean }) {
   return (
-    <div style={{ fontSize: 14, lineHeight: 1.8, color: "#1a1a1a", marginBottom: 4 }}>
+    <div className="text-[14px] leading-[1.8] text-foreground mb-1">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-      {showCursor && <span style={{ display: "inline-block", width: 2, height: 16, background: "#6366f1", marginLeft: 1, verticalAlign: "text-bottom", animation: "blink 1s infinite" }} />}
+      {showCursor && (
+        <span className="inline-block w-0.5 h-4 bg-[#6366f1] ml-px align-text-bottom animate-blink" />
+      )}
     </div>
   );
 }
@@ -480,25 +558,39 @@ function ToolBlock({ call }: { call: ToolCall }) {
   const argsStr = Object.entries(call.args).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(", ");
   const icon = call.status === "pending" ? "⏳" : call.status === "completed" ? "🔍" : "❌";
   return (
-    <div style={{ margin: "10px 0", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", fontSize: 12 }}>
-      <div onClick={() => call.status === "completed" && setOpen((p) => !p)}
-        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: call.status === "completed" ? "pointer" : "default" }}>
+    <div className="my-2.5 bg-muted border border-border rounded-lg overflow-hidden text-[12px]">
+      <div
+        onClick={() => call.status === "completed" && setOpen((p) => !p)}
+        className={cn(
+          "flex items-center gap-2 px-3 py-2",
+          call.status === "completed" ? "cursor-pointer" : "cursor-default"
+        )}
+      >
         <span>{icon}</span>
-        <code style={{ color: "#6366f1", fontFamily: "monospace", fontWeight: 600 }}>{call.tool}</code>
-        <span style={{ color: "#9ca3af", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>({argsStr.slice(0, 80)}{argsStr.length > 80 ? "…" : ""})</span>
+        <code className="text-[#6366f1] font-mono font-semibold">{call.tool}</code>
+        <span className="text-muted-foreground flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+          ({argsStr.slice(0, 80)}{argsStr.length > 80 ? "…" : ""})
+        </span>
         {call.status === "pending" && <Spinner small />}
         {call.status === "completed" && call.sourceRefs && call.sourceRefs.length > 0 && (
-          <span style={{ color: "#6366f1", fontWeight: 600, flexShrink: 0 }}>{call.sourceRefs.length} source{call.sourceRefs.length > 1 ? "s" : ""} {open ? "▲" : "▼"}</span>
+          <span className="text-[#6366f1] font-semibold shrink-0">
+            {call.sourceRefs.length} source{call.sourceRefs.length > 1 ? "s" : ""} {open ? "▲" : "▼"}
+          </span>
         )}
       </div>
       {open && call.sourceRefs && call.sourceRefs.length > 0 && (
-        <div style={{ borderTop: "1px solid #e5e7eb", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="border-t border-border px-3 py-2.5 flex flex-col gap-2">
           {call.sourceRefs.map((ref, i) => (
             <div key={i}>
-              <div style={{ fontWeight: 600, color: "#374151", fontSize: 12 }}>
-                {ref.uri ? <a href={ref.uri} target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1" }}>{ref.label}</a> : ref.label}
+              <div className="font-semibold text-foreground text-[12px]">
+                {ref.uri
+                  ? <a href={ref.uri} target="_blank" rel="noopener noreferrer" className="text-[#6366f1]">{ref.label}</a>
+                  : ref.label
+                }
               </div>
-              {ref.snippet && <div style={{ color: "#6b7280", fontStyle: "italic", lineHeight: 1.5, fontSize: 11, marginTop: 2 }}>{ref.snippet}</div>}
+              {ref.snippet && (
+                <div className="text-muted-foreground italic leading-relaxed text-[11px] mt-0.5">{ref.snippet}</div>
+              )}
             </div>
           ))}
         </div>
@@ -510,7 +602,7 @@ function ToolBlock({ call }: { call: ToolCall }) {
 // ─── Floor ────────────────────────────────────────────────────────────────────
 function Floor({ items, seats }: { items: FloorItem[]; seats: { role: string }[] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div className="flex flex-col">
       {items.map((item, i) => {
         if (item.kind === "divider") return <RoundDivider key={i} round={item.round} divergence={item.divergence} />;
         if (item.kind === "conclusion") return <VerdictCard key={i} data={item.data} />;
@@ -523,9 +615,19 @@ function Floor({ items, seats }: { items: FloorItem[]; seats: { role: string }[]
 function RoundDivider({ round, divergence }: { round: number; divergence?: { level: string; summary: string } }) {
   const hot = divergence?.level === "high" || divergence?.level === "moderate";
   return (
-    <div style={{ margin: "24px 0 16px", textAlign: "center", position: "relative" }}>
-      <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: hot ? "#fde68a" : "#e5e5e3" }} />
-      <span style={{ position: "relative", display: "inline-block", padding: "3px 14px", borderRadius: 20, background: hot ? "#fffbeb" : "#f5f5f4", border: `1px solid ${hot ? "#fde68a" : "#e5e5e3"}`, fontSize: 11, fontWeight: 700, color: hot ? "#d97706" : "#6b7280", letterSpacing: "0.06em" }}>
+    <div className="my-6 mb-4 text-center relative">
+      <div
+        className="absolute top-1/2 left-0 right-0 h-px"
+        style={{ background: hot ? "#fde68a" : "#e5e5e3" }}
+      />
+      <span
+        className={cn(
+          "relative inline-block px-3.5 py-[3px] rounded-full text-[11px] font-bold tracking-[0.06em]",
+          hot
+            ? "bg-[#fffbeb] border border-[#fde68a] text-[#d97706]"
+            : "bg-[#f5f5f4] border border-[#e5e5e3] text-muted-foreground"
+        )}
+      >
         ROUND {round}{divergence ? ` — ${divergence.level.toUpperCase()} DIVERGENCE` : ""}
       </span>
     </div>
@@ -538,20 +640,33 @@ function TurnCard({ item, color }: { item: Extract<FloorItem, { kind: "turn" }>;
   const preview = textContent.slice(0, 200);
   const hasMore = textContent.length > 200 || item.segments.some((s) => s.type === "tool");
   return (
-    <div style={{ marginBottom: 8, border: "1px solid #e5e5e3", borderLeft: `3px solid ${color.main}`, borderRadius: "0 8px 8px 0", background: "#fff", overflow: "hidden" }}>
-      <div onClick={() => setExpanded((p) => !p)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", cursor: "pointer", background: expanded ? color.bg : "#fff", transition: "background 150ms ease" }}>
-        <div style={{ width: 20, height: 20, borderRadius: "50%", background: color.bg, border: `1px solid ${color.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: color.main, flexShrink: 0 }}>
+    <div
+      className="mb-2 rounded-[0_8px_8px_0] bg-background overflow-hidden"
+      style={{
+        border: "1px solid #e5e5e3",
+        borderLeft: `3px solid ${color.main}`,
+      }}
+    >
+      <div
+        onClick={() => setExpanded((p) => !p)}
+        className="flex items-center gap-2 px-3.5 py-[9px] cursor-pointer transition-colors duration-150"
+        style={{ background: expanded ? color.bg : undefined }}
+      >
+        <div
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-extrabold shrink-0"
+          style={{ background: color.bg, border: `1px solid ${color.border}`, color: color.main }}
+        >
           {item.role.slice(0, 2).toUpperCase()}
         </div>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#1a1a1a", flex: 1 }}>{item.role}</span>
-        <span style={{ fontSize: 11, color: "#9ca3af" }}>{item.tokens.toLocaleString()} tok</span>
-        <span style={{ fontSize: 10, color: color.main }}>{expanded ? "▲" : "▼"}</span>
+        <span className="text-[12px] font-semibold text-foreground flex-1">{item.role}</span>
+        <span className="text-[11px] text-muted-foreground">{item.tokens.toLocaleString()} tok</span>
+        <span className="text-[10px]" style={{ color: color.main }}>{expanded ? "▲" : "▼"}</span>
       </div>
-      <div style={{ padding: expanded ? "0 14px 14px" : "0 14px 10px" }}>
+      <div className={cn("px-3.5", expanded ? "pb-3.5" : "pb-2.5")}>
         {!expanded ? (
-          <div style={{ fontSize: 13, color: "#525252", lineHeight: 1.6 }}>{preview}{hasMore ? "…" : ""}</div>
+          <div className="text-[13px] text-[#525252] leading-relaxed">{preview}{hasMore ? "…" : ""}</div>
         ) : (
-          <div style={{ fontSize: 13, color: "#1a1a1a", lineHeight: 1.75 }}>
+          <div className="text-[13px] text-foreground leading-[1.75]">
             {item.segments.map((seg, i) =>
               seg.type === "text"
                 ? <div key={i}><ReactMarkdown remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown></div>
@@ -566,40 +681,49 @@ function TurnCard({ item, color }: { item: Extract<FloorItem, { kind: "turn" }>;
 
 // ─── Verdict card ─────────────────────────────────────────────────────────────
 function VerdictCard({ data }: { data: CouncilConclusion }) {
-  const confMap: Record<string, [string, string]> = { high: ["#dcfce7", "#16a34a"], medium: ["#fef3c7", "#d97706"], low: ["#fee2e2", "#dc2626"] };
+  const confMap: Record<string, [string, string]> = {
+    high: ["#dcfce7", "#16a34a"],
+    medium: ["#fef3c7", "#d97706"],
+    low: ["#fee2e2", "#dc2626"],
+  };
   const [cbg, ctxt] = data.confidence ? (confMap[data.confidence] ?? confMap.medium) : ["#f3f4f6", "#6b7280"];
   return (
-    <div style={{ marginTop: 8, border: "1px solid #d1d5db", borderLeft: "4px solid #374151", borderRadius: "0 12px 12px 0", background: "#fff", overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.09)" }}>
-      <div style={{ padding: "14px 20px", background: "#f9fafb", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#374151", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#fff" }}>⚖</div>
+    <div className="mt-2 rounded-[0_12px_12px_0] bg-background overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.09)] border border-[#d1d5db]" style={{ borderLeft: "4px solid #374151" }}>
+      <div className="px-5 py-3.5 bg-[#f9fafb] border-b border-[#e5e7eb] flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-[#374151] flex items-center justify-center text-[15px] text-white">⚖</div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>Moderator Verdict</div>
-          <div style={{ fontSize: 11, color: "#9ca3af" }}>Council synthesis</div>
+          <div className="text-[14px] font-bold text-foreground">Moderator Verdict</div>
+          <div className="text-[11px] text-muted-foreground">Council synthesis</div>
         </div>
         {data.confidence && (
-          <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: cbg, color: ctxt, padding: "2px 10px", borderRadius: 4, letterSpacing: "0.05em" }}>
+          <span
+            className="ml-auto text-[11px] font-bold px-2.5 py-0.5 rounded tracking-[0.05em]"
+            style={{ background: cbg, color: ctxt }}
+          >
             {data.confidence.toUpperCase()} CONFIDENCE
           </span>
         )}
       </div>
-      <div style={{ padding: "20px 24px" }}>
-        <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.8, marginBottom: 16 }}>
+      <div className="px-6 py-5">
+        <div className="text-[14px] text-foreground leading-[1.8] mb-4">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.summary}</ReactMarkdown>
         </div>
         {data.consensus && <VBlock label="CONSENSUS" color="#16a34a" bg="#f0fdf4">{data.consensus}</VBlock>}
         {data.dissent && <VBlock label="DISSENT" color="#d97706" bg="#fffbeb">{data.dissent}</VBlock>}
         {data.action_items.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", letterSpacing: "0.1em", marginBottom: 8 }}>ACTION ITEMS</div>
-            <ul style={{ paddingLeft: 18, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-              {data.action_items.map((item, i) => <li key={i} style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>{item}</li>)}
+          <div className="mb-3">
+            <div className="text-[10px] font-bold text-[#6366f1] tracking-[0.1em] mb-2">ACTION ITEMS</div>
+            <ul className="pl-[18px] m-0 flex flex-col gap-1">
+              {data.action_items.map((item, i) => (
+                <li key={i} className="text-[13px] text-[#374151] leading-relaxed">{item}</li>
+              ))}
             </ul>
           </div>
         )}
         {data.veto && (
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#ef4444", letterSpacing: "0.1em", marginBottom: 4 }}>VETO</div>
-            <div style={{ fontSize: 13, color: "#374151" }}>{data.veto}</div>
+          <div className="bg-red-50 border border-red-200 rounded-lg px-3.5 py-2.5">
+            <div className="text-[10px] font-bold text-red-500 tracking-[0.1em] mb-1">VETO</div>
+            <div className="text-[13px] text-[#374151]">{data.veto}</div>
           </div>
         )}
       </div>
@@ -609,9 +733,9 @@ function VerdictCard({ data }: { data: CouncilConclusion }) {
 
 function VBlock({ label, color, bg, children }: { label: string; color: string; bg: string; children: string }) {
   return (
-    <div style={{ marginBottom: 10, background: bg, borderRadius: 8, padding: "10px 14px" }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>
+    <div className="mb-2.5 rounded-lg px-3.5 py-2.5" style={{ background: bg }}>
+      <div className="text-[10px] font-bold tracking-[0.1em] mb-1" style={{ color }}>{label}</div>
+      <div className="text-[13px] text-[#374151] leading-relaxed">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
       </div>
     </div>
@@ -620,6 +744,10 @@ function VBlock({ label, color, bg, children }: { label: string; color: string; 
 
 // ─── Spinner ──────────────────────────────────────────────────────────────────
 function Spinner({ small }: { small?: boolean }) {
-  const s = small ? 12 : 16;
-  return <div style={{ width: s, height: s, flexShrink: 0, border: "2px solid #e5e7eb", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />;
+  const size = small ? "w-3 h-3" : "w-4 h-4";
+  return (
+    <div
+      className={cn(size, "shrink-0 rounded-full border-2 border-[#e5e7eb] border-t-[#6366f1] animate-spin-custom")}
+    />
+  );
 }

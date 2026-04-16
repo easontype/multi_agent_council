@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function HomePage() {
   const router = useRouter();
@@ -16,145 +19,78 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fff", color: "#111827" }}>
+    <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
-      <nav style={{
-        borderBottom: "1px solid #e5e7eb",
-        padding: "0 32px",
-        height: 60,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        position: "sticky",
-        top: 0,
-        background: "rgba(255,255,255,0.95)",
-        backdropFilter: "blur(8px)",
-        zIndex: 100,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontWeight: 800, fontSize: 18, color: "#6366f1", letterSpacing: "-0.02em" }}>Council</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.06em", paddingTop: 2 }}>BETA</span>
+      <nav className="sticky top-0 z-[100] flex h-[60px] items-center justify-between border-b border-border bg-background/95 px-8 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-extrabold tracking-[-0.02em] text-[#6366f1]">Council</span>
+          <span className="pt-0.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">BETA</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a href="#pricing" style={{ color: "#4b5563", fontSize: 14, fontWeight: 500, textDecoration: "none" }}>Pricing</a>
-          <a href="/login" style={{ color: "#4b5563", fontSize: 14, fontWeight: 500, textDecoration: "none" }}>Sign in</a>
-          <a href="/login" style={{
-            background: "#6366f1",
-            color: "#fff",
-            padding: "8px 18px",
-            borderRadius: 6,
-            fontSize: 14,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}>Get started</a>
+        <div className="flex items-center gap-4">
+          <a href="#pricing" className="text-sm font-medium text-muted-foreground no-underline hover:text-foreground transition-colors">
+            Pricing
+          </a>
+          <a href="/login" className="text-sm font-medium text-muted-foreground no-underline hover:text-foreground transition-colors">
+            Sign in
+          </a>
+          <a
+            href="/login"
+            className="rounded-md bg-[#6366f1] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#4f46e5] transition-colors"
+          >
+            Get started
+          </a>
         </div>
       </nav>
 
       {/* Hero */}
-      <section style={{
-        maxWidth: 800,
-        margin: "0 auto",
-        padding: "96px 32px 80px",
-        textAlign: "center",
-      }}>
-        <div style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          background: "#eef2ff",
-          border: "1px solid #c7d2fe",
-          color: "#4f46e5",
-          padding: "5px 14px",
-          borderRadius: 20,
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 28,
-          letterSpacing: "0.05em",
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", display: "inline-block" }} />
+      <section className="mx-auto max-w-[800px] px-8 pt-24 pb-20 text-center">
+        <div className="mb-7 inline-flex items-center gap-1.5 rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-[14px] py-[5px] text-xs font-semibold tracking-[0.05em] text-[#4f46e5]">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#6366f1]" />
           MULTI-AGENT PEER REVIEW
         </div>
 
-        <h1 style={{
-          fontSize: "clamp(32px, 5vw, 54px)",
-          fontWeight: 800,
-          lineHeight: 1.1,
-          marginBottom: 24,
-          color: "#111827",
-          letterSpacing: "-0.03em",
-        }}>
+        <h1 className="mb-6 text-[clamp(32px,5vw,54px)] font-extrabold leading-[1.1] tracking-[-0.03em] text-foreground">
           Get honest feedback on<br />
-          <span style={{ color: "#6366f1" }}>your paper before submission</span>
+          <span className="text-[#6366f1]">your paper before submission</span>
         </h1>
 
-        <p style={{
-          color: "#4b5563",
-          fontSize: 18,
-          maxWidth: 560,
-          margin: "0 auto 12px",
-          lineHeight: 1.7,
-        }}>
+        <p className="mx-auto mb-3 max-w-[560px] text-lg leading-[1.7] text-muted-foreground">
           Five specialized AI reviewers debate your work — methods, literature, reproducibility,
           contribution, and advocacy — then a moderator delivers a structured verdict.
         </p>
-        <p style={{ color: "#9ca3af", fontSize: 14, marginBottom: 48 }}>
+        <p className="mb-12 text-sm text-muted-foreground/70">
           Built for PhD students, postdocs, and research teams.
         </p>
 
         {/* Quick input */}
-        <form onSubmit={handleQuickCritique} style={{
-          display: "flex",
-          gap: 8,
-          maxWidth: 480,
-          margin: "0 auto 16px",
-        }}>
-          <input
+        <form onSubmit={handleQuickCritique} className="mx-auto mb-4 flex max-w-[480px] gap-2">
+          <Input
             type="text"
             value={arxivId}
             onChange={(e) => setArxivId(e.target.value)}
             placeholder="arXiv ID e.g. 2301.07041"
-            style={{
-              flex: 1,
-              fontSize: 15,
-              height: 48,
-              border: "1.5px solid #d1d5db",
-              borderRadius: 8,
-              padding: "0 16px",
-              outline: "none",
-              transition: "border-color 150ms",
-            }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "#6366f1"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+            className="h-12 flex-1 text-[15px]"
           />
-          <button
+          <Button
             type="submit"
             disabled={loading || !arxivId.trim()}
-            style={{
-              background: "#6366f1",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              padding: "0 24px",
-              fontSize: 15,
-              fontWeight: 600,
-              height: 48,
-              opacity: loading || !arxivId.trim() ? 0.55 : 1,
-              cursor: loading || !arxivId.trim() ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
+            className={cn(
+              "h-12 whitespace-nowrap rounded-lg bg-[#6366f1] px-6 text-[15px] font-semibold text-white hover:bg-[#4f46e5]",
+              (loading || !arxivId.trim()) && "opacity-55"
+            )}
           >
             {loading ? "Loading…" : "Critique Paper"}
-          </button>
+          </Button>
         </form>
-        <p style={{ fontSize: 13, color: "#9ca3af" }}>
+        <p className="text-[13px] text-muted-foreground/70">
           Free — 10 reviews/day, no account required
         </p>
       </section>
 
       {/* Roles strip */}
-      <section style={{ borderTop: "1px solid #f3f4f6", borderBottom: "1px solid #f3f4f6", background: "#f9fafb", padding: "24px 32px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "#9ca3af", fontWeight: 600, letterSpacing: "0.06em", marginRight: 8 }}>YOUR COMMITTEE:</span>
+      <section className="border-y border-border bg-muted px-8 py-6">
+        <div className="mx-auto flex max-w-[800px] flex-wrap items-center justify-center gap-2">
+          <span className="mr-2 text-xs font-semibold tracking-[0.06em] text-muted-foreground">YOUR COMMITTEE:</span>
           {[
             { label: "Methods Critic", color: "#6366f1" },
             { label: "Literature Auditor", color: "#0ea5e9" },
@@ -163,28 +99,30 @@ export default function HomePage() {
             { label: "Constructive Advocate", color: "#22c55e" },
             { label: "Moderator", color: "#374151" },
           ].map((r) => (
-            <span key={r.label} style={{
-              background: `${r.color}14`,
-              border: `1px solid ${r.color}33`,
-              color: r.color,
-              fontSize: 12,
-              fontWeight: 600,
-              padding: "4px 12px",
-              borderRadius: 20,
-            }}>{r.label}</span>
+            <span
+              key={r.label}
+              className="rounded-full px-3 py-1 text-xs font-semibold"
+              style={{
+                background: `${r.color}14`,
+                border: `1px solid ${r.color}33`,
+                color: r.color,
+              }}
+            >
+              {r.label}
+            </span>
           ))}
         </div>
       </section>
 
       {/* How it works */}
-      <section style={{ maxWidth: 800, margin: "0 auto", padding: "80px 32px" }}>
-        <h2 style={{ textAlign: "center", fontSize: 26, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.02em" }}>
+      <section className="mx-auto max-w-[800px] px-8 py-20">
+        <h2 className="mb-2 text-center text-[26px] font-bold tracking-[-0.02em]">
           How it works
         </h2>
-        <p style={{ textAlign: "center", color: "#6b7280", fontSize: 15, marginBottom: 52 }}>
+        <p className="mb-[52px] text-center text-[15px] text-muted-foreground">
           From arXiv ID to structured verdict in minutes.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 40 }}>
+        <div className="grid gap-10 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
           {[
             {
               n: "1",
@@ -202,51 +140,55 @@ export default function HomePage() {
               body: "A moderator synthesizes all arguments into a structured report: consensus, dissent, action items, and confidence score.",
             },
           ].map((s) => (
-            <div key={s.n} style={{ textAlign: "center" }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: "50%",
-                background: "#eef2ff", border: "1.5px solid #c7d2fe",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 800, fontSize: 18, color: "#6366f1",
-                margin: "0 auto 16px",
-              }}>{s.n}</div>
-              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{s.title}</div>
-              <div style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.65 }}>{s.body}</div>
+            <div key={s.n} className="text-center">
+              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[#c7d2fe] bg-[#eef2ff] text-lg font-extrabold text-[#6366f1]">
+                {s.n}
+              </div>
+              <div className="mb-2 text-base font-bold">{s.title}</div>
+              <div className="text-sm leading-[1.65] text-muted-foreground">{s.body}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* What you get — sample verdict */}
-      <section style={{ background: "#f9fafb", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: "80px 32px" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <h2 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.02em", textAlign: "center" }}>
+      <section className="border-y border-border bg-muted px-8 py-20">
+        <div className="mx-auto max-w-[720px]">
+          <h2 className="mb-2 text-center text-[26px] font-bold tracking-[-0.02em]">
             What you get
           </h2>
-          <p style={{ color: "#6b7280", fontSize: 15, marginBottom: 48, textAlign: "center" }}>
+          <p className="mb-12 text-center text-[15px] text-muted-foreground">
             A structured verdict from five perspectives, not a single AI opinion.
           </p>
-          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.07)" }}>
-            {/* Mock verdict preview */}
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 12, background: "#f9fafb" }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#374151", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14 }}>⚖</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Moderator Verdict</div>
-                <div style={{ fontSize: 12, color: "#9ca3af" }}>Synthesized from all 5 reviewers</div>
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(0,0,0,0.07)]">
+            {/* Mock verdict preview header */}
+            <div className="flex items-center gap-3 border-b border-border bg-muted px-6 py-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#374151] text-sm text-white">
+                ⚖
               </div>
-              <span style={{ marginLeft: "auto", background: "#fef3c7", color: "#d97706", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 4 }}>MEDIUM CONFIDENCE</span>
+              <div>
+                <div className="text-sm font-bold">Moderator Verdict</div>
+                <div className="text-xs text-muted-foreground">Synthesized from all 5 reviewers</div>
+              </div>
+              <span className="ml-auto rounded bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-600">
+                MEDIUM CONFIDENCE
+              </span>
             </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="flex flex-col gap-4 p-6">
               <VerdictRow label="Summary" text="The paper makes a genuine contribution to the field but raises concerns about reproducibility and ablation coverage that reviewers feel must be addressed before publication." />
               <VerdictRow label="Consensus" text="The core mechanism is novel and the experimental setup is largely sound. Reviewers agreed on the importance of the contribution." />
               <VerdictRow label="Key Dissent" text="The Replication Skeptic flagged missing training details and hyperparameter disclosures that would prevent independent reproduction." />
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.06em", marginBottom: 8 }}>ACTION ITEMS</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {["Add ablation study isolating the key architectural choice.", "Publish training code and full hyperparameter configuration.", "Expand related work comparison with contemporaneous methods."].map((item, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <span style={{ color: "#6366f1", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>→</span>
-                      <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>{item}</span>
+                <div className="mb-2 text-xs font-semibold tracking-[0.06em] text-muted-foreground">ACTION ITEMS</div>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    "Add ablation study isolating the key architectural choice.",
+                    "Publish training code and full hyperparameter configuration.",
+                    "Expand related work comparison with contemporaneous methods.",
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="mt-px flex-shrink-0 text-[13px] font-bold text-[#6366f1]">→</span>
+                      <span className="text-[13px] leading-[1.5] text-foreground">{item}</span>
                     </div>
                   ))}
                 </div>
@@ -257,11 +199,11 @@ export default function HomePage() {
       </section>
 
       {/* Use cases */}
-      <section style={{ maxWidth: 800, margin: "0 auto", padding: "80px 32px" }}>
-        <h2 style={{ fontSize: 26, fontWeight: 700, marginBottom: 48, letterSpacing: "-0.02em", textAlign: "center" }}>
+      <section className="mx-auto max-w-[800px] px-8 py-20">
+        <h2 className="mb-12 text-center text-[26px] font-bold tracking-[-0.02em]">
           Built for researchers
         </h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 24 }}>
+        <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
           {[
             {
               who: "PhD Students",
@@ -282,23 +224,28 @@ export default function HomePage() {
               href: "/keys",
             },
           ].map((u) => (
-            <div key={u.who} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{u.who}</div>
-              <div style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.65, flex: 1 }}>{u.what}</div>
-              <a href={u.href} style={{ fontSize: 13, fontWeight: 600, color: "#6366f1", textDecoration: "none" }}>{u.cta} →</a>
+            <div
+              key={u.who}
+              className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-6"
+            >
+              <div className="text-[15px] font-bold">{u.who}</div>
+              <div className="flex-1 text-sm leading-[1.65] text-muted-foreground">{u.what}</div>
+              <a href={u.href} className="text-[13px] font-semibold text-[#6366f1] no-underline hover:underline">
+                {u.cta} →
+              </a>
             </div>
           ))}
         </div>
       </section>
 
       {/* Pricing */}
-      <section id="pricing" style={{ background: "#f9fafb", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: "80px 32px" }}>
-        <div style={{ maxWidth: 680, margin: "0 auto" }}>
-          <h2 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.02em", textAlign: "center" }}>
+      <section id="pricing" className="border-y border-border bg-muted px-8 py-20">
+        <div className="mx-auto max-w-[680px]">
+          <h2 className="mb-2 text-center text-[26px] font-bold tracking-[-0.02em]">
             Simple pricing
           </h2>
-          <p style={{ color: "#6b7280", fontSize: 15, marginBottom: 48, textAlign: "center" }}>No subscriptions. No seat fees.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <p className="mb-12 text-center text-[15px] text-muted-foreground">No subscriptions. No seat fees.</p>
+          <div className="grid grid-cols-2 gap-5">
             <PricingCard
               tier="Free"
               price="$0"
@@ -322,12 +269,12 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer style={{ padding: "40px 32px", textAlign: "center", color: "#9ca3af", fontSize: 13, borderTop: "1px solid #f3f4f6" }}>
-        <div style={{ marginBottom: 12, fontWeight: 700, color: "#6366f1", fontSize: 16 }}>Council</div>
-        <div style={{ display: "flex", justifyContent: "center", gap: 24, marginBottom: 16 }}>
-          <a href="/analyze" style={{ color: "#9ca3af", textDecoration: "none" }}>Try it free</a>
-          <a href="/keys" style={{ color: "#9ca3af", textDecoration: "none" }}>API Keys</a>
-          <a href="#pricing" style={{ color: "#9ca3af", textDecoration: "none" }}>Pricing</a>
+      <footer className="border-t border-border px-8 py-10 text-center text-[13px] text-muted-foreground">
+        <div className="mb-3 text-base font-bold text-[#6366f1]">Council</div>
+        <div className="mb-4 flex justify-center gap-6">
+          <a href="/analyze" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Try it free</a>
+          <a href="/keys" className="text-muted-foreground no-underline hover:text-foreground transition-colors">API Keys</a>
+          <a href="#pricing" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Pricing</a>
         </div>
         AI-powered peer review — not a substitute for human expert review.
       </footer>
@@ -338,53 +285,96 @@ export default function HomePage() {
 function VerdictRow({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.06em", marginBottom: 4 }}>{label.toUpperCase()}</div>
-      <div style={{ fontSize: 14, color: "#374151", lineHeight: 1.65 }}>{text}</div>
+      <div className="mb-1 text-xs font-semibold tracking-[0.06em] text-muted-foreground">
+        {label.toUpperCase()}
+      </div>
+      <div className="text-sm leading-[1.65] text-foreground">{text}</div>
     </div>
   );
 }
 
-function PricingCard({ tier, price, per, features, cta, ctaHref, highlight }: {
-  tier: string; price: string; per: string; features: string[];
-  cta: string; ctaHref: string; highlight: boolean;
+function PricingCard({
+  tier,
+  price,
+  per,
+  features,
+  cta,
+  ctaHref,
+  highlight,
+}: {
+  tier: string;
+  price: string;
+  per: string;
+  features: string[];
+  cta: string;
+  ctaHref: string;
+  highlight: boolean;
 }) {
   return (
-    <div style={{
-      background: highlight ? "#6366f1" : "#fff",
-      border: `1.5px solid ${highlight ? "#6366f1" : "#e5e7eb"}`,
-      borderRadius: 12,
-      padding: "28px 24px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 20,
-      boxShadow: highlight ? "0 8px 32px rgba(99,102,241,0.25)" : "none",
-    }}>
+    <div
+      className={cn(
+        "flex flex-col gap-5 rounded-xl border-[1.5px] p-7",
+        highlight
+          ? "border-[#6366f1] bg-[#6366f1] shadow-[0_8px_32px_rgba(99,102,241,0.25)]"
+          : "border-border bg-card"
+      )}
+    >
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: highlight ? "rgba(255,255,255,0.7)" : "#9ca3af", letterSpacing: "0.06em", marginBottom: 8 }}>{tier.toUpperCase()}</div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 36, fontWeight: 800, color: highlight ? "#fff" : "#111827", letterSpacing: "-0.03em" }}>{price}</span>
-          <span style={{ fontSize: 13, color: highlight ? "rgba(255,255,255,0.6)" : "#9ca3af" }}>{per}</span>
+        <div
+          className={cn(
+            "mb-2 text-[13px] font-bold tracking-[0.06em]",
+            highlight ? "text-white/70" : "text-muted-foreground"
+          )}
+        >
+          {tier.toUpperCase()}
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className={cn(
+              "text-[36px] font-extrabold tracking-[-0.03em]",
+              highlight ? "text-white" : "text-foreground"
+            )}
+          >
+            {price}
+          </span>
+          <span className={cn("text-[13px]", highlight ? "text-white/60" : "text-muted-foreground")}>
+            {per}
+          </span>
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+      <div className="flex flex-1 flex-col gap-2">
         {features.map((f) => (
-          <div key={f} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <span style={{ color: highlight ? "rgba(255,255,255,0.8)" : "#22c55e", fontWeight: 700, fontSize: 14, flexShrink: 0, marginTop: 1 }}>✓</span>
-            <span style={{ fontSize: 14, color: highlight ? "rgba(255,255,255,0.9)" : "#4b5563", lineHeight: 1.4 }}>{f}</span>
+          <div key={f} className="flex items-start gap-2">
+            <span
+              className={cn(
+                "mt-px flex-shrink-0 text-sm font-bold",
+                highlight ? "text-white/80" : "text-green-500"
+              )}
+            >
+              ✓
+            </span>
+            <span
+              className={cn(
+                "text-sm leading-[1.4]",
+                highlight ? "text-white/90" : "text-muted-foreground"
+              )}
+            >
+              {f}
+            </span>
           </div>
         ))}
       </div>
-      <a href={ctaHref} style={{
-        display: "block",
-        textAlign: "center",
-        background: highlight ? "#fff" : "#6366f1",
-        color: highlight ? "#6366f1" : "#fff",
-        padding: "11px 0",
-        borderRadius: 7,
-        fontSize: 14,
-        fontWeight: 700,
-        textDecoration: "none",
-      }}>{cta}</a>
+      <a
+        href={ctaHref}
+        className={cn(
+          "block rounded-[7px] py-[11px] text-center text-sm font-bold no-underline transition-colors",
+          highlight
+            ? "bg-white text-[#6366f1] hover:bg-white/90"
+            : "bg-[#6366f1] text-white hover:bg-[#4f46e5]"
+        )}
+      >
+        {cta}
+      </a>
     </div>
   );
 }

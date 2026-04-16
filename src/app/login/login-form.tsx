@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getProviders, signIn } from "next-auth/react";
 import { credentialsSignIn } from "./actions";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 
 type AuthProvider = {
   id: string;
@@ -32,28 +36,19 @@ function GoogleIcon() {
 function Spinner({ dark }: { dark?: boolean }) {
   return (
     <span
-      style={{
-        width: 16,
-        height: 16,
-        border: `2px solid ${dark ? "rgba(255,255,255,0.3)" : "#ddd"}`,
-        borderTopColor: dark ? "#fff" : "#6366f1",
-        borderRadius: "50%",
-        display: "inline-block",
-        animation: "spin 0.6s linear infinite",
-      }}
+      className={cn(
+        "inline-block h-4 w-4 animate-spin rounded-full border-2",
+        dark
+          ? "border-white/30 border-t-white"
+          : "border-border border-t-[#6366f1]"
+      )}
     />
   );
 }
 
 function providerIcon(id: string) {
-  if (id === "google") {
-    return <GoogleIcon />;
-  }
-
-  if (id === "github") {
-    return <GitHubIcon />;
-  }
-
+  if (id === "google") return <GoogleIcon />;
+  if (id === "github") return <GitHubIcon />;
   return null;
 }
 
@@ -82,16 +77,11 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
 
     void getProviders()
       .then((result) => {
-        if (!active) {
-          return;
-        }
-
+        if (!active) return;
         setProviders(result ?? {});
       })
       .finally(() => {
-        if (active) {
-          setProvidersLoading(false);
-        }
+        if (active) setProvidersLoading(false);
       });
 
     return () => {
@@ -119,256 +109,138 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#ffffff",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        padding: "24px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          padding: "48px 40px",
-          background: "#fff",
-          border: "1px solid #e5e5e5",
-          borderRadius: 16,
-          boxShadow: "0 4px 32px rgba(0,0,0,0.06)",
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div
-            style={{
-              fontSize: 24,
-              fontWeight: 800,
-              color: "#6366f1",
-              letterSpacing: "-0.03em",
-              marginBottom: 8,
-            }}
-          >
-            Council
-          </div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "#1a1a1a",
-              marginBottom: 4,
-            }}
-          >
-            Sign in
-          </div>
-          <div style={{ fontSize: 13, color: "#999" }}>
-            Auth.js v5 session flow for the App Router
-          </div>
-        </div>
-
-        {providersLoading ? (
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-            <Spinner />
-          </div>
-        ) : oauthProviders.length > 0 ? (
-          <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {oauthProviders.map((provider) => {
-                const dark = isDarkProvider(provider.id);
-                const loading = loadingProvider === provider.id;
-
-                return (
-                  <button
-                    key={provider.id}
-                    onClick={() => void handleOAuth(provider.id)}
-                    disabled={loading}
-                    style={{
-                      width: "100%",
-                      height: 44,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 10,
-                      background: dark ? "#1a1a1a" : "#fff",
-                      border: `1px solid ${dark ? "#1a1a1a" : "#e5e5e5"}`,
-                      borderRadius: 8,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: dark ? "#fff" : "#1a1a1a",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      opacity: loading ? 0.6 : 1,
-                      transition: "opacity 150ms, box-shadow 150ms",
-                    }}
-                  >
-                    {loading ? <Spinner dark={dark} /> : providerIcon(provider.id)}
-                    {`Continue with ${provider.name}`}
-                  </button>
-                );
-              })}
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
+      <Card className="w-full max-w-[400px] shadow-[0_4px_32px_rgba(0,0,0,0.06)]">
+        <CardContent className="px-10 py-12">
+          {/* Logo + title */}
+          <div className="mb-8 text-center">
+            <div className="mb-2 text-2xl font-extrabold tracking-[-0.03em] text-[#6366f1]">
+              Council
             </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "24px 0" }}>
-              <div style={{ flex: 1, height: 1, background: "#e5e5e5" }} />
-              <span style={{ fontSize: 12, color: "#bbb", fontWeight: 500 }}>or</span>
-              <div style={{ flex: 1, height: 1, background: "#e5e5e5" }} />
+            <div className="mb-1 text-[15px] font-semibold text-foreground">Sign in</div>
+            <div className="text-[13px] text-muted-foreground">
+              Auth.js v5 session flow for the App Router
             </div>
-          </>
-        ) : null}
+          </div>
 
-        <form onSubmit={handleCredentialsSignIn} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#666" }}>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@council.local"
-              autoComplete="email"
-              required
-              style={{
-                width: "100%",
-                height: 44,
-                borderRadius: 8,
-                border: "1px solid #e5e5e5",
-                padding: "0 14px",
-                fontSize: 14,
-              }}
-            />
-          </label>
+          {/* OAuth providers */}
+          {providersLoading ? (
+            <div className="mb-5 flex justify-center">
+              <Spinner />
+            </div>
+          ) : oauthProviders.length > 0 ? (
+            <>
+              <div className="flex flex-col gap-2.5">
+                {oauthProviders.map((provider) => {
+                  const dark = isDarkProvider(provider.id);
+                  const isLoading = loadingProvider === provider.id;
 
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#666" }}>Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password"
-              autoComplete="current-password"
-              required
-              style={{
-                width: "100%",
-                height: 44,
-                borderRadius: 8,
-                border: "1px solid #e5e5e5",
-                padding: "0 14px",
-                fontSize: 14,
-              }}
-            />
-          </label>
+                  return (
+                    <button
+                      key={provider.id}
+                      onClick={() => void handleOAuth(provider.id)}
+                      disabled={isLoading}
+                      className={cn(
+                        "flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border text-sm font-semibold transition-opacity duration-150",
+                        dark
+                          ? "border-[#1a1a1a] bg-[#1a1a1a] text-white"
+                          : "border-border bg-card text-foreground",
+                        isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:opacity-90"
+                      )}
+                    >
+                      {isLoading ? <Spinner dark={dark} /> : providerIcon(provider.id)}
+                      {`Continue with ${provider.name}`}
+                    </button>
+                  );
+                })}
+              </div>
 
-          {error ? (
-            <div
-              style={{
-                borderRadius: 8,
-                border: "1px solid #fecaca",
-                background: "#fef2f2",
-                color: "#b91c1c",
-                fontSize: 13,
-                padding: "10px 12px",
-              }}
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs font-medium text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          ) : null}
+
+          {/* Credentials form */}
+          <form onSubmit={handleCredentialsSignIn} className="flex flex-col gap-3.5">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">Email</span>
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="admin@council.local"
+                autoComplete="email"
+                required
+                className="h-11"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">Password</span>
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Password"
+                autoComplete="current-password"
+                required
+                className="h-11"
+              />
+            </label>
+
+            {error ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-700">
+                {error}
+              </div>
+            ) : null}
+
+            <Button
+              type="submit"
+              disabled={submittingCredentials}
+              className={cn(
+                "h-11 w-full rounded-lg bg-[#6366f1] text-sm font-semibold text-white hover:bg-[#4f46e5]",
+                submittingCredentials && "cursor-not-allowed opacity-70"
+              )}
             >
-              {error}
+              {submittingCredentials ? "Signing in..." : "Sign in with credentials"}
+            </Button>
+          </form>
+
+          {/* Dev credentials hint */}
+          {process.env.NODE_ENV !== "production" ? (
+            <div className="mt-[18px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-relaxed text-slate-500">
+              Dev fallback credentials: <code>admin@council.local</code> / <code>dev-password</code>
             </div>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={submittingCredentials}
-            style={{
-              width: "100%",
-              height: 44,
-              background: "#6366f1",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#fff",
-              cursor: submittingCredentials ? "not-allowed" : "pointer",
-              opacity: submittingCredentials ? 0.7 : 1,
-            }}
+          {/* Already signed in banner */}
+          {isLoggedIn ? (
+            <div className="mt-[18px] flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-[13px] text-green-800">
+              <span>You&apos;re already signed in.</span>
+              <button
+                onClick={() => router.push("/home")}
+                className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-semibold text-green-700 underline"
+              >
+                Go to /home →
+              </button>
+            </div>
+          ) : null}
+
+          {/* Try free without account */}
+          <Button
+            variant="outline"
+            onClick={() => router.push("/analyze")}
+            className="mt-[18px] h-11 w-full text-sm font-medium text-muted-foreground"
           >
-            {submittingCredentials ? "Signing in..." : "Sign in with credentials"}
-          </button>
-        </form>
+            Try free without an account
+          </Button>
+        </CardContent>
+      </Card>
 
-        {process.env.NODE_ENV !== "production" ? (
-          <div
-            style={{
-              marginTop: 18,
-              padding: "10px 12px",
-              borderRadius: 8,
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
-              color: "#64748b",
-              fontSize: 12,
-              lineHeight: 1.6,
-            }}
-          >
-            Dev fallback credentials: <code>admin@council.local</code> / <code>dev-password</code>
-          </div>
-        ) : null}
-
-        {isLoggedIn ? (
-          <div
-            style={{
-              marginTop: 18,
-              padding: "10px 12px",
-              borderRadius: 8,
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              color: "#166534",
-              fontSize: 13,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-            }}
-          >
-            <span>You&apos;re already signed in.</span>
-            <button
-              onClick={() => router.push("/home")}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#15803d",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-                padding: 0,
-                textDecoration: "underline",
-              }}
-            >
-              Go to /home →
-            </button>
-          </div>
-        ) : null}
-
-        <button
-          onClick={() => router.push("/analyze")}
-          style={{
-            width: "100%",
-            height: 44,
-            background: "transparent",
-            border: "1px solid #e5e5e5",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 500,
-            color: "#666",
-            cursor: "pointer",
-            marginTop: 18,
-          }}
-        >
-          Try free without an account
-        </button>
-      </div>
-
-      <a
-        href="/"
-        style={{ marginTop: 24, fontSize: 13, color: "#999", textDecoration: "none" }}
-      >
+      <a href="/" className="mt-6 text-[13px] text-muted-foreground no-underline hover:text-foreground transition-colors">
         Back to home
       </a>
     </div>

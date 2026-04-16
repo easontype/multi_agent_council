@@ -3,6 +3,18 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/council-academic";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const MODELS = [
   { value: "codex/codex", label: "Codex (free tier)" },
@@ -108,198 +120,175 @@ function AnalyzeForm() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
+    <div className="min-h-screen bg-background">
       {/* Nav */}
-      <nav style={{
-        borderBottom: "1px solid var(--border)",
-        padding: "0 24px",
-        height: 56,
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-      }}>
-        <a href="/" style={{ fontWeight: 700, fontSize: 18, color: "var(--accent)", textDecoration: "none" }}>Council</a>
-        <span style={{ color: "var(--text-muted)" }}>/</span>
-        <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>New Review</span>
+      <nav className="flex h-14 items-center gap-4 border-b border-border px-6">
+        <a href="/" className="text-lg font-bold text-[#6366f1] no-underline">Council</a>
+        <span className="text-muted-foreground">/</span>
+        <span className="text-sm text-muted-foreground">New Review</span>
       </nav>
 
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "48px 24px" }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>New Peer Review</h1>
-        <p style={{ color: "var(--text-secondary)", marginBottom: 32 }}>
+      <div className="mx-auto max-w-[640px] px-6 py-12">
+        <h1 className="mb-2 text-[28px] font-bold">New Peer Review</h1>
+        <p className="mb-8 text-muted-foreground">
           Configure your AI review committee and submit a paper.
         </p>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 0, marginBottom: 24, borderBottom: "1px solid var(--border)" }}>
-          {(["arxiv", "upload"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                background: "none",
-                border: "none",
-                borderBottom: activeTab === tab ? "2px solid var(--accent)" : "2px solid transparent",
-                color: activeTab === tab ? "var(--accent)" : "var(--text-secondary)",
-                padding: "10px 20px",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                marginBottom: -1,
-              }}
+        <Card>
+          <CardContent className="pt-6">
+            {/* Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => setActiveTab(v as "arxiv" | "upload")}
+              className="mb-6"
             >
-              {tab === "arxiv" ? "arXiv / DOI" : "Upload PDF"}
-            </button>
-          ))}
-        </div>
+              <TabsList className="w-full">
+                <TabsTrigger value="arxiv" className="flex-1">arXiv / DOI</TabsTrigger>
+                <TabsTrigger value="upload" className="flex-1">Upload PDF</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-        <form onSubmit={handleSubmit}>
-          {/* arXiv tab */}
-          {activeTab === "arxiv" && (
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--text-secondary)" }}>
-                arXiv ID
-              </label>
-              <input
-                type="text"
-                value={arxivId}
-                onChange={(e) => setArxivId(e.target.value)}
-                placeholder="e.g. 2301.07041 or arxiv:2301.07041"
-                style={{ width: "100%", height: 44, fontSize: 15 }}
-              />
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
-                The PDF will be fetched directly from arxiv.org
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              {/* arXiv tab */}
+              {activeTab === "arxiv" && (
+                <div>
+                  <label className="mb-1.5 block text-[13px] font-semibold text-muted-foreground">
+                    arXiv ID
+                  </label>
+                  <Input
+                    type="text"
+                    value={arxivId}
+                    onChange={(e) => setArxivId(e.target.value)}
+                    placeholder="e.g. 2301.07041 or arxiv:2301.07041"
+                    className="h-11 text-[15px]"
+                  />
+                  <div className="mt-1.5 text-xs text-muted-foreground">
+                    The PDF will be fetched directly from arxiv.org
+                  </div>
+                </div>
+              )}
+
+              {/* Upload tab */}
+              {activeTab === "upload" && (
+                <div>
+                  <label
+                    htmlFor="pdf-upload"
+                    className={cn(
+                      "block cursor-pointer rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors duration-150",
+                      pdfFile ? "border-[#6366f1] bg-[#eef2ff]" : "border-border bg-card hover:border-[#6366f1]/50"
+                    )}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const f = e.dataTransfer.files[0];
+                      if (f?.type === "application/pdf") setPdfFile(f);
+                    }}
+                  >
+                    {pdfFile ? (
+                      <div>
+                        <div className="mb-1 font-semibold text-[#6366f1]">{pdfFile.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {(pdfFile.size / 1024 / 1024).toFixed(2)} MB — click to change
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="mb-1.5 text-sm text-muted-foreground">Drop a PDF here or click to browse</div>
+                        <div className="text-xs text-muted-foreground">Max 20 MB</div>
+                      </div>
+                    )}
+                  </label>
+                  <input
+                    id="pdf-upload"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setPdfFile(f);
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Options */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Model</label>
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODELS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Template</label>
+                  <Select value={template} onValueChange={setTemplate}>
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEMPLATES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Rounds</label>
+                  <Select value={rounds} onValueChange={setRounds}>
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 round</SelectItem>
+                      <SelectItem value="2">2 rounds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Upload tab */}
-          {activeTab === "upload" && (
-            <div style={{ marginBottom: 20 }}>
-              <label
-                htmlFor="pdf-upload"
-                style={{
-                  display: "block",
-                  background: "var(--bg-card)",
-                  border: `2px dashed ${pdfFile ? "var(--accent)" : "var(--border)"}`,
-                  borderRadius: 8,
-                  padding: "40px 24px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  transition: "border-color 150ms ease",
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const f = e.dataTransfer.files[0];
-                  if (f?.type === "application/pdf") setPdfFile(f);
-                }}
-              >
-                {pdfFile ? (
-                  <div>
-                    <div style={{ color: "var(--accent)", fontWeight: 600, marginBottom: 4 }}>{pdfFile.name}</div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB — click to change</div>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6 }}>Drop a PDF here or click to browse</div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Max 20 MB</div>
-                  </div>
+              {/* Template description */}
+              <div className="rounded-md border border-border bg-muted px-[14px] py-2.5 text-[13px] text-muted-foreground">
+                {TEMPLATES.find((t) => t.value === template)?.description}
+              </div>
+
+              {error && (
+                <div className="rounded-md border border-red-400 bg-red-500/[0.13] px-[14px] py-2.5 text-[13px] text-red-600">
+                  {error}
+                </div>
+              )}
+
+              {status && (
+                <div className="text-[13px] text-muted-foreground">{status}</div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className={cn(
+                  "h-12 w-full rounded-lg bg-[#6366f1] text-[15px] font-bold text-white hover:bg-[#4f46e5]",
+                  loading && "opacity-70"
                 )}
-              </label>
-              <input
-                id="pdf-upload"
-                type="file"
-                accept=".pdf,application/pdf"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setPdfFile(f);
-                }}
-              />
-            </div>
-          )}
-
-          {/* Options */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <div>
-              <label style={labelStyle}>Model</label>
-              <select value={model} onChange={(e) => setModel(e.target.value)} style={{ width: "100%", height: 40 }}>
-                {MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Template</label>
-              <select value={template} onChange={(e) => setTemplate(e.target.value)} style={{ width: "100%", height: 40 }}>
-                {TEMPLATES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Rounds</label>
-              <select value={rounds} onChange={(e) => setRounds(e.target.value)} style={{ width: "100%", height: 40 }}>
-                <option value="1">1 round</option>
-                <option value="2">2 rounds</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Template description */}
-          <div style={{
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            padding: "10px 14px",
-            marginBottom: 24,
-            fontSize: 13,
-            color: "var(--text-secondary)",
-          }}>
-            {TEMPLATES.find((t) => t.value === template)?.description}
-          </div>
-
-          {error && (
-            <div style={{ background: "#ef444422", border: "1px solid var(--danger)", borderRadius: 6, padding: "10px 14px", marginBottom: 16, color: "var(--danger)", fontSize: 13 }}>
-              {error}
-            </div>
-          )}
-
-          {status && (
-            <div style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 12 }}>{status}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              height: 48,
-              background: "var(--accent)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? "Processing..." : "Start Review Committee"}
-          </button>
-        </form>
+              >
+                {loading ? "Processing..." : "Start Review Committee"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  marginBottom: 6,
-  color: "var(--text-secondary)",
-};
-
 export default function AnalyzePage() {
   return (
-    <Suspense fallback={<div style={{ padding: 48, color: "var(--text-secondary)" }}>Loading...</div>}>
+    <Suspense fallback={<div className="p-12 text-muted-foreground">Loading...</div>}>
       <AnalyzeForm />
     </Suspense>
   );
