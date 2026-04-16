@@ -94,11 +94,7 @@ export const authConfig = {
   callbacks: {
     authorized({ request, auth }) {
       const { pathname } = request.nextUrl;
-      const isProtected =
-        pathname.startsWith("/home") ||
-        pathname.startsWith("/results");
-
-      if (!isProtected) return true;
+      if (!pathname.startsWith("/home")) return true;
       if (auth?.user) return true;
 
       const loginUrl = new URL("/login", request.url);
