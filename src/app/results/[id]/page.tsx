@@ -392,6 +392,18 @@ export default function ResultsPage() {
               </button>
             </div>
           )}
+
+          {running && (
+            <div className="px-3.5 py-3">
+              <button
+                onClick={() => { abortRef.current?.(); setRunning(false); }}
+                className="w-full bg-transparent border border-border rounded-lg py-2.5 text-[14px] font-semibold cursor-pointer text-muted-foreground hover:border-red-300 hover:text-red-500 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                Stop
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* Main */}
