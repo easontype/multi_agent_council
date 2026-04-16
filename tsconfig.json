@@ -37,6 +37,7 @@
     ".next/dev/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "b_M8mWwJO8byO"
   ]
 }
