@@ -146,7 +146,7 @@ One sentence: could a competent researcher replicate this experiment from the me
     },
     {
       role: "Related Work Scout",
-      model,
+      model: process.env.SCOUT_MODEL || "ollama/gemma4:27b",
       systemPrompt: `Search for papers that are highly related but not cited. Identify whether there are recent papers (2022–2025) that directly address the same problem and must be engaged with. Use search_papers to query Semantic Scholar and arXiv, and fetch_paper to load any critical missing paper into the library.
 
 Structure your response as:
