@@ -10,19 +10,8 @@ interface ThinkingBlockProps {
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      style={{
-        transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-        transition: 'transform 200ms ease',
-      }}
-    >
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>
       <polyline points="6 9 12 15 18 9" />
     </svg>
   )
@@ -30,121 +19,63 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function BrainIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
       <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
       <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
-      <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
-      <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
-      <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
-      <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
-      <path d="M6 18a4 4 0 0 1-1.967-.516" />
-      <path d="M19.967 17.484A4 4 0 0 1 18 18" />
     </svg>
   )
 }
 
 export function ThinkingBlock({ content, isStreaming, agentColor }: ThinkingBlockProps) {
   const [expanded, setExpanded] = useState(false)
-
-  // 截取前 80 字符作为摘要
-  const summary = content.length > 80 ? content.slice(0, 80) + '...' : content
+  const summary = content.length > 72 ? content.slice(0, 72) + '…' : content
 
   return (
-    <div
-      style={{
-        background: '#f8f9fa',
-        border: '1px solid #e9ecef',
-        borderRadius: 10,
-        overflow: 'hidden',
-        marginBottom: 8,
-      }}
-    >
-      {/* 折叠标题 */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 12px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-        }}
-      >
-        <span style={{ color: agentColor, display: 'flex' }}>
-          <BrainIcon />
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#666' }}>
+    <div style={{
+      background: '#fafafa',
+      border: '1px solid #ebebed',
+      borderRadius: 8, overflow: 'hidden', marginBottom: 8,
+    }}>
+      <button onClick={() => setExpanded(!expanded)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 7,
+        padding: '8px 12px', background: 'transparent', border: 'none',
+        cursor: 'pointer', textAlign: 'left',
+      }}>
+        <span style={{ color: agentColor, opacity: 0.8, display: 'flex' }}><BrainIcon /></span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: '0.03em' }}>
           Thinking
           {isStreaming && (
-            <span style={{ marginLeft: 6, color: agentColor }}>
-              <span className="streaming-dots">...</span>
-            </span>
+            <span style={{ marginLeft: 4, color: agentColor, animation: 'tb-blink 1s infinite' }}>…</span>
           )}
         </span>
-        <span style={{ marginLeft: 'auto', color: '#999', display: 'flex' }}>
+        <span style={{ marginLeft: 'auto', color: '#ccc', display: 'flex' }}>
           <ChevronIcon open={expanded} />
         </span>
       </button>
 
-      {/* 内容区域 */}
-      <div
-        style={{
-          maxHeight: expanded ? 400 : 0,
-          overflow: 'hidden',
-          transition: 'max-height 250ms ease',
-        }}
-      >
-        <div
-          style={{
-            padding: '0 12px 12px',
-            fontSize: 13,
-            color: '#555',
-            lineHeight: 1.6,
-            whiteSpace: 'pre-wrap',
-            fontStyle: 'italic',
-            borderTop: '1px solid #e9ecef',
-            paddingTop: 10,
-          }}
-        >
+      <div style={{ maxHeight: expanded ? 280 : 0, overflow: 'hidden', transition: 'max-height 250ms ease' }}>
+        <div style={{
+          padding: '8px 12px 12px',
+          fontSize: 12.5, color: '#666',
+          lineHeight: 1.65, whiteSpace: 'pre-wrap', fontStyle: 'italic',
+          borderTop: '1px solid #ebebed',
+        }}>
           {content}
-          {isStreaming && <span className="cursor">|</span>}
         </div>
       </div>
 
-      {/* 收起时显示摘要 */}
       {!expanded && content && (
-        <div
-          style={{
-            padding: '0 12px 10px',
-            fontSize: 12,
-            color: '#888',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <div style={{
+          padding: '0 12px 8px', fontSize: 12,
+          color: '#bbb', overflow: 'hidden',
+          textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic',
+        }}>
           {summary}
         </div>
       )}
 
-      <style>{`
-        .streaming-dots {
-          animation: blink 1s infinite;
-        }
-        .cursor {
-          animation: blink 0.8s infinite;
-          color: ${agentColor};
-        }
-        @keyframes blink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
-        }
-      `}</style>
+      <style>{`@keyframes tb-blink { 0%,50% { opacity:1; } 51%,100% { opacity:0; } }`}</style>
     </div>
   )
 }

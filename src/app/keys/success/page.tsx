@@ -63,6 +63,7 @@ function SuccessContent() {
     <div style={{
       minHeight: "100vh",
       background: "var(--bg-primary)",
+      ["--accent" as string]: "#111",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",

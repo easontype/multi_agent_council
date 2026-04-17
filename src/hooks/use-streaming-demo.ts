@@ -89,6 +89,7 @@ export function useStreamingDemo(paperTitle: string, paperAbstract?: string) {
     paperAbstract,
     status: 'waiting',
     messages: [],
+    sourceRefs: [],
     startedAt: new Date(),
   })
 
@@ -125,6 +126,7 @@ export function useStreamingDemo(paperTitle: string, paperAbstract?: string) {
           existingMessage = {
             id: messageId,
             agentId: currentDemo.agentId,
+            round: 1,
             timestamp: new Date(),
             blocks: [],
             isComplete: false,

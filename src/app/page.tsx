@@ -35,7 +35,7 @@ export default function HomePage() {
           {session?.user ? (
             <a
               href="/home"
-              className="rounded-md bg-[#6366f1] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#4f46e5] transition-colors"
+              className="rounded-md bg-[#111] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#333] transition-colors"
             >
               Dashboard
             </a>
@@ -46,7 +46,7 @@ export default function HomePage() {
               </a>
               <a
                 href="/login"
-                className="rounded-md bg-[#6366f1] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#4f46e5] transition-colors"
+                className="rounded-md bg-[#111] px-[18px] py-2 text-sm font-semibold text-white no-underline hover:bg-[#333] transition-colors"
               >
                 Get started
               </a>
@@ -57,8 +57,8 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="mx-auto max-w-[800px] px-8 pt-24 pb-20 text-center">
-        <div className="mb-7 inline-flex items-center gap-1.5 rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-[14px] py-[5px] text-xs font-semibold tracking-[0.05em] text-[#4f46e5]">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#6366f1]" />
+        <div className="mb-7 inline-flex items-center gap-1.5 rounded-full border border-[#ddd] bg-[#f5f5f7] px-[14px] py-[5px] text-xs font-semibold tracking-[0.05em] text-[#555]">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#999]" />
           MULTI-AGENT PEER REVIEW
         </div>
 
@@ -88,7 +88,7 @@ export default function HomePage() {
             type="submit"
             disabled={loading || !arxivId.trim()}
             className={cn(
-              "h-12 whitespace-nowrap rounded-lg bg-[#6366f1] px-6 text-[15px] font-semibold text-white hover:bg-[#4f46e5]",
+              "h-12 whitespace-nowrap rounded-lg bg-[#111] px-6 text-[15px] font-semibold text-white hover:bg-[#333]",
               (loading || !arxivId.trim()) && "opacity-55"
             )}
           >
@@ -154,7 +154,7 @@ export default function HomePage() {
             },
           ].map((s) => (
             <div key={s.n} className="text-center">
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[#c7d2fe] bg-[#eef2ff] text-lg font-extrabold text-[#6366f1]">
+              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-[#ddd] bg-[#f5f5f7] text-lg font-extrabold text-[#333]">
                 {s.n}
               </div>
               <div className="mb-2 text-base font-bold">{s.title}</div>
@@ -200,7 +200,7 @@ export default function HomePage() {
                     "Expand related work comparison with contemporaneous methods.",
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="mt-px flex-shrink-0 text-[13px] font-bold text-[#6366f1]">→</span>
+                      <span className="mt-px flex-shrink-0 text-[13px] font-bold text-[#333]">→</span>
                       <span className="text-[13px] leading-[1.5] text-foreground">{item}</span>
                     </div>
                   ))}
@@ -243,7 +243,7 @@ export default function HomePage() {
             >
               <div className="text-[15px] font-bold">{u.who}</div>
               <div className="flex-1 text-sm leading-[1.65] text-muted-foreground">{u.what}</div>
-              <a href={u.href} className="text-[13px] font-semibold text-[#6366f1] no-underline hover:underline">
+              <a href={u.href} className="text-[13px] font-semibold text-[#333] no-underline hover:underline">
                 {u.cta} →
               </a>
             </div>

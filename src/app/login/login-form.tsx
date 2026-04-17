@@ -40,7 +40,7 @@ function Spinner({ dark }: { dark?: boolean }) {
         "inline-block h-4 w-4 animate-spin rounded-full border-2",
         dark
           ? "border-white/30 border-t-white"
-          : "border-border border-t-[#6366f1]"
+          : "border-border border-t-[#111]"
       )}
     />
   );
@@ -201,7 +201,7 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
               type="submit"
               disabled={submittingCredentials}
               className={cn(
-                "h-11 w-full rounded-lg bg-[#6366f1] text-sm font-semibold text-white hover:bg-[#4f46e5]",
+                "h-11 w-full rounded-lg bg-[#111] text-sm font-semibold text-white hover:bg-[#333]",
                 submittingCredentials && "cursor-not-allowed opacity-70"
               )}
             >

@@ -105,7 +105,11 @@ export default function KeysPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
+    <div style={{
+      minHeight: "100vh", background: "var(--bg-primary)",
+      // Override --accent to near-black for all button CTAs on this page
+      ["--accent" as string]: "#111",
+    }}>
       {/* Nav */}
       <nav style={{
         borderBottom: "1px solid var(--border)",
