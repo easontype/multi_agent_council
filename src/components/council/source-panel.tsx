@@ -1,9 +1,11 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { DiscussionSession } from '@/types/council'
 
 interface SourcePanelProps {
   session: DiscussionSession
+  activeLabel?: string | null
 }
 
 function FileTextIcon() {
@@ -37,9 +39,23 @@ function BookOpenIcon() {
   )
 }
 
-export function SourcePanel({ session }: SourcePanelProps) {
+export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
   const sourceRefs = session.sourceRefs ?? []
   const isActive = session.status !== 'waiting'
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
+  useEffect(() => {
+    if (!activeLabel) return
+    const idx = sourceRefs.findIndex(r =>
+      r.label === activeLabel ||
+      r.uri === activeLabel ||
+      r.label.toLowerCase().includes(activeLabel.toLowerCase().slice(0, 40)) ||
+      (r.uri && activeLabel.toLowerCase().includes(r.uri.toLowerCase()))
+    )
+    if (idx === -1) return
+    const el = cardRefs.current.get(idx)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [activeLabel, sourceRefs])
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '20px 18px 32px' }}>
@@ -116,19 +132,29 @@ export function SourcePanel({ session }: SourcePanelProps) {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sourceRefs.map((ref, i) => (
-              <div key={i} style={{
-                background: '#fff',
-                border: '1px solid #ebebed',
+            {sourceRefs.map((ref, i) => {
+              const isActive = Boolean(activeLabel && (
+                ref.label === activeLabel ||
+                ref.uri === activeLabel ||
+                ref.label.toLowerCase().includes(activeLabel.toLowerCase().slice(0, 40)) ||
+                (ref.uri && activeLabel.toLowerCase().includes(ref.uri.toLowerCase()))
+              ))
+              return (
+              <div key={i}
+                ref={el => { if (el) cardRefs.current.set(i, el); else cardRefs.current.delete(i) }}
+                style={{
+                background: isActive ? `${ref.agentColor}08` : '#fff',
+                border: `1px solid ${isActive ? ref.agentColor + '55' : '#ebebed'}`,
                 borderLeft: `3px solid ${ref.agentColor}`,
                 borderRadius: 8,
                 padding: '10px 12px',
                 cursor: ref.uri ? 'pointer' : 'default',
-                transition: 'box-shadow 150ms',
+                transition: 'box-shadow 150ms, background 200ms, border-color 200ms',
+                boxShadow: isActive ? `0 0 0 2px ${ref.agentColor}22` : 'none',
               }}
                 onClick={() => ref.uri && window.open(ref.uri, '_blank', 'noopener')}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.07)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.07)' }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
                   <span style={{
@@ -162,7 +188,7 @@ export function SourcePanel({ session }: SourcePanelProps) {
                   </span>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

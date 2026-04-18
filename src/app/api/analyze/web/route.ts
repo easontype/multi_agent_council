@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   let arxivId: string | undefined;
   let mode: "critique" | "gap" = "critique";
   let rounds = 1;
+  let customSeats: CouncilSeat[] = [];
   let uploadedBuffer: Buffer | undefined;
   let uploadTitle: string | undefined;
 
@@ -33,6 +34,17 @@ export async function POST(req: NextRequest) {
     arxivId = (form.get("arxivId") as string) || undefined;
     mode = form.get("mode") === "gap" ? "gap" : "critique";
     rounds = form.get("rounds") === "2" ? 2 : 1;
+    const customSeatsRaw = form.get("customSeats");
+    if (typeof customSeatsRaw === "string") {
+      try {
+        const parsed = JSON.parse(customSeatsRaw);
+        if (Array.isArray(parsed)) {
+          customSeats = parsed as CouncilSeat[];
+        }
+      } catch {
+        customSeats = [];
+      }
+    }
     const file = form.get("file") as File | null;
     if (file) {
       if (file.size > MAX_PDF_BYTES) {
@@ -46,6 +58,9 @@ export async function POST(req: NextRequest) {
     arxivId = body.arxivId?.trim() || undefined;
     mode = body.mode === "gap" ? "gap" : "critique";
     rounds = body.rounds === 2 ? 2 : 1;
+    if (Array.isArray(body.customSeats)) {
+      customSeats = body.customSeats as CouncilSeat[];
+    }
   }
 
   if (!arxivId && !uploadedBuffer) {
@@ -89,11 +104,17 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. Build seats with library binding
-  const rawSeats: CouncilSeat[] = mode === "gap"
-    ? buildGapAnalysisSeats("claude-sonnet-4-6")
-    : buildAcademicCritiqueSeats("claude-sonnet-4-6");
+  const rawSeats: CouncilSeat[] = customSeats.length
+    ? customSeats
+    : mode === "gap"
+      ? buildGapAnalysisSeats("claude-sonnet-4-6")
+      : buildAcademicCritiqueSeats("claude-sonnet-4-6");
 
-  const seats: CouncilSeat[] = rawSeats.map(seat => ({ ...seat, library_id: libraryId }));
+  const seats: CouncilSeat[] = rawSeats.map((seat) => ({ ...seat, library_id: libraryId }));
+
+  if (!seats.length) {
+    return NextResponse.json({ error: "Select at least one review agent" }, { status: 400 });
+  }
 
   // 4. Create council session
   const ownerUserEmail = await getAuthenticatedCouncilOwnerEmail();

@@ -31,6 +31,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
   const [session, setSession] = useState<DiscussionSession>(makeEmptySession())
 
   const start = useCallback(async (opts?: {
+    mode?: 'critique' | 'gap'
     rounds?: 1 | 2
     customSeats?: CouncilSeat[]
     discussionAgents?: Agent[]
@@ -38,6 +39,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     setError(null)
     setPhase('ingesting')
 
+    const mode = opts?.mode ?? 'critique'
     const rounds = opts?.rounds ?? 1
     const customSeats = opts?.customSeats ?? []
     const discussionAgents = opts?.discussionAgents?.length ? opts.discussionAgents : DEFAULT_AGENTS
@@ -55,13 +57,14 @@ export function useCouncilReview(arxivIdParam?: string | null) {
       if (pendingFile) {
         const form = new FormData()
         form.append('file', pendingFile)
+        form.append('mode', mode)
         form.append('rounds', String(rounds))
         if (customSeats.length) {
           form.append('customSeats', JSON.stringify(customSeats))
         }
         body = form
       } else if (arxivIdParam) {
-        body = JSON.stringify({ arxivId: arxivIdParam, rounds, customSeats })
+        body = JSON.stringify({ arxivId: arxivIdParam, mode, rounds, customSeats })
         headers = { 'Content-Type': 'application/json' }
       } else {
         throw new Error('No paper provided')

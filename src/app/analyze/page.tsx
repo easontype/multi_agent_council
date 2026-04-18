@@ -1,11 +1,11 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { DiscussionTimeline } from '@/components/council/discussion-timeline'
 import { PaperPreview } from '@/components/council/paper-preview'
 import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
-import { SourcePanel } from '@/components/council/source-panel'
+import { ReviewSidebar } from '@/components/council/review-sidebar'
 import { useCouncilReview } from '@/hooks/use-council-review'
 import { peekPendingUpload } from '@/lib/pending-upload'
 import {
@@ -16,6 +16,8 @@ import {
   type EditableReviewAgent,
   type ReviewMode,
 } from '@/lib/review-presets'
+import { deleteSavedTeamTemplate, loadSavedTeamTemplates, upsertSavedTeamTemplate, type SavedTeamTemplate } from '@/lib/team-template-store'
+import { estimateHostedReviewCost } from '@/lib/review-cost'
 
 function BackIcon() {
   return (
@@ -33,6 +35,16 @@ function SpinnerIcon() {
   )
 }
 
+function ChevronIcon({ direction }: { direction: 'left' | 'right' }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {direction === 'left'
+        ? <polyline points="15 18 9 12 15 6" />
+        : <polyline points="9 18 15 12 9 6" />}
+    </svg>
+  )
+}
+
 function fileNameToTitle(fileName: string) {
   return fileName.replace(/\.pdf$/i, '').trim() || 'Uploaded PDF'
 }
@@ -40,6 +52,14 @@ function fileNameToTitle(fileName: string) {
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatUsd(value: number) {
+  return `$${value.toFixed(2)}`
+}
+
+function createTemplateId() {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `tmpl-${Date.now()}`
 }
 
 function AnalyzeContent() {
@@ -52,11 +72,23 @@ function AnalyzeContent() {
   const [mode, setMode] = useState<ReviewMode>('critique')
   const [rounds, setRounds] = useState<1 | 2>(1)
   const [teamAgents, setTeamAgents] = useState<EditableReviewAgent[]>(() => buildEditableTeam('critique'))
+  const [savedTemplates, setSavedTemplates] = useState<SavedTeamTemplate[]>([])
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [isPublic, setIsPublic] = useState(false)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+  const [setupSidebarOpen, setSetupSidebarOpen] = useState(true)
+  const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
+  const [sidebarTab, setSidebarTab] = useState<'sources' | 'chat'>('sources')
+
+  const handleSourceClick = useCallback((label: string) => {
+    setActiveSourceLabel(label)
+    setSidebarTab('sources')
+  }, [])
 
   useEffect(() => {
-    setTeamAgents(buildEditableTeam(mode))
-  }, [mode])
+    setSavedTemplates(loadSavedTeamTemplates())
+  }, [])
 
   useEffect(() => {
     if (pendingFile) {
@@ -72,6 +104,18 @@ function AnalyzeContent() {
 
     setPdfUrl(null)
   }, [arxivId, pendingFile])
+
+  useEffect(() => {
+    if (!session.id || session.id === 'demo-session') return
+    fetch(`/api/council/${session.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.session && typeof data.session.is_public === 'boolean') {
+          setIsPublic(Boolean(data.session.is_public))
+        }
+      })
+      .catch(() => {})
+  }, [session.id])
 
   const paperTitle = session.paperTitle || (
     pendingFile
@@ -90,9 +134,9 @@ function AnalyzeContent() {
   )
 
   const sourceLabel = pendingFile
-    ? `Uploaded PDF · ${pendingFile.name}`
+    ? `Uploaded PDF - ${pendingFile.name}`
     : arxivId
-      ? `arXiv · ${arxivId}`
+      ? `arXiv - ${arxivId}`
       : 'No paper selected'
 
   const sourceHref = arxivId ? `https://arxiv.org/abs/${encodeURIComponent(arxivId)}` : null
@@ -102,6 +146,7 @@ function AnalyzeContent() {
   const isRunning = phase === 'running'
   const isConcluded = phase === 'concluded'
   const showSetup = phase === 'idle' || phase === 'error' || phase === 'ingesting'
+  const costEstimate = estimateHostedReviewCost(activeCount, rounds)
 
   const statusConfig = phase === 'error'
     ? { dot: '#ef4444', label: 'Error', pulse: false }
@@ -113,14 +158,16 @@ function AnalyzeContent() {
     ? { dot: '#22c55e', label: 'Concluded', pulse: false }
     : { dot: '#9ca3af', label: 'Staged', pulse: false }
 
-  const [isPublic, setIsPublic] = useState(false)
-  const [shareLoading, setShareLoading] = useState(false)
-  const [shareCopied, setShareCopied] = useState(false)
+  const handleModeChange = (nextMode: ReviewMode) => {
+    setMode(nextMode)
+    setTeamAgents(buildEditableTeam(nextMode))
+  }
 
   const handleStart = () => {
     const seats = buildSeatsFromEditableAgents(teamAgents)
     const discussionAgents = buildDiscussionAgents(teamAgents)
     start({
+      mode,
       rounds,
       customSeats: seats,
       discussionAgents,
@@ -132,28 +179,91 @@ function AnalyzeContent() {
     window.open(`/api/council/${session.id}/export`, '_blank')
   }
 
-  const handleShare = async () => {
+  const setShareAccess = async (nextPublic: boolean) => {
     if (!session.id || session.id === 'demo-session') return
     setShareLoading(true)
     try {
-      const nextPublic = !isPublic
       const res = await fetch(`/api/council/${session.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_public: nextPublic }),
       })
-      if (res.ok) {
-        setIsPublic(nextPublic)
-        if (nextPublic) {
-          const url = `${window.location.origin}/share/${session.id}`
-          await navigator.clipboard.writeText(url).catch(() => {})
-          setShareCopied(true)
-          setTimeout(() => setShareCopied(false), 2500)
-        }
-      }
+      if (!res.ok) return false
+      setIsPublic(nextPublic)
+      if (!nextPublic) setShareCopied(false)
+      return true
     } finally {
       setShareLoading(false)
     }
+  }
+
+  const handleCopyShareLink = async () => {
+    if (!session.id || session.id === 'demo-session') return
+
+    let ready = isPublic
+    if (!ready) {
+      ready = Boolean(await setShareAccess(true))
+    }
+    if (!ready) return
+
+    const url = `${window.location.origin}/share/${session.id}`
+    await navigator.clipboard.writeText(url).catch(() => {})
+    setShareCopied(true)
+    setTimeout(() => setShareCopied(false), 2500)
+  }
+
+  const handleSaveTemplate = () => {
+    const name = window.prompt('Template name', `${mode === 'gap' ? 'Gap' : 'Critique'} Team`)
+    if (!name?.trim()) return
+
+    const now = new Date().toISOString()
+    const nextTemplates = upsertSavedTeamTemplate({
+      id: createTemplateId(),
+      name: name.trim(),
+      mode,
+      rounds,
+      agents: teamAgents,
+      createdAt: now,
+      updatedAt: now,
+    })
+    setSavedTemplates(nextTemplates)
+  }
+
+  const handleLoadTemplate = (template: SavedTeamTemplate) => {
+    setMode(template.mode)
+    setRounds(template.rounds)
+    setTeamAgents(template.agents)
+  }
+
+  const handleDeleteTemplate = (id: string) => {
+    setSavedTemplates(deleteSavedTeamTemplate(id))
+  }
+
+  const handleRenameTemplate = (template: SavedTeamTemplate) => {
+    const name = window.prompt('Rename template', template.name)
+    if (!name?.trim()) return
+
+    const nextTemplates = upsertSavedTeamTemplate({
+      ...template,
+      name: name.trim(),
+      updatedAt: new Date().toISOString(),
+    })
+    setSavedTemplates(nextTemplates)
+  }
+
+  const handleDuplicateTemplate = (template: SavedTeamTemplate) => {
+    const name = window.prompt('Duplicate template as', `${template.name} Copy`)
+    if (!name?.trim()) return
+
+    const now = new Date().toISOString()
+    const nextTemplates = upsertSavedTeamTemplate({
+      ...template,
+      id: createTemplateId(),
+      name: name.trim(),
+      createdAt: now,
+      updatedAt: now,
+    })
+    setSavedTemplates(nextTemplates)
   }
 
   return (
@@ -218,7 +328,7 @@ function AnalyzeContent() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
           {showSetup && (
             <span style={{ fontSize: 12, color: '#999' }}>
-              {activeCount} agents · {rounds} round{rounds > 1 ? 's' : ''}
+              {activeCount} agents - {rounds} round{rounds > 1 ? 's' : ''}
             </span>
           )}
 
@@ -247,28 +357,59 @@ function AnalyzeContent() {
                   fontSize: 12, fontWeight: 600, padding: '5px 12px',
                   border: '1px solid #ddd', borderRadius: 6,
                   background: '#fff', color: '#444', cursor: 'pointer',
-                  transition: 'all 120ms',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f5f7' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#fff' }}
               >
                 Export .md
               </button>
               <button
-                onClick={handleShare}
+                onClick={() => setShareAccess(!isPublic)}
                 disabled={shareLoading}
                 style={{
                   fontSize: 12, fontWeight: 600, padding: '5px 12px',
-                  border: `1px solid ${isPublic ? '#6366f1' : '#ddd'}`,
+                  border: `1px solid ${isPublic ? '#d6d3d1' : '#ddd'}`,
                   borderRadius: 6,
-                  background: isPublic ? '#eef2ff' : '#fff',
-                  color: isPublic ? '#6366f1' : '#444',
+                  background: isPublic ? '#fafaf9' : '#fff',
+                  color: isPublic ? '#57534e' : '#444',
                   cursor: shareLoading ? 'not-allowed' : 'pointer',
-                  transition: 'all 120ms',
                 }}
               >
-                {shareCopied ? 'Link copied!' : isPublic ? 'Public — Copy link' : 'Share'}
+                {isPublic ? 'Make Private' : 'Publish Link'}
               </button>
+              <button
+                onClick={handleCopyShareLink}
+                disabled={shareLoading}
+                style={{
+                  fontSize: 12, fontWeight: 600, padding: '5px 12px',
+                  border: `1px solid ${isPublic ? '#111827' : '#ddd'}`,
+                  borderRadius: 6,
+                  background: isPublic ? '#111827' : '#fff',
+                  color: isPublic ? '#fff' : '#444',
+                  cursor: shareLoading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {shareCopied ? 'Link copied!' : 'Copy Share URL'}
+              </button>
+              {isPublic && (
+                <a
+                  href={`/share/${session.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: '5px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: 6,
+                    background: '#fff',
+                    color: '#444',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Open Shared Page
+                </a>
+              )}
             </div>
           )}
         </div>
@@ -286,32 +427,258 @@ function AnalyzeContent() {
                 helperText="The PDF is visible now, but nothing is parsed or debated until you start the review."
               />
             </div>
-            <div style={{ flex: 2, minWidth: 360, background: '#fafafa' }}>
-              <ReviewSetupPanel
-                paperTitle={paperTitle}
-                paperSummary={paperSummary}
-                sourceLabel={sourceLabel}
-                mode={mode}
-                rounds={rounds}
-                agents={teamAgents}
-                busy={isPreparing}
-                canStart={canStart}
-                error={error}
-                onModeChange={setMode}
-                onRoundsChange={setRounds}
-                onAgentsChange={setTeamAgents}
-                onAddAgent={() => setTeamAgents((current) => [...current, createCustomEditableAgent(current.length)])}
-                onStart={handleStart}
-              />
+            <div style={{
+              width: setupSidebarOpen ? 460 : 76,
+              minWidth: setupSidebarOpen ? 360 : 76,
+              background: '#fafafa',
+              borderLeft: '1px solid #f0f0f2',
+              transition: 'width 180ms ease, min-width 180ms ease',
+              overflow: 'hidden',
+              position: 'relative',
+            }}>
+              <button
+                type="button"
+                onClick={() => setSetupSidebarOpen((current) => !current)}
+                aria-label={setupSidebarOpen ? 'Collapse review setup sidebar' : 'Expand review setup sidebar'}
+                style={{
+                  position: 'absolute',
+                  top: 18,
+                  left: 14,
+                  zIndex: 2,
+                  width: 34,
+                  height: 34,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: 999,
+                  background: '#fff',
+                  color: '#52525b',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(15,23,42,0.05)',
+                }}
+              >
+                <ChevronIcon direction={setupSidebarOpen ? 'right' : 'left'} />
+              </button>
+
+              {setupSidebarOpen ? (
+                <div style={{ height: '100%', overflowY: 'auto', padding: '18px 18px 28px' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    marginBottom: 14,
+                    paddingLeft: 44,
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 4 }}>
+                        Review Setup
+                      </div>
+                      <div style={{ fontSize: 12.5, color: '#71717a' }}>
+                        Configure the panel before starting the debate.
+                      </div>
+                    </div>
+                  </div>
+
+                  <ReviewSetupPanel
+                    paperTitle={paperTitle}
+                    paperSummary={paperSummary}
+                    sourceLabel={sourceLabel}
+                    mode={mode}
+                    rounds={rounds}
+                    agents={teamAgents}
+                    busy={isPreparing}
+                    canStart={canStart}
+                    costLabel={`${formatUsd(costEstimate.minUsd)} - ${formatUsd(costEstimate.maxUsd)}`}
+                    error={error}
+                    onModeChange={handleModeChange}
+                    onRoundsChange={setRounds}
+                    onAgentsChange={setTeamAgents}
+                    onAddAgent={() => setTeamAgents((current) => [...current, createCustomEditableAgent(current.length)])}
+                    onStart={handleStart}
+                  />
+
+                  <div style={{
+                    background: '#fff',
+                    border: '1px solid #ebebed',
+                    borderRadius: 14,
+                    padding: '15px 16px',
+                    marginTop: 16,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase' }}>
+                        Saved Teams
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSaveTemplate}
+                        style={{
+                          border: '1px solid #e4e4e7',
+                          background: '#fafafa',
+                          color: '#3f3f46',
+                          borderRadius: 999,
+                          padding: '6px 10px',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Save Current
+                      </button>
+                    </div>
+                    {savedTemplates.length === 0 ? (
+                      <div style={{ fontSize: 12.5, color: '#71717a', lineHeight: 1.6 }}>
+                        Save custom reviewer teams locally so you can reuse them on the next paper.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {savedTemplates.slice(0, 4).map((template) => (
+                          <div
+                            key={template.id}
+                            style={{
+                              border: '1px solid #ececf1',
+                              borderRadius: 12,
+                              padding: '10px 12px',
+                              background: '#fafafa',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#18181b' }}>{template.name}</div>
+                              <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                                {template.agents.filter((agent) => agent.enabled).length} agents
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 11.5, color: '#71717a', marginBottom: 8 }}>
+                              {template.mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'} - {template.rounds} round{template.rounds > 1 ? 's' : ''}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleLoadTemplate(template)}
+                                style={{
+                                  border: '1px solid #d4d4d8',
+                                  background: '#fff',
+                                  color: '#3f3f46',
+                                  borderRadius: 999,
+                                  padding: '6px 10px',
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Load
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateTemplate(template)}
+                                style={{
+                                  border: '1px solid #d4d4d8',
+                                  background: '#fff',
+                                  color: '#3f3f46',
+                                  borderRadius: 999,
+                                  padding: '6px 10px',
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Duplicate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRenameTemplate(template)}
+                                style={{
+                                  border: '1px solid #d4d4d8',
+                                  background: '#fff',
+                                  color: '#3f3f46',
+                                  borderRadius: 999,
+                                  padding: '6px 10px',
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                style={{
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: '#a1a1aa',
+                                  borderRadius: 999,
+                                  padding: '6px 2px',
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '64px 10px 20px',
+                  gap: 14,
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#a1a1aa', textTransform: 'uppercase', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                    Review Setup
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    border: '1px solid #ececf1',
+                    borderRadius: 16,
+                    background: '#fff',
+                    padding: '12px 8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}>
+                    <div style={{ fontSize: 10, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Agents
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#18181b' }}>
+                      {activeCount}
+                    </div>
+                    <div style={{ width: '100%', height: 1, background: '#f0f0f2' }} />
+                    <div style={{ fontSize: 10, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Cost
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#18181b', textAlign: 'center', lineHeight: 1.45 }}>
+                      {formatUsd(costEstimate.minUsd)}
+                      <br />
+                      {formatUsd(costEstimate.maxUsd)}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         ) : (
           <>
             <div style={{ flex: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRight: '1px solid #f0f0f2' }}>
-              <DiscussionTimeline session={session} />
+              <DiscussionTimeline session={session} onSourceClick={handleSourceClick} />
             </div>
             <div style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fafafa' }}>
-              <SourcePanel session={session} />
+              <ReviewSidebar
+                session={session}
+                activeSourceLabel={activeSourceLabel}
+                tab={sidebarTab}
+                onTabChange={setSidebarTab}
+              />
             </div>
           </>
         )}

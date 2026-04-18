@@ -256,7 +256,9 @@ export function extractEvidenceSources(
     if (!cleanLabel) return;
     const dedupeKey = `${cleanLabel}|${cleanUri ?? ""}`;
     if (seen.has(dedupeKey)) return;
+    if (cleanUri && seen.has(`uri|${cleanUri}`)) return;
     seen.add(dedupeKey);
+    if (cleanUri) seen.add(`uri|${cleanUri}`);
     refs.push({ label: cleanLabel, uri: cleanUri, snippet: cleanSnippetValue });
   };
 
@@ -272,24 +274,39 @@ export function extractEvidenceSources(
   if (tool === "list_documents" && typeof args.tag === "string") {
     addRef(`documents tag:${args.tag}`, null, result);
   }
+
+  // Parse individual papers from the "Sources:" section in RAG output
+  let ragSourcesParsed = false;
   if (tool === "rag_query" && typeof args.question === "string") {
-    addRef(`rag:${args.question}`, null, result);
+    const sourcesBlock = result.match(/^Sources:\s*\n([\s\S]+)$/m);
+    if (sourcesBlock) {
+      for (const line of sourcesBlock[1].split(/\r?\n/).filter(Boolean)) {
+        const m = line.match(/^\[\d+\]\s+(.+?)(?:\s+\|\s+(https?:\/\/\S+))?$/);
+        if (m) addRef(m[1].trim(), m[2] ?? null, null);
+      }
+      ragSourcesParsed = refs.length > 0;
+    }
+    if (!ragSourcesParsed) addRef(`rag:${args.question}`, null, result);
   }
+
   if (tool === "semantic_search" && typeof args.query === "string") {
     addRef(`semantic:${args.query}`, null, result);
   }
 
-  for (const match of result.matchAll(/https?:\/\/[^\s)\]>"]+/g)) {
-    const url = match[0];
-    addRef(url, url, extractLineSnippet(result, url));
-    if (refs.length >= 8) break;
-  }
+  if (!ragSourcesParsed) {
+    for (const match of result.matchAll(/https?:\/\/[^\s)\]>"]+/g)) {
+      const url = match[0];
+      addRef(url, url, extractLineSnippet(result, url));
+      if (refs.length >= 8) break;
+    }
 
-  for (const line of result.split(/\r?\n/)) {
-    const titleMatch = line.match(/^(?:##\s*\d+\.\s*|\[\d+\]\s*)(.+)$/);
-    if (!titleMatch) continue;
-    addRef(titleMatch[1], null, line);
-    if (refs.length >= 8) break;
+    for (const line of result.split(/\r?\n/)) {
+      // Strip trailing "| https://..." so URL isn't included in the label
+      const titleMatch = line.match(/^(?:##\s*\d+\.\s*|\[\d+\]\s*)(.+?)(?:\s+\|\s+https?:\/\/\S+)?$/);
+      if (!titleMatch) continue;
+      addRef(titleMatch[1].trim(), null, line);
+      if (refs.length >= 8) break;
+    }
   }
 
   if (!refs.length && result.trim()) {

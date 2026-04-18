@@ -1,12 +1,14 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Agent, DiscussionSession } from '@/types/council'
 import { AgentMessage } from './agent-message'
 import { AgentAvatar } from './agent-avatar'
+import { CompareView } from './compare-view'
 
 interface DiscussionTimelineProps {
   session: DiscussionSession
+  onSourceClick?: (label: string) => void
 }
 
 function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId?: string }) {
@@ -126,42 +128,100 @@ function ConclusionBanner() {
   )
 }
 
-export function DiscussionTimeline({ session }: DiscussionTimelineProps) {
+export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [viewMode, setViewMode] = useState<'timeline' | 'compare'>('timeline')
+
   const activeMessage = session.messages.find(m => !m.isComplete)
   const activeAgentId = activeMessage?.agentId
   const visibleAgents = session.agents.filter((agent) => agent.seatRole !== 'Moderator')
   const agentMap = new Map(session.agents.map((agent) => [agent.id, agent]))
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (viewMode === 'timeline' && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [session.messages])
+  }, [session.messages, viewMode])
+
+  const hasMessages = session.messages.some(m => m.isComplete)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <AgentRoster agents={visibleAgents} activeAgentId={activeAgentId} />
-
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px 32px' }}>
-        {session.status === 'waiting' && session.messages.length === 0 ? (
-          <WaitingState />
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: '1px solid #f0f0f2',
+        background: 'rgba(255,255,255,0.95)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        flexShrink: 0,
+      }}>
+        {viewMode === 'timeline' ? (
+          <AgentRoster agents={visibleAgents} activeAgentId={activeAgentId} />
         ) : (
-          <>
-            {groupByRound(session.messages).map(({ round, messages }) => (
-              <div key={round}>
-                <RoundDivider round={round === 99 ? 'Synthesis' : round} />
-                {messages.map(message => {
-                  const agent = agentMap.get(message.agentId)
-                  if (!agent) return null
-                  return <AgentMessage key={message.id} message={message} agent={agent} />
-                })}
-              </div>
+          <div style={{ padding: '0 20px', height: 44, display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', color: '#ccc', textTransform: 'uppercase' }}>
+              Compare View
+            </span>
+          </div>
+        )}
+
+        {hasMessages && (
+          <div style={{
+            display: 'flex', gap: 0, padding: '0 12px',
+            border: '1px solid #ebebed', borderRadius: 6,
+            margin: '0 16px', overflow: 'hidden', flexShrink: 0,
+          }}>
+            {(['timeline', 'compare'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: '5px 10px', border: 'none',
+                  background: viewMode === mode ? '#111827' : 'transparent',
+                  color: viewMode === mode ? '#fff' : '#9ca3af',
+                  fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  textTransform: 'capitalize', transition: 'all 120ms',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {mode === 'timeline' ? 'Timeline' : 'Compare'}
+              </button>
             ))}
-            {session.status === 'concluded' && <ConclusionBanner />}
-          </>
+          </div>
         )}
       </div>
+
+      {viewMode === 'compare' ? (
+        <CompareView session={session} onSourceClick={onSourceClick} />
+      ) : (
+        <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px 32px' }}>
+          {session.status === 'waiting' && session.messages.length === 0 ? (
+            <WaitingState />
+          ) : (
+            <>
+              {groupByRound(session.messages).map(({ round, messages }) => (
+                <div key={round}>
+                  <RoundDivider round={round === 99 ? 'Synthesis' : round} />
+                  {messages.map(message => {
+                    const agent = agentMap.get(message.agentId)
+                    if (!agent) return null
+                    const agentRefs = session.sourceRefs.filter(r => r.agentId === agent.id)
+                    return (
+                      <AgentMessage
+                        key={message.id}
+                        message={message}
+                        agent={agent}
+                        sourceRefs={agentRefs}
+                        onSourceClick={onSourceClick}
+                      />
+                    )
+                  })}
+                </div>
+              ))}
+              {session.status === 'concluded' && <ConclusionBanner />}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
