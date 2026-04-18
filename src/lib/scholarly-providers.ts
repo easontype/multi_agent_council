@@ -9,7 +9,8 @@
  *   OA PDF lookup    : Unpaywall
  */
 
-const UA = "Council-Academic/1.0 (mailto:council@research.ai)";
+const CONTACT = process.env.CONTACT_EMAIL ?? "council@research.ai";
+const UA = `Council-Academic/1.0 (mailto:${CONTACT})`;
 const TIMEOUT_MS = 12_000;
 
 // ── Shared paper shape ────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ export async function searchOpenAlex(query: string, limit: number): Promise<Pape
 
   const url =
     `https://api.openalex.org/works?search=${encodeURIComponent(query)}` +
-    `&per-page=${limit}&select=${fields}&mailto=council@research.ai`;
+    `&per-page=${limit}&select=${fields}&mailto=${CONTACT}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": UA },
@@ -225,7 +226,7 @@ export interface CrossrefMeta {
 
 export async function resolveCrossrefMetadata(doi: string): Promise<CrossrefMeta | null> {
   const clean = doi.replace(/^https?:\/\/doi\.org\//i, "");
-  const url = `https://api.crossref.org/works/${encodeURIComponent(clean)}?mailto=council@research.ai`;
+  const url = `https://api.crossref.org/works/${encodeURIComponent(clean)}?mailto=${CONTACT}`;
 
   try {
     const res = await fetch(url, {
@@ -283,7 +284,7 @@ export async function resolveUnpaywallPdf(doi: string): Promise<string | null> {
   const clean = doi.replace(/^https?:\/\/doi\.org\//i, "");
   try {
     const res = await fetch(
-      `https://api.unpaywall.org/v2/${encodeURIComponent(clean)}?email=council@research.ai`,
+      `https://api.unpaywall.org/v2/${encodeURIComponent(clean)}?email=${CONTACT}`,
       { signal: AbortSignal.timeout(10_000) },
     );
     if (!res.ok) return null;

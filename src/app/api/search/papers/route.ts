@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     try {
       const url =
         `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(q)}` +
-        `?select=title,abstract_inverted_index,authorships,publication_year,cited_by_count,doi,best_oa_location,open_access&mailto=council@research.ai`;
+        `?select=title,abstract_inverted_index,authorships,publication_year,cited_by_count,doi,best_oa_location,open_access&mailto=${process.env.CONTACT_EMAIL ?? "council@research.ai"}`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       if (res.ok) {
         const works = await res.json();

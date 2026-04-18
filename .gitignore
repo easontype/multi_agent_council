@@ -1,6 +1,45 @@
-.next/
+# Dependencies
 node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Environment files — NEVER commit real secrets
+.env
 .env.local
+.env.*.local
+.env.development
+.env.production
+!.env.local.example
+!.env.example
+
+# Certificates & keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Logs
 *.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
 playwright-report/
 test-results/
+coverage/
+
+# Temp
+.tmp/
+*.tsbuildinfo
