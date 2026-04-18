@@ -32,6 +32,7 @@ export interface TeamBuilderResult {
   mode: ReviewMode
   rounds: 1 | 2
   agents: EditableReviewAgent[]
+  rationale?: string
 }
 
 interface RoleMeta {
@@ -560,7 +561,12 @@ export function buildGeneratedTeamFromBrief(brief: TeamBuilderBrief): TeamBuilde
       ? 1
       : 2
 
-  return { mode, rounds, agents }
+  return {
+    mode,
+    rounds,
+    agents,
+    rationale: `Built for ${GOAL_LABELS[brief.reviewGoal]} with a ${brief.stance} stance, prioritizing ${PRIORITY_LABELS[brief.priority]}.`,
+  }
 }
 
 export function buildSeatsFromEditableAgents(agents: EditableReviewAgent[]): CouncilSeat[] {
