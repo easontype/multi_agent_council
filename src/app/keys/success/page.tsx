@@ -138,7 +138,7 @@ function SuccessContent() {
                 fontSize: 26,
               }}>✓</div>
               <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
-                Payment confirmed
+                Subscription activated
               </h1>
               <p style={{ color: "var(--text-secondary)", fontSize: 15, lineHeight: 1.6 }}>
                 Your Pro API key is ready. Save it now — it won&apos;t be shown again.

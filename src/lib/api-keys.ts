@@ -17,29 +17,29 @@ import { db } from "@/lib/db";
 export async function ensureApiKeySchema(): Promise<void> {
   await db.query(`
     CREATE TABLE IF NOT EXISTS council_api_keys (
-      id                 TEXT PRIMARY KEY,
-      key_hash           TEXT NOT NULL UNIQUE,
-      name               TEXT NOT NULL,
-      email              TEXT,
-      tier               TEXT NOT NULL DEFAULT 'free',
-      daily_limit        INTEGER NOT NULL DEFAULT 10,
-      used_today         INTEGER NOT NULL DEFAULT 0,
-      reset_date         DATE NOT NULL DEFAULT CURRENT_DATE,
-      created_at         TIMESTAMPTZ DEFAULT NOW(),
-      last_used_at       TIMESTAMPTZ,
-      revoked_at         TIMESTAMPTZ,
-      stripe_session_id  TEXT UNIQUE
+      id                      TEXT PRIMARY KEY,
+      key_hash                TEXT NOT NULL UNIQUE,
+      name                    TEXT NOT NULL,
+      email                   TEXT,
+      tier                    TEXT NOT NULL DEFAULT 'free',
+      daily_limit             INTEGER NOT NULL DEFAULT 10,
+      used_today              INTEGER NOT NULL DEFAULT 0,
+      reset_date              DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at              TIMESTAMPTZ DEFAULT NOW(),
+      last_used_at            TIMESTAMPTZ,
+      revoked_at              TIMESTAMPTZ,
+      stripe_session_id       TEXT UNIQUE,
+      stripe_subscription_id  TEXT UNIQUE
     )
   `);
 
   await db
-    .query(`
-      ALTER TABLE council_api_keys
-      ADD COLUMN IF NOT EXISTS stripe_session_id TEXT UNIQUE
-    `)
-    .catch(() => {
-      /* ignore if already exists */
-    });
+    .query(`ALTER TABLE council_api_keys ADD COLUMN IF NOT EXISTS stripe_session_id TEXT UNIQUE`)
+    .catch(() => {});
+
+  await db
+    .query(`ALTER TABLE council_api_keys ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT UNIQUE`)
+    .catch(() => {});
 }
 
 function hashKey(plaintextKey: string): string {
@@ -268,7 +268,10 @@ export async function reserveProKeyForSession(
  * Called from the Stripe webhook: promote the pending key to a real Pro key.
  * Idempotent and safe to call multiple times for the same session.
  */
-export async function activateProKeyForSession(stripeSessionId: string): Promise<void> {
+export async function activateProKeyForSession(
+  stripeSessionId: string,
+  subscriptionId?: string | null
+): Promise<void> {
   await ensurePendingKeySchema();
   await ensureApiKeySchema();
 
@@ -291,10 +294,19 @@ export async function activateProKeyForSession(stripeSessionId: string): Promise
 
   await db.query(
     `INSERT INTO council_api_keys
-       (id, key_hash, name, email, tier, daily_limit, stripe_session_id)
-     VALUES ($1, $2, $3, $4, 'pro', 500, $5)
+       (id, key_hash, name, email, tier, daily_limit, stripe_session_id, stripe_subscription_id)
+     VALUES ($1, $2, $3, $4, 'pro', 500, $5, $6)
      ON CONFLICT (stripe_session_id) DO NOTHING`,
-    [row.id, row.key_hash, row.name, row.email, stripeSessionId]
+    [row.id, row.key_hash, row.name, row.email, stripeSessionId, subscriptionId ?? null]
+  );
+}
+
+export async function revokeKeysBySubscription(subscriptionId: string): Promise<void> {
+  await ensureApiKeySchema();
+  await db.query(
+    `UPDATE council_api_keys SET revoked_at = NOW()
+     WHERE stripe_subscription_id = $1 AND revoked_at IS NULL`,
+    [subscriptionId]
   );
 }
 

@@ -45,6 +45,7 @@ export interface CouncilSession {
   run_attempts: number;
   updated_at: string | null;
   divergence_level?: string | null;
+  is_public: boolean;
 }
 
 export interface CouncilTurn {

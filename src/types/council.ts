@@ -1,43 +1,21 @@
-// Agent 定义
 export interface Agent {
   id: string
   name: string
   role: string
+  seatRole: string
   color: string
-  avatar: string // 首字母或 emoji
+  avatar: string
 }
 
-// Academic critique roles (aligned with council-academic.ts seat roles)
-export const AGENTS: Agent[] = [
-  { id: 'methods',      name: 'Methods Critic',        role: 'Methodology',    color: '#6366f1', avatar: 'M' },
-  { id: 'literature',   name: 'Literature Auditor',    role: 'Literature',     color: '#8b5cf6', avatar: 'L' },
-  { id: 'replication',  name: 'Replication Skeptic',   role: 'Reproducibility',color: '#06b6d4', avatar: 'R' },
-  { id: 'contribution', name: 'Contribution Evaluator',role: 'Novelty',        color: '#f59e0b', avatar: 'C' },
-  { id: 'advocate',     name: 'Constructive Advocate', role: 'Advocate',       color: '#10b981', avatar: 'A' },
-  { id: 'gap',          name: 'Gap Finder',            role: 'Gaps',           color: '#6366f1', avatar: 'G' },
-  { id: 'hostile',      name: 'Hostile Reviewer',      role: 'Hostile Review', color: '#ef4444', avatar: 'H' },
-  { id: 'methods2',     name: 'Methods Auditor',       role: 'Methods Audit',  color: '#06b6d4', avatar: 'A' },
-  { id: 'scout',        name: 'Related Work Scout',    role: 'Related Work',   color: '#f59e0b', avatar: 'S' },
-  { id: 'mentor',       name: 'Supportive Mentor',     role: 'Mentor',         color: '#10b981', avatar: 'M' },
-  { id: 'moderator',    name: 'Moderator',             role: 'Synthesis',      color: '#94a3b8', avatar: '◆' },
+export const DEFAULT_AGENTS: Agent[] = [
+  { id: 'methods', name: 'Methods Critic', role: 'Methodology', seatRole: 'Methods Critic', color: '#43506b', avatar: 'M' },
+  { id: 'literature', name: 'Literature Auditor', role: 'Related Work', seatRole: 'Literature Auditor', color: '#65505f', avatar: 'L' },
+  { id: 'replication', name: 'Replication Skeptic', role: 'Reproducibility', seatRole: 'Replication Skeptic', color: '#466671', avatar: 'R' },
+  { id: 'contribution', name: 'Contribution Evaluator', role: 'Novelty', seatRole: 'Contribution Evaluator', color: '#8a5f3b', avatar: 'C' },
+  { id: 'advocate', name: 'Constructive Advocate', role: 'Best Case', seatRole: 'Constructive Advocate', color: '#59674b', avatar: 'A' },
+  { id: 'moderator', name: 'Moderator', role: 'Synthesis', seatRole: 'Moderator', color: '#6b7280', avatar: 'M' },
 ]
 
-// Map SSE role strings → agent id
-export const ROLE_TO_AGENT_ID: Record<string, string> = {
-  'Methods Critic':        'methods',
-  'Literature Auditor':    'literature',
-  'Replication Skeptic':   'replication',
-  'Contribution Evaluator':'contribution',
-  'Constructive Advocate': 'advocate',
-  'Gap Finder':            'gap',
-  'Hostile Reviewer':      'hostile',
-  'Methods Auditor':       'methods2',
-  'Related Work Scout':    'scout',
-  'Supportive Mentor':     'mentor',
-  'Moderator':             'moderator',
-}
-
-// 工具调用
 export interface ToolCall {
   id: string
   name: string
@@ -46,7 +24,6 @@ export interface ToolCall {
   output?: string
 }
 
-// 消息内容块
 export interface ThinkingBlock {
   type: 'thinking'
   content: string
@@ -66,7 +43,6 @@ export interface TextBlock {
 
 export type ContentBlock = ThinkingBlock | ToolUseBlock | TextBlock
 
-// Agent 消息
 export interface AgentMessage {
   id: string
   agentId: string
@@ -86,13 +62,13 @@ export interface SourceRef {
   agentName: string
 }
 
-// 讨论会话
 export interface DiscussionSession {
   id: string
   paperId: string
   paperTitle: string
   paperAbstract?: string
   status: 'waiting' | 'discussing' | 'concluded'
+  agents: Agent[]
   messages: AgentMessage[]
   sourceRefs: SourceRef[]
   conclusion?: string

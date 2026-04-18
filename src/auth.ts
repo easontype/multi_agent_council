@@ -36,15 +36,23 @@ function secureEqual(left: string, right: string) {
 
 const providers = [];
 
-if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) {
-  providers.push(GitHub);
+const githubId = process.env.AUTH_GITHUB_ID || process.env.GITHUB_CLIENT_ID;
+const githubSecret = process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_CLIENT_SECRET;
+if (githubId && githubSecret) {
+  providers.push(GitHub({ clientId: githubId, clientSecret: githubSecret }));
 }
 
-if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
-  providers.push(Google);
+const googleId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+const googleSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+if (googleId && googleSecret) {
+  providers.push(Google({ clientId: googleId, clientSecret: googleSecret }));
 }
 
-providers.push(
+const enableCredentials =
+  process.env.AUTH_ENABLE_CREDENTIALS === "true" ||
+  process.env.NODE_ENV !== "production";
+
+if (enableCredentials) providers.push(
   Credentials({
     credentials: {
       email: { label: "Email", type: "email" },

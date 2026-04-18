@@ -257,7 +257,7 @@ export default function HomePage() {
           <h2 className="mb-2 text-center text-[26px] font-bold tracking-[-0.02em]">
             Simple pricing
           </h2>
-          <p className="mb-12 text-center text-[15px] text-muted-foreground">No subscriptions. No seat fees.</p>
+          <p className="mb-12 text-center text-[15px] text-muted-foreground">Cancel anytime. No seat fees.</p>
           <div className="grid grid-cols-2 gap-5">
             <PricingCard
               tier="Free"
@@ -271,9 +271,9 @@ export default function HomePage() {
             <PricingCard
               tier="Pro"
               price="$20"
-              per="one-time"
+              per="/month"
               features={["500 reviews per day", "API access (all endpoints)", "Programmatic session control", "Gap Analysis mode", "Priority compute"]}
-              cta="Buy access"
+              cta="Subscribe"
               ctaHref="/keys"
               highlight={true}
             />

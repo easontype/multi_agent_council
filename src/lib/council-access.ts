@@ -9,6 +9,7 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 interface SessionAccessRecord {
   owner_user_email: string | null;
   access_token_hash: string | null;
+  is_public: boolean;
 }
 
 function normalizeEmail(value: string | null | undefined): string | null {
@@ -67,7 +68,7 @@ export async function getAuthenticatedCouncilOwnerEmail(): Promise<string | null
 
 async function getSessionAccessRecord(sessionId: string): Promise<SessionAccessRecord | null> {
   const { rows } = await db.query(
-    `SELECT owner_user_email, access_token_hash
+    `SELECT owner_user_email, access_token_hash, is_public
      FROM council_sessions
      WHERE id = $1`,
     [sessionId],
@@ -79,6 +80,7 @@ async function getSessionAccessRecord(sessionId: string): Promise<SessionAccessR
   return {
     owner_user_email: normalizeEmail(row.owner_user_email),
     access_token_hash: typeof row.access_token_hash === "string" ? row.access_token_hash : null,
+    is_public: Boolean(row.is_public),
   };
 }
 
@@ -86,10 +88,25 @@ export async function canAccessCouncilSession(req: NextRequest, sessionId: strin
   const access = await getSessionAccessRecord(sessionId);
   if (!access) return false;
 
+  if (access.is_public) return true;
+
   const ownerEmail = await getAuthenticatedCouncilOwnerEmail();
   if (ownerEmail && access.owner_user_email && ownerEmail === access.owner_user_email) {
     return true;
   }
+
+  const plaintextToken = req.cookies.get(buildCouncilSessionCookieName(sessionId))?.value;
+  if (!plaintextToken || !access.access_token_hash) return false;
+
+  return hashCouncilSessionAccessToken(plaintextToken) === access.access_token_hash;
+}
+
+export async function isCouncilSessionOwner(req: NextRequest, sessionId: string): Promise<boolean> {
+  const access = await getSessionAccessRecord(sessionId);
+  if (!access) return false;
+
+  const ownerEmail = await getAuthenticatedCouncilOwnerEmail();
+  if (ownerEmail && access.owner_user_email && ownerEmail === access.owner_user_email) return true;
 
   const plaintextToken = req.cookies.get(buildCouncilSessionCookieName(sessionId))?.value;
   if (!plaintextToken || !access.access_token_hash) return false;

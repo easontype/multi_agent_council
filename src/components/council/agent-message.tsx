@@ -1,18 +1,16 @@
 'use client'
 
-import { AgentMessage as AgentMessageType, AGENTS } from '@/types/council'
+import { Agent, AgentMessage as AgentMessageType } from '@/types/council'
 import { AgentAvatar } from './agent-avatar'
 import { ThinkingBlock } from './thinking-block'
 import { ToolCard } from './tool-card'
 
 interface AgentMessageProps {
   message: AgentMessageType
+  agent: Agent
 }
 
-export function AgentMessage({ message }: AgentMessageProps) {
-  const agent = AGENTS.find(a => a.id === message.agentId)
-  if (!agent) return null
-
+export function AgentMessage({ message, agent }: AgentMessageProps) {
   const isStreaming = !message.isComplete
 
   const time = new Intl.DateTimeFormat('en-US', {

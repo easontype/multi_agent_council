@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCouncilSessionBundle } from "@/lib/council";
-import { canAccessCouncilSession, clearCouncilSessionCookie } from "@/lib/council-access";
+import { canAccessCouncilSession, clearCouncilSessionCookie, isCouncilSessionOwner } from "@/lib/council-access";
 
 export async function GET(
   req: NextRequest,
@@ -20,6 +20,23 @@ export async function GET(
   }
 
   return NextResponse.json(bundle);
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const isOwner = await isCouncilSessionOwner(req, id);
+  if (!isOwner) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const body = await req.json().catch(() => ({}));
+  if (typeof body.is_public !== "boolean") {
+    return NextResponse.json({ error: "is_public (boolean) required" }, { status: 400 });
+  }
+
+  await db.query(`UPDATE council_sessions SET is_public = $1 WHERE id = $2`, [body.is_public, id]);
+  return NextResponse.json({ ok: true, is_public: body.is_public });
 }
 
 export async function DELETE(

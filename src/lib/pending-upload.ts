@@ -5,6 +5,10 @@ export function setPendingUpload(file: File | null) {
   _file = file;
 }
 
+export function peekPendingUpload(): File | null {
+  return _file;
+}
+
 export function takePendingUpload(): File | null {
   const f = _file;
   _file = null;

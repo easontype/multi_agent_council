@@ -161,10 +161,10 @@ export default function KeysPage() {
               {/* Pro tier */}
               <PricingCard
                 tier="Pro"
-                price="$19"
-                priceNote="one-time"
-                features={["500 reviews / day", "arXiv + PDF + text", "All reviewer types", "Priority API access", "No expiry"]}
-                ctaLabel="Buy Pro — $19"
+                price="$20"
+                priceNote="/month"
+                features={["500 reviews / day", "arXiv + PDF + text", "All reviewer types", "Priority API access", "Cancel anytime"]}
+                ctaLabel="Subscribe — $20/mo"
                 ctaVariant="primary"
                 badge="BEST VALUE"
                 onCta={() => setView("pro-form")}
@@ -172,7 +172,7 @@ export default function KeysPage() {
             </div>
 
             <p style={{ marginTop: 24, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>
-              One-time payment. No subscription. Key never expires.
+              Monthly subscription. Cancel anytime from your Stripe dashboard.
             </p>
           </>
         )}
@@ -315,7 +315,7 @@ export default function KeysPage() {
                     fontSize: 14, fontWeight: 600, cursor: "pointer",
                   }}
                 >
-                  Upgrade to Pro — $19
+                  Upgrade to Pro — $20/mo
                 </button>
                 <a href="/home" style={{
                   flex: 1, textAlign: "center", color: "var(--text-secondary)",
@@ -339,10 +339,10 @@ export default function KeysPage() {
             }}>← Back</button>
 
             <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)" }}>
-              Buy Pro Access
+              Subscribe to Pro
             </h2>
             <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 28 }}>
-              500 reviews/day. One-time $19. Key never expires.
+              500 reviews/day. $20/month. Cancel anytime.
             </p>
 
             <form onSubmit={handleProSubmit} style={{
@@ -390,8 +390,8 @@ export default function KeysPage() {
               }}>
                 <Row label="Plan" value="Pro" accent />
                 <Row label="Daily limit" value="500 requests / day" />
-                <Row label="Price" value="$19 one-time" />
-                <Row label="Expiry" value="Never" />
+                <Row label="Price" value="$20 / month" />
+                <Row label="Billing" value="Monthly, cancel anytime" />
               </div>
 
               <button
@@ -404,7 +404,7 @@ export default function KeysPage() {
                   fontSize: 15, fontWeight: 600, cursor: proLoading || !proName.trim() ? "not-allowed" : "pointer",
                 }}
               >
-                {proLoading ? "Redirecting to Stripe…" : "Continue to payment →"}
+                {proLoading ? "Redirecting to Stripe…" : "Continue to subscription →"}
               </button>
 
               <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>

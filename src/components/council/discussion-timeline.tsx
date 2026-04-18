@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
-import { DiscussionSession, AGENTS } from '@/types/council'
+import { Agent, DiscussionSession } from '@/types/council'
 import { AgentMessage } from './agent-message'
 import { AgentAvatar } from './agent-avatar'
 
@@ -9,7 +9,7 @@ interface DiscussionTimelineProps {
   session: DiscussionSession
 }
 
-function AgentRoster({ activeAgentId }: { activeAgentId?: string }) {
+function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId?: string }) {
   return (
     <div style={{
       display: 'flex', gap: 4, padding: '10px 20px',
@@ -26,7 +26,7 @@ function AgentRoster({ activeAgentId }: { activeAgentId?: string }) {
       }}>
         Panel
       </span>
-      {AGENTS.map(agent => {
+      {agents.map(agent => {
         const isActive = activeAgentId === agent.id
         return (
           <div key={agent.id} style={{
@@ -43,7 +43,7 @@ function AgentRoster({ activeAgentId }: { activeAgentId?: string }) {
               color: isActive ? agent.color : '#999',
               transition: 'color 200ms',
             }}>
-              {agent.role.split(' ')[0]}
+              {agent.name}
             </span>
           </div>
         )
@@ -130,6 +130,8 @@ export function DiscussionTimeline({ session }: DiscussionTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeMessage = session.messages.find(m => !m.isComplete)
   const activeAgentId = activeMessage?.agentId
+  const visibleAgents = session.agents.filter((agent) => agent.seatRole !== 'Moderator')
+  const agentMap = new Map(session.agents.map((agent) => [agent.id, agent]))
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -139,7 +141,7 @@ export function DiscussionTimeline({ session }: DiscussionTimelineProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <AgentRoster activeAgentId={activeAgentId} />
+      <AgentRoster agents={visibleAgents} activeAgentId={activeAgentId} />
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px 32px' }}>
         {session.status === 'waiting' && session.messages.length === 0 ? (
@@ -149,9 +151,11 @@ export function DiscussionTimeline({ session }: DiscussionTimelineProps) {
             {groupByRound(session.messages).map(({ round, messages }) => (
               <div key={round}>
                 <RoundDivider round={round === 99 ? 'Synthesis' : round} />
-                {messages.map(message => (
-                  <AgentMessage key={message.id} message={message} />
-                ))}
+                {messages.map(message => {
+                  const agent = agentMap.get(message.agentId)
+                  if (!agent) return null
+                  return <AgentMessage key={message.id} message={message} agent={agent} />
+                })}
               </div>
             ))}
             {session.status === 'concluded' && <ConclusionBanner />}

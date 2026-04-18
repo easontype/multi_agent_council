@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { DiscussionSession, AgentMessage, ContentBlock, AGENTS } from '@/types/council'
+import { DiscussionSession, AgentMessage, ContentBlock, DEFAULT_AGENTS as AGENTS } from '@/types/council'
 
 // Demo 数据
 const DEMO_DISCUSSION: { agentId: string; thinking: string; tools?: { name: string }[]; response: string }[] = [
@@ -88,6 +88,7 @@ export function useStreamingDemo(paperTitle: string, paperAbstract?: string) {
     paperTitle,
     paperAbstract,
     status: 'waiting',
+    agents: AGENTS,
     messages: [],
     sourceRefs: [],
     startedAt: new Date(),

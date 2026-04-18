@@ -92,6 +92,7 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
   const oauthProviders = Object.values(providers).filter(
     (provider) => provider.id !== "credentials"
   );
+  const hasCredentials = Boolean(providers["credentials"]);
 
   async function handleOAuth(providerId: string) {
     setError(null);
@@ -119,7 +120,7 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
             </div>
             <div className="mb-1 text-[15px] font-semibold text-foreground">Sign in</div>
             <div className="text-[13px] text-muted-foreground">
-              Auth.js v5 session flow for the App Router
+              AI peer review for academic papers
             </div>
           </div>
 
@@ -155,16 +156,18 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
                 })}
               </div>
 
+              {hasCredentials && (
               <div className="my-6 flex items-center gap-3">
                 <div className="h-px flex-1 bg-border" />
                 <span className="text-xs font-medium text-muted-foreground">or</span>
                 <div className="h-px flex-1 bg-border" />
               </div>
+            )}
             </>
           ) : null}
 
           {/* Credentials form */}
-          <form onSubmit={handleCredentialsSignIn} className="flex flex-col gap-3.5">
+          {hasCredentials && <form onSubmit={handleCredentialsSignIn} className="flex flex-col gap-3.5">
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-muted-foreground">Email</span>
               <Input
@@ -207,7 +210,7 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
             >
               {submittingCredentials ? "Signing in..." : "Sign in with credentials"}
             </Button>
-          </form>
+          </form>}
 
           {/* Dev credentials hint */}
           {process.env.NODE_ENV !== "production" ? (

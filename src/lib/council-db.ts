@@ -94,6 +94,7 @@ export async function ensureCouncilSchema() {
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS last_error TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS run_attempts INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
 
         CREATE INDEX IF NOT EXISTS idx_council_turns_session ON council_turns(session_id, round, created_at);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_status ON council_sessions(status, created_at DESC);
@@ -178,6 +179,7 @@ export function mapSessionRow(row: Record<string, unknown>, defaultModeratorMode
     run_attempts: Number(row.run_attempts ?? 0),
     updated_at: row.updated_at ? String(row.updated_at) : null,
     divergence_level: row.divergence_level ? String(row.divergence_level) : null,
+    is_public: Boolean(row.is_public ?? false),
   };
 }
 
