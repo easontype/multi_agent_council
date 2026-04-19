@@ -25,8 +25,8 @@ export function AgentAvatar({ agent, size = 'md', showPulse = false }: AgentAvat
         fontSize: s.font, fontWeight: 700, color: '#fff',
         transition: 'box-shadow 300ms',
         boxShadow: showPulse
-          ? `0 0 0 2px #fff, 0 0 0 3px ${agent.color}44, 0 4px 12px ${agent.color}44`
-          : `0 1px 3px ${agent.color}33`,
+          ? `0 0 0 2px #fff, 0 0 0 3px ${agent.color}33, 0 8px 18px ${agent.color}2c`
+          : `0 1px 4px rgba(0, 0, 0, 0.04)`,
       }}>
         {agent.avatar}
       </div>
@@ -34,7 +34,7 @@ export function AgentAvatar({ agent, size = 'md', showPulse = false }: AgentAvat
         <span style={{
           position: 'absolute', bottom: 0, right: 0,
           width: 8, height: 8, borderRadius: '50%',
-          background: '#22c55e', border: '2px solid #fff',
+          background: '#16a34a', border: '2px solid #fff',
           animation: 'av-pulse 1.5s ease-in-out infinite',
         }} />
       )}

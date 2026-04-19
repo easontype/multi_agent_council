@@ -31,7 +31,7 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
     setLoading(true)
 
     try {
-      const res = await fetch(`/api/council/${sessionId}/chat`, {
+      const res = await fetch(`/api/sessions/${sessionId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: prompt }),
@@ -61,11 +61,8 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '20px 18px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: '#aaa', textTransform: 'uppercase', marginBottom: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 4 }}>
             Chat with Paper
-          </div>
-          <div style={{ fontSize: 12.5, color: '#777', lineHeight: 1.55 }}>
-            Ask focused questions against the ingested paper library.
           </div>
         </div>
       </div>
@@ -90,7 +87,7 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
                 color: '#52525b',
                 borderRadius: 999,
                 padding: '7px 10px',
-                fontSize: 11.5,
+                fontSize: 12,
                 cursor: !sessionId || loading ? 'default' : 'pointer',
               }}
             >
@@ -115,7 +112,7 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
             padding: '24px 18px',
             textAlign: 'center',
             color: '#a1a1aa',
-            fontSize: 12.5,
+            fontSize: 13,
             lineHeight: 1.7,
             background: '#fafafa',
           }}>
@@ -132,7 +129,7 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
                 padding: '12px 14px',
               }}
             >
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 7 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 7 }}>
                 {message.role === 'user' ? 'You' : 'Council Paper Chat'}
               </div>
               <div style={{ fontSize: 13, color: '#27272a', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
@@ -159,11 +156,11 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
                         cursor: citation.uri ? 'pointer' : 'default',
                       }}
                     >
-                      <div style={{ fontSize: 11.5, fontWeight: 600, color: '#3f3f46', marginBottom: 4 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#3f3f46', marginBottom: 4 }}>
                         {citation.label}
                       </div>
                       {citation.snippet && (
-                        <div style={{ fontSize: 11.5, color: '#71717a', lineHeight: 1.55 }}>
+                        <div style={{ fontSize: 12, color: '#71717a', lineHeight: 1.55 }}>
                           {citation.snippet}
                         </div>
                       )}
@@ -206,7 +203,7 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
               padding: '0 14px',
               background: !sessionId || loading || !question.trim() ? '#d4d4d8' : '#111827',
               color: '#fff',
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 600,
               cursor: !sessionId || loading || !question.trim() ? 'default' : 'pointer',
             }}

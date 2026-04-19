@@ -17,7 +17,7 @@ function ToolIcon() {
 
 function CheckIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   )
@@ -34,7 +34,7 @@ function SpinnerIcon({ color }: { color: string }) {
 
 function ErrorIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="12" cy="12" r="10" />
       <line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
     </svg>
@@ -57,6 +57,11 @@ export function ToolCard({ tool, agentColor }: ToolCardProps) {
     : tool.status === 'completed'
     ? CheckIcon
     : ErrorIcon
+  const statusColor = tool.status === 'completed'
+    ? '#16a34a'
+    : tool.status === 'error'
+    ? '#dc2626'
+    : agentColor
 
   return (
     <div style={{
@@ -65,11 +70,11 @@ export function ToolCard({ tool, agentColor }: ToolCardProps) {
       borderRadius: 6, padding: '4px 10px',
       marginBottom: 5, marginRight: 5, fontSize: 12,
     }}>
-      <span style={{ color: '#bbb', display: 'flex' }}><ToolIcon /></span>
-      <span style={{ color: '#444', fontWeight: 500 }}>
+      <span style={{ color: '#a1a1aa', display: 'flex' }}><ToolIcon /></span>
+      <span style={{ color: '#3f3f46', fontWeight: 500 }}>
         {TOOL_LABELS[tool.name] || tool.name}
       </span>
-      <span style={{ display: 'flex' }}><StatusIcon /></span>
+      <span style={{ display: 'flex', color: statusColor }}><StatusIcon /></span>
     </div>
   )
 }

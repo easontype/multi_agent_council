@@ -60,7 +60,7 @@ export default function ReviewsPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch("/api/council")
+    fetch("/api/sessions")
       .then(r => r.json())
       .then((data: SessionItem[]) => setSessions(data ?? []))
       .catch(() => {})

@@ -1,34 +1,9 @@
-// ─── Agent ───────────────────────────────────────────────────────────────────
+// ─── Agent (re-exported from unified agent.ts) ────────────────────────────────
+// AgentDB / AgentUI / Agent / AgentRole / AgentModel / agentToUI all live in
+// agent.ts. This file re-exports them so existing `@/types` imports keep working.
 
-export type AgentRole = "orchestrator" | "worker" | "both";
-export type AgentModel = "claude" | "gemini" | "minimax" | "qwen" | string;
-
-export interface Agent {
-  id: string;
-  name: string;
-  description: string | null;
-  avatar: string | null;
-  systemPrompt: string | null;
-  primaryModel: AgentModel;
-  fallbackModels: string[];
-  toolIds: string[];
-  skillIds: string[];
-  role: AgentRole;
-  contextWindow: number;
-  config: Record<string, unknown>;
-  enabled: boolean;
-  parentId: string | null;
-  parentName?: string | null;
-  parentConfig?: Record<string, unknown> | null;
-  heartbeatEnabled?: boolean;
-  heartbeatIntervalMin?: number;
-  heartbeatModel?: string;
-  lastHeartbeatAt?: string | null;
-  canvasX?: number | null;
-  canvasY?: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { AgentRole, AgentModel, AgentDB, AgentUI, Agent } from "./agent";
+export { agentToUI } from "./agent";
 
 // ─── Tool (technical capability) ─────────────────────────────────────────────
 

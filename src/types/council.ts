@@ -1,13 +1,19 @@
-export interface Agent {
-  id: string
-  name: string
-  role: string
-  seatRole: string
-  color: string
-  avatar: string
-}
+// ─── Council UI Types ─────────────────────────────────────────────────────────
+// Agent types live in agent.ts. This file re-exports AgentUI as both
+// `AgentUI` and the legacy `Agent` name so all council component imports
+// continue to compile without changes.
 
-export const DEFAULT_AGENTS: Agent[] = [
+import type { AgentUI } from "./agent";
+
+export type { AgentUI } from "./agent";
+
+/**
+ * Legacy alias: council components import `Agent` from this file.
+ * In the council context "Agent" always means the lightweight UI model.
+ */
+export type { AgentUI as Agent } from "./agent";
+
+export const DEFAULT_AGENTS: AgentUI[] = [
   { id: 'methods', name: 'Methods Critic', role: 'Methodology', seatRole: 'Methods Critic', color: '#43506b', avatar: 'M' },
   { id: 'literature', name: 'Literature Auditor', role: 'Related Work', seatRole: 'Literature Auditor', color: '#65505f', avatar: 'L' },
   { id: 'replication', name: 'Replication Skeptic', role: 'Reproducibility', seatRole: 'Replication Skeptic', color: '#466671', avatar: 'R' },
@@ -74,7 +80,7 @@ export interface DiscussionSession {
   paperTitle: string
   paperAbstract?: string
   status: 'waiting' | 'discussing' | 'concluded'
-  agents: Agent[]
+  agents: AgentUI[]
   messages: AgentMessage[]
   sourceRefs: SourceRef[]
   conclusion?: string

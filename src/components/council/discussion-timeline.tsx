@@ -3,105 +3,179 @@
 import { useRef, useEffect, useState } from 'react'
 import { Agent, DiscussionSession } from '@/types/council'
 import { AgentMessage } from './agent-message'
-import { AgentAvatar } from './agent-avatar'
 import { CompareView } from './compare-view'
+import { DebateMap } from './debate-map'
 
 interface DiscussionTimelineProps {
   session: DiscussionSession
   onSourceClick?: (label: string) => void
 }
 
-function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId?: string }) {
+function RosterAvatar({ agent, active }: { agent: Agent; active: boolean }) {
   return (
-    <div style={{
-      display: 'flex', gap: 4, padding: '10px 20px',
-      borderBottom: '1px solid #f0f0f2',
-      background: 'rgba(255,255,255,0.95)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      flexShrink: 0, flexWrap: 'wrap', alignItems: 'center',
-      boxShadow: '0 1px 0 #f0f0f2',
-    }}>
-      <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
-        color: '#ccc', textTransform: 'uppercase', marginRight: 6,
-      }}>
-        Panel
-      </span>
-      {agents.map(agent => {
-        const isActive = activeAgentId === agent.id
-        return (
-          <div key={agent.id} style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '3px 8px 3px 4px',
-            background: isActive ? `${agent.color}12` : 'transparent',
-            border: `1px solid ${isActive ? agent.color + '33' : 'transparent'}`,
-            borderRadius: 20,
-            transition: 'all 200ms',
-          }}>
-            <AgentAvatar agent={agent} size="sm" showPulse={isActive} />
-            <span style={{
-              fontSize: 11, fontWeight: 500,
-              color: isActive ? agent.color : '#999',
-              transition: 'color 200ms',
-            }}>
-              {agent.name}
-            </span>
+    <span
+      title={agent.name}
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: '999px',
+        border: `2px solid ${active ? agent.color : '#fff'}`,
+        background: agent.color,
+        color: '#fff',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 10,
+        fontWeight: 700,
+        marginLeft: '-6px',
+        boxShadow: active ? `0 0 0 2px ${agent.color}22` : 'none',
+        position: 'relative',
+        zIndex: active ? 2 : 1,
+      }}
+    >
+      {agent.avatar}
+    </span>
+  )
+}
+
+function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId?: string }) {
+  const activeAgent = agents.find((agent) => agent.id === activeAgentId)
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        padding: '10px 20px',
+        borderBottom: '1px solid #ececf1',
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase' }}>
+          Panel
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
+          {agents.map((agent) => (
+            <RosterAvatar key={agent.id} agent={agent} active={activeAgentId === agent.id} />
+          ))}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#18181b',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {agents.map((agent) => agent.name).join(' · ')}
           </div>
-        )
-      })}
+          <div style={{ fontSize: 11, color: '#71717a' }}>
+            {agents.length} seats in debate
+          </div>
+        </div>
+      </div>
+
+      {activeAgent && (
+        <span
+          style={{
+            flexShrink: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            borderRadius: '999px',
+            border: `1px solid ${activeAgent.color}33`,
+            background: `${activeAgent.color}08`,
+            color: activeAgent.color,
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '999px',
+              background: '#16a34a',
+              animation: 'timeline-pulse 1.2s ease-in-out infinite',
+            }}
+          />
+          {activeAgent.name} live
+        </span>
+      )}
     </div>
   )
 }
 
 function RoundDivider({ round }: { round: number | string }) {
-  const label = typeof round === 'number' ? String(round) : round
+  const numeral = typeof round === 'number' ? String(round) : round
+  const label = typeof round === 'number' ? 'Round' : 'Synthesis'
+
   return (
-    <div style={{ padding: '24px 0 16px', display: 'flex', alignItems: 'baseline', gap: 12 }}>
-      <span style={{
-        fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
-        color: '#ccc', textTransform: 'uppercase',
-      }}>
-        {typeof round === 'string' ? '' : 'Round'}
-      </span>
-      <span style={{
-        fontSize: typeof round === 'string' ? 18 : 36,
-        fontWeight: 800, color: '#f0f0f2',
-        lineHeight: 1, letterSpacing: '-0.03em',
-        fontFamily: "'Georgia', serif",
-      }}>
-        {label}
-      </span>
-      <div style={{ flex: 1, height: 1, background: '#f0f0f2', alignSelf: 'center' }} />
+    <div style={{ padding: '28px 0 18px', display: 'flex', alignItems: 'flex-end', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#a1a1aa', textTransform: 'uppercase' }}>
+          {label}
+        </span>
+        <span
+          style={{
+            fontSize: typeof round === 'string' ? 24 : 32,
+            lineHeight: 1,
+            letterSpacing: '-0.03em',
+            color: '#d4d4d8',
+            fontFamily: "'Georgia', 'Times New Roman', serif",
+          }}
+        >
+          {numeral}
+        </span>
+      </div>
+      <div style={{ flex: 1, height: 1, background: '#ececf1' }} />
     </div>
   )
 }
 
 function groupByRound(messages: import('@/types/council').AgentMessage[]) {
   const map = new Map<number, import('@/types/council').AgentMessage[]>()
-  for (const m of messages) {
-    const r = m.round ?? 1
-    if (!map.has(r)) map.set(r, [])
-    map.get(r)!.push(m)
+  for (const message of messages) {
+    const round = message.round ?? 1
+    if (!map.has(round)) map.set(round, [])
+    map.get(round)!.push(message)
   }
   return Array.from(map.entries())
     .sort(([a], [b]) => a - b)
-    .map(([round, messages]) => ({ round, messages }))
+    .map(([round, roundMessages]) => ({ round, messages: roundMessages }))
 }
 
 function WaitingState() {
   return (
-    <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      gap: 12, color: '#ccc', padding: '40px 20px',
-    }}>
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 14,
+        color: '#a1a1aa',
+        padding: '40px 20px',
+        textAlign: 'center',
+      }}
+    >
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
       </svg>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: '#aaa', marginBottom: 4 }}>Ready to begin</div>
-        <div style={{ fontSize: 13, color: '#ccc' }}>Click Start Review to convene the panel</div>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#71717a', marginBottom: 4 }}>Ready to begin</div>
       </div>
     </div>
   )
@@ -109,33 +183,64 @@ function WaitingState() {
 
 function ConclusionBanner() {
   return (
-    <div style={{
-      margin: '16px 0 8px',
-      padding: '12px 16px',
-      background: '#f0fdf4',
-      border: '1px solid #bbf7d0',
-      borderRadius: 10,
-      display: 'flex', alignItems: 'center', gap: 10,
-    }}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+    <div
+      style={{
+        margin: '20px 0 8px',
+        padding: '14px 16px',
+        background: '#f0fdf4',
+        border: '1px solid #bbf7d0',
+        borderRadius: 12,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ color: '#16a34a' }}>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
       </svg>
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#15803d', marginBottom: 2 }}>Panel discussion concluded</div>
-        <div style={{ fontSize: 12, color: '#166534' }}>All 5 reviewers have submitted their assessments.</div>
+        <div style={{ fontSize: 12, color: '#166534' }}>All reviewer seats have submitted their assessments.</div>
       </div>
+    </div>
+  )
+}
+
+function SessionAlerts({ alerts }: { alerts: import('@/types/council').SessionAlert[] }) {
+  if (!alerts.length) return null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 0 0' }}>
+      {alerts.map((alert) => (
+        <div
+          key={alert.id}
+          style={{
+            borderRadius: 16,
+            border: alert.level === 'warning' ? '1px solid #facc15' : '1px solid #d6d3d1',
+            background: alert.level === 'warning' ? '#fefce8' : '#fafaf9',
+            padding: '10px 14px',
+            color: alert.level === 'warning' ? '#854d0e' : '#44403c',
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          {alert.message}
+        </div>
+      ))}
     </div>
   )
 }
 
 export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [viewMode, setViewMode] = useState<'timeline' | 'compare'>('timeline')
+  const [viewMode, setViewMode] = useState<'timeline' | 'compare' | 'map'>('timeline')
 
-  const activeMessage = session.messages.find(m => !m.isComplete)
+  const activeMessage = session.messages.find((message) => !message.isComplete)
   const activeAgentId = activeMessage?.agentId
   const visibleAgents = session.agents.filter((agent) => agent.seatRole !== 'Moderator')
   const agentMap = new Map(session.agents.map((agent) => [agent.id, agent]))
+  const hasRound2 = session.messages.some((m) => m.round === 2 && m.isComplete)
 
   useEffect(() => {
     if (viewMode === 'timeline' && scrollRef.current) {
@@ -143,54 +248,81 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
     }
   }, [session.messages, viewMode])
 
-  const hasMessages = session.messages.some(m => m.isComplete)
+  const hasMessages = session.messages.some((message) => message.isComplete)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid #f0f0f2',
-        background: 'rgba(255,255,255,0.95)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        flexShrink: 0,
-      }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fcfcfb' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #ececf1',
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          flexShrink: 0,
+        }}
+      >
         {viewMode === 'timeline' ? (
           <AgentRoster agents={visibleAgents} activeAgentId={activeAgentId} />
+        ) : viewMode === 'map' ? (
+          <div style={{ padding: '10px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase' }}>
+              Debate Map
+            </span>
+            <span style={{ fontSize: 11, color: '#71717a', marginTop: 3 }}>
+              Who challenged whom in Round 2.
+            </span>
+          </div>
         ) : (
-          <div style={{ padding: '0 20px', height: 44, display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', color: '#ccc', textTransform: 'uppercase' }}>
+          <div style={{ padding: '10px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase' }}>
               Compare View
+            </span>
+            <span style={{ fontSize: 11, color: '#71717a', marginTop: 3 }}>
+              Compare seat positions side by side.
             </span>
           </div>
         )}
 
         {hasMessages && (
-          <div style={{
-            display: 'flex', gap: 0, padding: '0 12px',
-            border: '1px solid #ebebed', borderRadius: 6,
-            margin: '0 16px', overflow: 'hidden', flexShrink: 0,
-          }}>
-            {(['timeline', 'compare'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                style={{
-                  padding: '5px 10px', border: 'none',
-                  background: viewMode === mode ? '#111827' : 'transparent',
-                  color: viewMode === mode ? '#fff' : '#9ca3af',
-                  fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  textTransform: 'capitalize', transition: 'all 120ms',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {mode === 'timeline' ? 'Timeline' : 'Compare'}
-              </button>
-            ))}
+          <div
+            style={{
+              display: 'flex',
+              gap: 0,
+              padding: '10px 16px',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'inline-flex', border: '1px solid #ebebed', borderRadius: 999, overflow: 'hidden', background: '#fff' }}>
+              {(['timeline', 'compare', 'map'] as const).filter((m) => m !== 'map' || hasRound2).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  style={{
+                    padding: '6px 11px',
+                    border: 'none',
+                    background: viewMode === mode ? '#111827' : 'transparent',
+                    color: viewMode === mode ? '#fff' : '#71717a',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {mode === 'timeline' ? 'Timeline' : mode === 'compare' ? 'Compare' : 'Map'}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {viewMode === 'compare' ? (
+      {viewMode === 'map' ? (
+        <DebateMap session={session} />
+      ) : viewMode === 'compare' ? (
         <CompareView session={session} onSourceClick={onSourceClick} />
       ) : (
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px 32px' }}>
@@ -198,23 +330,26 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
             <WaitingState />
           ) : (
             <>
+              <SessionAlerts alerts={session.alerts ?? []} />
               {groupByRound(session.messages).map(({ round, messages }) => (
                 <div key={round}>
                   <RoundDivider round={round === 99 ? 'Synthesis' : round} />
-                  {messages.map(message => {
-                    const agent = agentMap.get(message.agentId)
-                    if (!agent) return null
-                    const agentRefs = session.sourceRefs.filter(r => r.agentId === agent.id)
-                    return (
-                      <AgentMessage
-                        key={message.id}
-                        message={message}
-                        agent={agent}
-                        sourceRefs={agentRefs}
-                        onSourceClick={onSourceClick}
-                      />
-                    )
-                  })}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {messages.map((message) => {
+                      const agent = agentMap.get(message.agentId)
+                      if (!agent) return null
+                      const agentRefs = session.sourceRefs.filter((ref) => ref.agentId === agent.id)
+                      return (
+                        <AgentMessage
+                          key={message.id}
+                          message={message}
+                          agent={agent}
+                          sourceRefs={agentRefs}
+                          onSourceClick={onSourceClick}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
               ))}
               {session.status === 'concluded' && <ConclusionBanner />}
@@ -222,6 +357,13 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
           )}
         </div>
       )}
+
+      <style>{`
+        @keyframes timeline-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.35; }
+        }
+      `}</style>
     </div>
   )
 }

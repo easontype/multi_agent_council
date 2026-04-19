@@ -79,7 +79,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
         throw new Error('No paper provided')
       }
 
-      const res = await fetch('/api/analyze/web', { method: 'POST', body, headers })
+      const res = await fetch('/api/papers/upload', { method: 'POST', body, headers })
       const data = await res.json()
 
       if (!res.ok) {
@@ -99,7 +99,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     setPhase('running')
 
     try {
-      const res = await fetch(`/api/council/${sessionId}/run`, {
+      const res = await fetch(`/api/sessions/${sessionId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

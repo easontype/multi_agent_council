@@ -259,7 +259,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/council")
+    fetch("/api/sessions")
       .then(r => r.json())
       .then((data: SessionItem[]) => setSessions(data ?? []))
       .catch(() => {})
