@@ -235,7 +235,7 @@ async function runSeatTurn(
 
 // ─── Moderator turn runner ─────────────────────────────────────────────────────
 
-async function runModeratorTurn(
+export async function runModeratorTurn(
   session: CouncilSession,
   allTurns: CouncilTurn[],
   onEvent: CouncilEventHandler,

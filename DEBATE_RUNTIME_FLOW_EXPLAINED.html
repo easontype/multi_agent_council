@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Council Debate Runtime Flow</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --panel: #fffdf8;
+      --ink: #1f1d1a;
+      --muted: #6f6658;
+      --line: #d8cfbf;
+      --accent: #9a3412;
+      --blue: #1d4ed8;
+      --green: #166534;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --shadow: 0 18px 40px rgba(60, 42, 18, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(154, 52, 18, 0.08), transparent 30%),
+        linear-gradient(180deg, #f7f2e9 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #fff8ec 0%, #fffdf8 50%, #f5efe4 100%);
+      border: 1px solid rgba(154, 52, 18, 0.15);
+      border-radius: 28px;
+      padding: 28px 32px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 40px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 960px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      margin-top: 20px;
+    }
+
+    .section h2 {
+      margin: 0 0 16px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .section p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px 18px;
+      background: #fff;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+    }
+
+    .card p {
+      font-size: 14px;
+      color: var(--ink);
+    }
+
+    .tag {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .tag.blue { background: rgba(29, 78, 216, 0.10); color: var(--blue); }
+    .tag.green { background: rgba(22, 101, 52, 0.10); color: var(--green); }
+    .tag.amber { background: rgba(180, 83, 9, 0.10); color: var(--amber); }
+    .tag.red { background: rgba(185, 28, 28, 0.10); color: var(--red); }
+
+    .diagram-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fffefb 0%, #faf5eb 100%);
+      padding: 18px;
+      margin-top: 18px;
+    }
+
+    svg {
+      width: 1320px;
+      height: 1040px;
+      display: block;
+    }
+
+    .box {
+      fill: #fff;
+      stroke: #cdbfa8;
+      stroke-width: 2;
+      rx: 18;
+      ry: 18;
+      filter: drop-shadow(0 8px 18px rgba(55, 39, 18, 0.08));
+    }
+
+    .box.round1 { fill: #eef6ff; stroke: #8ab4ff; }
+    .box.round2 { fill: #fff5e8; stroke: #f0b15a; }
+    .box.system { fill: #f4efe7; stroke: #cdbfa8; }
+    .box.moderator { fill: #f9edf2; stroke: #d38aa7; }
+    .box.branch { fill: #f8f2ff; stroke: #a78bfa; }
+    .box.warning { fill: #fff1f1; stroke: #ef4444; }
+    .box.skip { fill: #eef9f0; stroke: #57b16f; }
+
+    .label {
+      font-size: 15px;
+      font-weight: 700;
+      fill: #1f1d1a;
+    }
+
+    .small {
+      font-size: 13px;
+      font-weight: 500;
+      fill: #4f463b;
+    }
+
+    .code {
+      font-size: 12px;
+      fill: #7c2d12;
+      font-weight: 700;
+    }
+
+    .arrow {
+      stroke: #7a6d5c;
+      stroke-width: 2.5;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .branch-line {
+      stroke: #8b5cf6;
+      stroke-width: 2.5;
+      fill: none;
+      marker-end: url(#arrowPurple);
+      stroke-dasharray: 7 7;
+    }
+
+    .ok-line {
+      stroke: #15803d;
+      stroke-width: 2.5;
+      fill: none;
+      marker-end: url(#arrowGreen);
+      stroke-dasharray: 7 7;
+    }
+
+    .warn-line {
+      stroke: #dc2626;
+      stroke-width: 2.5;
+      fill: none;
+      marker-end: url(#arrowRed);
+      stroke-dasharray: 7 7;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      flex: 0 0 auto;
+    }
+
+    .flow-notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: #fff8ed;
+      border-radius: 14px;
+      padding: 14px 14px 14px 16px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
+      background: #f7f3ec;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 2px 6px;
+    }
+
+    @media (max-width: 960px) {
+      .grid,
+      .flow-notes,
+      .legend {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Council 辯論 Runtime 現況圖</h1>
+      <p class="subtitle">
+        這份圖對應目前實作中的 <span class="mono">src/lib/council.ts</span> 和
+        <span class="mono">src/hooks/use-council-review.ts</span>。重點不是產品理想流程，而是現在後端真的怎麼跑、
+        哪些分支是特殊情況、以及我剛剛說要補測試時到底是在補哪幾條分支。
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>這四個分支現在是在說什麼</h2>
+      <div class="grid">
+        <article class="card">
+          <div class="tag blue">resume</div>
+          <h3>Resume 不是重新開始，而是接著既有 session 狀態跑</h3>
+          <p>
+            <span class="mono">runCouncilSession(..., { resume: true })</span> 時，後端會先讀
+            <span class="mono">existingTurns</span> 和 <span class="mono">existingConclusion</span>。
+            已經完成的 round / seat 會跳過，只補尚未完成的部分。
+          </p>
+        </article>
+        <article class="card">
+          <div class="tag amber">partial round 2</div>
+          <h3>Partial Round 2 指的是 Round 2 跑到一半中斷</h3>
+          <p>
+            例如 5 個 seats 只完成 2 個就斷線。現在重跑時不會重新做 divergence classifier，
+            而是直接把已存在的 Round 2 turns 當作 <span class="mono">round2TurnsSoFar</span>，
+            讓後面 seats 接著跑。
+          </p>
+        </article>
+        <article class="card">
+          <div class="tag green">round2_skipped</div>
+          <h3>Round 2 skipped 是「後端判定沒必要進第二輪」</h3>
+          <p>
+            Round 1 跑完後會做 divergence classification。如果 level 是
+            <span class="mono">none</span> 或 <span class="mono">low</span>，就直接 emit
+            <span class="mono">round2_skipped</span>，接 moderator，不再讓 seats 交叉辯論。
+          </p>
+        </article>
+        <article class="card">
+          <div class="tag red">high_divergence_warning</div>
+          <h3>High divergence warning 是提醒 UI：共識可能是被 moderator 硬合成的</h3>
+          <p>
+            如果 divergence level 是 <span class="mono">high</span>，Round 2 還是會照跑，
+            但在進 moderator 前會多 emit 一個警告事件，提示使用者要特別看
+            dissent / forced consensus 的風險。
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>目前完整辯論流程</h2>
+      <p>
+        這張圖是後端主流程。紫色虛線是特殊分支，綠色虛線是跳過 Round 2 的捷徑，紅色虛線是高分歧警告。
+      </p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1320 1040" aria-labelledby="flowTitle">
+          <title id="flowTitle">Council debate runtime flow</title>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#7a6d5c"></path>
+            </marker>
+            <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#8b5cf6"></path>
+            </marker>
+            <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#15803d"></path>
+            </marker>
+            <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#dc2626"></path>
+            </marker>
+          </defs>
+
+          <rect class="box system" x="40" y="40" width="240" height="92"></rect>
+          <text class="label" x="62" y="74">1. POST /api/council/:id/run</text>
+          <text class="small" x="62" y="100">route.ts 建立 SSE stream</text>
+          <text class="code" x="62" y="121">session_start</text>
+
+          <rect class="box system" x="340" y="40" width="260" height="92"></rect>
+          <text class="label" x="362" y="74">2. runCouncilSession()</text>
+          <text class="small" x="362" y="100">讀 session / existingTurns / existingConclusion</text>
+          <text class="code" x="362" y="121">resume / forceRestart 分支在這裡</text>
+
+          <rect class="box branch" x="660" y="40" width="280" height="92"></rect>
+          <text class="label" x="682" y="74">3. 是否已有 Round 1 turns</text>
+          <text class="small" x="682" y="100">少於 seats 數量才補跑</text>
+          <text class="code" x="682" y="121">round_start { round: 1 }</text>
+
+          <rect class="box round1" x="1000" y="40" width="260" height="92"></rect>
+          <text class="label" x="1022" y="74">4. Round 1 seats 並行</text>
+          <text class="small" x="1022" y="100">Promise.all 跑每個 seat</text>
+          <text class="small" x="1022" y="119">每個 seat 可進 agentic tool loop</text>
+
+          <rect class="box round1" x="1000" y="180" width="260" height="108"></rect>
+          <text class="label" x="1022" y="214">Seat 內部：runSeatTurn()</text>
+          <text class="small" x="1022" y="240">turn_start → turn_delta*</text>
+          <text class="small" x="1022" y="260">tool_call / tool_result*</text>
+          <text class="small" x="1022" y="280">saveTurn → turn_done</text>
+
+          <rect class="box system" x="660" y="210" width="280" height="92"></rect>
+          <text class="label" x="682" y="244">5. 整理 round1Turns</text>
+          <text class="small" x="682" y="270">依 created_at 排序</text>
+          <text class="small" x="682" y="289">作為 divergence classifier 輸入</text>
+
+          <rect class="box branch" x="340" y="210" width="260" height="92"></rect>
+          <text class="label" x="362" y="244">6. session.rounds >= 2 ?</text>
+          <text class="small" x="362" y="270">否：直接 moderator</text>
+          <text class="small" x="362" y="289">是：檢查 Round 2 狀態</text>
+
+          <rect class="box branch" x="40" y="210" width="240" height="92"></rect>
+          <text class="label" x="62" y="244">7. round2Existing 狀態</text>
+          <text class="small" x="62" y="270">0: fresh Round 2</text>
+          <text class="small" x="62" y="289">&gt;0 但未滿: partial Round 2</text>
+
+          <rect class="box branch" x="40" y="360" width="260" height="108"></rect>
+          <text class="label" x="62" y="394">8A. Fresh Round 2</text>
+          <text class="small" x="62" y="420">classifyDivergence(round1Turns)</text>
+          <text class="small" x="62" y="440">emit divergence_check</text>
+          <text class="small" x="62" y="460">更新 session.divergence_level</text>
+
+          <rect class="box branch" x="340" y="360" width="260" height="108"></rect>
+          <text class="label" x="362" y="394">8B. Partial Round 2 resume</text>
+          <text class="small" x="362" y="420">跳過重新 classify divergence</text>
+          <text class="small" x="362" y="440">視為 proceed_to_round2 = true</text>
+          <text class="small" x="362" y="460">接著補剩下的 seats</text>
+
+          <rect class="box skip" x="40" y="540" width="260" height="108"></rect>
+          <text class="label" x="62" y="574">9A. round2_skipped</text>
+          <text class="small" x="62" y="600">divergence = none / low</text>
+          <text class="small" x="62" y="620">emit round2_skipped</text>
+          <text class="small" x="62" y="640">直接進 moderator</text>
+
+          <rect class="box.round2 round2" x="360" y="540" width="300" height="108"></rect>
+          <text class="label" x="382" y="574">9B. Round 2 seats 順序跑</text>
+          <text class="small" x="382" y="600">emit round_start { round: 2 }</text>
+          <text class="small" x="382" y="620">每個 seat 看到 round1Turns + round2TurnsSoFar</text>
+          <text class="small" x="382" y="640">doneRoles 會跳過已完成的 seats</text>
+
+          <rect class="box warning" x="720" y="540" width="260" height="108"></rect>
+          <text class="label" x="742" y="574">10. high_divergence_warning</text>
+          <text class="small" x="742" y="600">只在 divergence.level = high 時 emit</text>
+          <text class="small" x="742" y="620">提醒 moderator 可能在合成硬共識</text>
+          <text class="small" x="742" y="640">不是中止條件</text>
+
+          <rect class="box moderator" x="1040" y="540" width="240" height="108"></rect>
+          <text class="label" x="1062" y="574">11. runModeratorTurn()</text>
+          <text class="small" x="1062" y="600">moderator_start</text>
+          <text class="small" x="1062" y="620">stream raw synthesis</text>
+          <text class="small" x="1062" y="640">必要時做 JSON retry</text>
+
+          <rect class="box moderator" x="1040" y="720" width="240" height="108"></rect>
+          <text class="label" x="1062" y="754">12. save moderator outputs</text>
+          <text class="small" x="1062" y="780">saveTurn(round=99)</text>
+          <text class="small" x="1062" y="800">moderator_delta / conclusion</text>
+          <text class="small" x="1062" y="820">saveConclusion()</text>
+
+          <rect class="box system" x="1040" y="900" width="240" height="92"></rect>
+          <text class="label" x="1062" y="934">13. setSessionFinished()</text>
+          <text class="small" x="1062" y="960">status = concluded</text>
+          <text class="code" x="1062" y="980">session_done</text>
+
+          <path class="arrow" d="M280 86 L340 86"></path>
+          <path class="arrow" d="M600 86 L660 86"></path>
+          <path class="arrow" d="M940 86 L1000 86"></path>
+          <path class="arrow" d="M1130 132 L1130 180"></path>
+          <path class="arrow" d="M1000 234 L940 234"></path>
+          <path class="arrow" d="M660 256 L600 256"></path>
+          <path class="arrow" d="M340 256 L280 256"></path>
+          <path class="branch-line" d="M170 302 L170 360"></path>
+          <path class="branch-line" d="M470 302 L470 360"></path>
+          <path class="ok-line" d="M170 468 L170 540"></path>
+          <path class="arrow" d="M600 414 L600 540"></path>
+          <path class="arrow" d="M300 594 L360 594"></path>
+          <path class="warn-line" d="M660 594 L720 594"></path>
+          <path class="arrow" d="M980 594 L1040 594"></path>
+          <path class="arrow" d="M1160 648 L1160 720"></path>
+          <path class="arrow" d="M1160 828 L1160 900"></path>
+
+          <text class="small" x="78" y="332">if round2Existing = 0</text>
+          <text class="small" x="372" y="332">if 0 &lt; round2Existing &lt; seats.length</text>
+          <text class="small" x="92" y="512">if proceed_to_round2 = false</text>
+          <text class="small" x="514" y="512">if proceed_to_round2 = true</text>
+          <text class="small" x="764" y="516">only when divergence = high</text>
+        </svg>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background:#eef6ff;border-color:#8ab4ff;"></span>Round 1 / seat runtime</div>
+        <div class="legend-item"><span class="swatch" style="background:#fff5e8;border-color:#f0b15a;"></span>Round 2 / seat runtime</div>
+        <div class="legend-item"><span class="swatch" style="background:#f8f2ff;border-color:#a78bfa;"></span>Branch / resume logic</div>
+        <div class="legend-item"><span class="swatch" style="background:#f9edf2;border-color:#d38aa7;"></span>Moderator synthesis</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>所以「要改什麼」其實是在補哪裡</h2>
+      <div class="flow-notes">
+        <div class="note">
+          <strong>Resume / partial Round 2</strong><br>
+          這不是我打算改產品邏輯，而是要補測試保護現在這條邏輯。
+          目前後端已經有 resume 行為，但還缺 source-level integration test 去驗證：
+          已完成的 seats 會不會被跳過、後續 seats 會不會拿到正確的 <span class="mono">round2TurnsSoFar</span>。
+        </div>
+        <div class="note">
+          <strong>round2_skipped</strong><br>
+          目前後端已經會 emit 這個事件，前端也會收。
+          要補的是測試，確保當 divergence = none / low 時，真的不會偷偷跑 Round 2，
+          而是直接進 moderator。
+        </div>
+        <div class="note">
+          <strong>high_divergence_warning</strong><br>
+          目前它只是警告事件，不會改變主流程。
+          要補的是測試，確認 divergence = high 時，Round 2 照跑、warning 會出現、
+          moderator 還是照常執行，這三件事會同時成立。
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
