@@ -108,10 +108,10 @@ function getSchemaReady(): Promise<void> {
   return schemaInit;
 }
 
-const DEFAULT_MODERATOR_MODEL = "claude-opus-4-6";
-const DEFAULT_SEAT_MODEL = "codex/codex";
-const DEFAULT_PLAN_CLASSIFIER_MODEL = "claude-sonnet-4-6";
-const DEFAULT_DIVERGENCE_CLASSIFIER_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODERATOR_MODEL = "gemma-4-31b-it";
+const DEFAULT_SEAT_MODEL = "gemma-4-31b-it";
+const DEFAULT_PLAN_CLASSIFIER_MODEL = "gemma-4-31b-it";
+const DEFAULT_DIVERGENCE_CLASSIFIER_MODEL = "gemma-4-31b-it";
 const DEFAULT_STALE_AFTER_MS = 15 * 60 * 1000;
 const HEARTBEAT_WRITE_INTERVAL_MS = 1_500;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -147,13 +147,14 @@ async function runSeatTurn(
 
     runtimeResult = await runAgenticRuntime({
       prompt,
-      systemPrompt: buildSeatRuntimePrompt(seat, session.seats),
+      systemPrompt: buildSeatRuntimePrompt(seat, session.seats, round),
       model: seat.model,
       toolAgentId: session.owner_agent_id,
       runtimeId: `council:${session.id}:${seat.role}`,
       role: "worker",
       allowedTools: seat.tools,
       allowElevatedTools: seat.allowElevatedTools,
+      maxTokens: round === 1 ? 800 : 500,
       toolArgOverrides: libraryTag ? {
         rag_query: { tag: libraryTag },
         semantic_search: { tag: libraryTag },
@@ -294,7 +295,7 @@ async function runModeratorTurn(
         "Output ONLY the JSON object, no prose, no markdown fences.",
         "",
         "Required shape:",
-        '{ "summary": "...", "consensus": "...", "dissent": "...", "action_items": ["..."], "veto": "...", "confidence": "high|medium|low", "confidence_reason": "..." }',
+        '{ "summary": "...", "consensus": "...", "dissent": [{"question": "...", "seats": {"RoleName": "position"}}], "action_items": [{"action": "...", "priority": "blocking|recommended|optional"}], "veto": "...", "confidence": "high|medium|low", "confidence_reason": "..." }',
         "",
         "Text to convert:",
         raw.trim(),

@@ -326,6 +326,7 @@ export async function* streamClaudeWithNativeTools(
   systemPrompt: string | undefined,
   model: string,
   tools: Anthropic.Tool[],
+  maxTokens?: number,
 ): AsyncGenerator<NativeToolEvent> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -337,7 +338,7 @@ export async function* streamClaudeWithNativeTools(
 
   const stream = client.messages.stream({
     model,
-    max_tokens: 8192,
+    max_tokens: maxTokens ?? 8192,
     system: systemPrompt,
     tools,
     messages,

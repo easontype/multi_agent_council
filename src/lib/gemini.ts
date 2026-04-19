@@ -7,7 +7,7 @@ function apiKey() {
 }
 
 export function isGeminiModel(model?: string): boolean {
-  return !!model?.startsWith("gemini");
+  return !!model?.startsWith("gemini") || !!model?.startsWith("gemma");
 }
 
 interface GeminiContent {

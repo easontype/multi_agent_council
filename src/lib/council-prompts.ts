@@ -12,6 +12,8 @@ import type {
   CouncilEvidenceSource,
   CouncilPlan,
   CouncilPlanInput,
+  DissentItem,
+  ActionItem,
 } from "./council-types";
 import { sanitizeText, clamp } from "./council-db";
 
@@ -30,15 +32,16 @@ export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "conte
   return [
     buildDebateBrief(session),
     "",
-    "You are speaking in round 1.",
+    "You are speaking in round 1. Use tools to gather evidence first, then write your final response. Keep your final written response under 400 words.",
     "Use tools if you need evidence before making claims. Do not assert facts you cannot verify.",
     "",
     "Structure your response with these sections:",
     "**Position** — Your core stance in 1-2 sentences.",
-    "**Key Assumptions** — What must be true for your position to hold.",
+    "**Key Assumptions** — What must be true for your position to hold (2-3 bullet points max).",
     "**Main Risks** — The top 1-2 risks from your perspective.",
-    "**Strongest Counterargument** — The best case against your own view, stated honestly.",
+    "**Strongest Counterargument** — The best case against your own view, stated honestly in 1-2 sentences.",
     "If you used tools, end with an **Evidence** section listing the concrete URLs, files, or document titles you relied on.",
+    "NEVER reproduce raw tool output, JSON, or paper lists verbatim. Synthesize what you found; cite title + URL only.",
   ].join("\n");
 }
 
@@ -71,17 +74,14 @@ export function buildRound2Prompt(
 
   parts.push(
     "",
-    "Now make your Round 2 argument.",
-    "Structure your response with these sections:",
-    "**Rebuttal** — Name the seat(s) and specific claim you are challenging. State why their evidence or logic is insufficient.",
-    round2TurnsSoFar.length > 0
-      ? "**Response to Round 2** — If any Round 2 argument above directly challenges or supports your view, address it explicitly."
-      : "",
-    "**Position Update** — State whether your Round 1 stance has changed. If yes, explain what evidence changed it. If no, explain why the opposing arguments failed to move you.",
-    "**Remaining Disagreement** — Identify the one most important unresolved point the moderator must decide between your view and the opposition.",
+    "Now make your Round 2 argument. You may use tools to verify disputed claims. Keep your final written response under 220 words.",
+    "Structure your response with exactly two sections:",
+    "**Challenge** — Name the seat(s) and the specific claim you are contesting. State concisely why their evidence or logic is insufficient (2-3 sentences max).",
+    "**Stance** — One sentence: state whether your Round 1 position has changed. If yes, cite the specific evidence that moved you. If no, state what it would take to move you.",
     "Update your position only if the evidence requires it. Do not capitulate to social pressure.",
     "When claims conflict, use tools to verify the disputed points.",
-    "If you used tools, end with an **Evidence** section listing the concrete URLs, files, or document titles you relied on.",
+    "If you used tools, end with an **Evidence** section (title + URL only, no raw output).",
+    "NEVER reproduce raw tool output, JSON, or paper lists verbatim.",
   );
 
   return parts.filter(Boolean).join("\n");
@@ -114,12 +114,25 @@ export const MODERATOR_SYSTEM_PROMPT = [
   "## Output format",
   "Return ONLY valid JSON — no prose, no markdown fences, no trailing text.",
   "Fill every field. Use null explicitly if a field does not apply.",
-  "action_items must be concrete and specific (start with a verb, name the thing to act on). No vague items like 'consider improving X'.",
+  "Be concise: summary = 2-4 sentences; each action item = one verb phrase; each dissent question = one sentence.",
+  "",
+  "action_items rules:",
+  "  - Each item is an object: { \"action\": \"Verb + specific thing\", \"priority\": \"blocking|recommended|optional\" }",
+  "  - blocking = must be resolved before proceeding (aligns with veto if present)",
+  "  - recommended = should be done, does not block progress",
+  "  - optional = nice to have",
+  "  - No vague items like 'consider improving X'. Start with a verb, name the thing.",
+  "",
+  "dissent rules:",
+  "  - Array of unresolved disagreements. Each item: { \"question\": \"the open question\", \"seats\": { \"RoleName\": \"their position in one sentence\" } }",
+  "  - Only include disagreements that were NOT resolved across the rounds.",
+  "  - If all seats reached the same conclusion, use null.",
+  "",
   "{",
   '  "summary": "2-4 sentences covering the core conclusion and most important tradeoff",',
   '  "consensus": "the shared conclusion all or most seats agree on, or null",',
-  '  "dissent": "the main unresolved disagreement, which seats hold it, and why it matters — or null",',
-  '  "action_items": ["Verb + specific action. Example: Migrate auth to JWT before next release.", "..."],',
+  '  "dissent": [{"question": "...", "seats": {"RoleName": "one-sentence position"}}] or null,',
+  '  "action_items": [{"action": "Verb + specific action.", "priority": "blocking|recommended|optional"}],',
   '  "veto": "a specific blocking concern that must be resolved before proceeding — or null",',
   '  "confidence": "high|medium|low",',
   '  "confidence_reason": "one sentence: what evidence or lack thereof drives this confidence level"',
@@ -193,7 +206,7 @@ export function normalizeConclusion(raw: string): Omit<CouncilConclusion, "id" |
     summary: raw.trim(),
     consensus: null,
     dissent: null,
-    action_items: [] as string[],
+    action_items: [] as ActionItem[],
     veto: null,
     confidence: null as CouncilConclusion["confidence"],
     confidence_reason: null,
@@ -210,13 +223,14 @@ export function normalizeConclusion(raw: string): Omit<CouncilConclusion, "id" |
         ? rawConfidence
         : null;
 
+    const dissent = parseDissentField(parsed.dissent);
+    const action_items = parseActionItemsField(parsed.action_items);
+
     return {
       summary: sanitizeText(parsed.summary) || fallback.summary,
       consensus: sanitizeText(parsed.consensus) || null,
-      dissent: sanitizeText(parsed.dissent) || null,
-      action_items: Array.isArray(parsed.action_items)
-        ? parsed.action_items.map((item) => sanitizeText(item)).filter(Boolean)
-        : [],
+      dissent,
+      action_items,
       veto: sanitizeText(parsed.veto) || null,
       confidence,
       confidence_reason: sanitizeText(parsed.confidence_reason) || null,
@@ -224,6 +238,57 @@ export function normalizeConclusion(raw: string): Omit<CouncilConclusion, "id" |
   } catch {
     return fallback;
   }
+}
+
+function parseDissentField(raw: unknown): DissentItem[] | null {
+  if (!raw) return null;
+  // New format: array of {question, seats}
+  if (Array.isArray(raw)) {
+    const items = raw
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const obj = item as Record<string, unknown>;
+        const question = sanitizeText(obj.question);
+        if (!question) return null;
+        const seats: Record<string, string> = {};
+        if (obj.seats && typeof obj.seats === "object" && !Array.isArray(obj.seats)) {
+          for (const [k, v] of Object.entries(obj.seats as Record<string, unknown>)) {
+            const val = sanitizeText(v);
+            if (k && val) seats[k] = val;
+          }
+        }
+        return { question, seats };
+      })
+      .filter((item): item is DissentItem => item !== null);
+    return items.length ? items : null;
+  }
+  // Legacy string format: wrap into a single item with no seats breakdown
+  const text = sanitizeText(raw);
+  if (!text) return null;
+  return [{ question: text, seats: {} }];
+}
+
+function parseActionItemsField(raw: unknown): ActionItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item) return null;
+      // New format: {action, priority}
+      if (typeof item === "object" && !Array.isArray(item)) {
+        const obj = item as Record<string, unknown>;
+        const action = sanitizeText(obj.action);
+        if (!action) return null;
+        const p = sanitizeText(obj.priority).toLowerCase();
+        const priority: ActionItem["priority"] =
+          p === "blocking" || p === "recommended" || p === "optional" ? p : "recommended";
+        return { action, priority };
+      }
+      // Legacy string format
+      const action = sanitizeText(item);
+      if (!action) return null;
+      return { action, priority: "recommended" as const };
+    })
+    .filter((item): item is ActionItem => item !== null);
 }
 
 // ─── Evidence source extractor ─────────────────────────────────────────────────
@@ -318,7 +383,7 @@ export function extractEvidenceSources(
 
 // ─── Seat helpers ──────────────────────────────────────────────────────────────
 
-export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat[]): string {
+export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat[], round?: number): string {
   const otherRoles = allSeats
     ? allSeats.filter((s) => s.role !== seat.role).map((s) => s.role)
     : [];
@@ -333,6 +398,7 @@ export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat
     councilContext,
     "Maintain this point of view unless the evidence clearly disproves it.",
     "Do not act like a neutral moderator. Argue from your seat's perspective, then note where your own view is weak.",
+    "When you receive tool results, you MUST cite at least one specific finding (paper title, URL, quoted data point) in your final response. Never silently ignore what you retrieved.",
   ].filter(Boolean).join("\n\n");
 }
 

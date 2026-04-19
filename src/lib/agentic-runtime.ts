@@ -51,8 +51,8 @@ const filesHandlers = {
 };
 
 const DEFAULT_SAFE_TOOLSET = ["web_search", "fetch_url", "rag_query"];
-const DEFAULT_MAX_ROUNDS = 6;
-const DEFAULT_MAX_TOOL_CALLS = 12;
+const DEFAULT_MAX_ROUNDS = 4;
+const DEFAULT_MAX_TOOL_CALLS = 4;
 const SAFE_PLATFORM_TOOL_HANDLERS = {
   list_directory: filesHandlers.list_directory,
   read_file: filesHandlers.read_file,
@@ -92,6 +92,7 @@ export interface AgenticRuntimeInput {
   allowElevatedTools?: boolean;
   maxRounds?: number;
   maxToolCalls?: number;
+  maxTokens?: number;
   onTextDelta?: (delta: string) => void | Promise<void>;
   onToolCall?: (tool: string, args: Record<string, unknown>) => void | Promise<void>;
   onToolResult?: (tool: string, result: string) => void | Promise<void>;
@@ -448,7 +449,7 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
       const roundToolUses: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
       let stopReason = "end_turn";
 
-      for await (const event of streamClaudeWithNativeTools(sdkMessages, systemPrompt, model, toolSpec.nativeTools)) {
+      for await (const event of streamClaudeWithNativeTools(sdkMessages, systemPrompt, model, toolSpec.nativeTools, input.maxTokens)) {
         if (event.type === "text") {
           roundTextParts.push(event.text);
           await emitTextDelta(event.text);
