@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { DiscussionSession, Agent, AgentMessage, ContentBlock, SourceRef, DEFAULT_AGENTS, SessionAlert } from '@/types/council'
 import { takePendingUpload } from '@/lib/pending-upload'
 import type { CouncilSeat } from '@/lib/council-types'
+import { useSessionStream } from './use-session-stream'
 
 export type ReviewPhase = 'idle' | 'ingesting' | 'running' | 'concluded' | 'error'
 
@@ -39,108 +40,9 @@ export function useCouncilReview(arxivIdParam?: string | null) {
   const [error, setError] = useState<string | null>(null)
   const [session, setSession] = useState<DiscussionSession>(makeEmptySession())
 
-  const start = useCallback(async (opts?: {
-    mode?: 'critique' | 'gap'
-    rounds?: 1 | 2
-    customSeats?: CouncilSeat[]
-    discussionAgents?: Agent[]
-  }) => {
-    setError(null)
-    setPhase('ingesting')
+  const { run: runStream } = useSessionStream()
 
-    const mode = opts?.mode ?? 'critique'
-    const rounds = opts?.rounds ?? 1
-    const customSeats = opts?.customSeats ?? []
-    const discussionAgents = opts?.discussionAgents?.length ? opts.discussionAgents : DEFAULT_AGENTS
-
-    let sessionId: string
-    let paperTitle: string
-    let paperAbstract: string
-
-    try {
-      const pendingFile = takePendingUpload()
-
-      let body: BodyInit
-      let headers: Record<string, string> = {}
-
-      if (pendingFile) {
-        const form = new FormData()
-        form.append('file', pendingFile)
-        form.append('mode', mode)
-        form.append('rounds', String(rounds))
-        if (customSeats.length) {
-          form.append('customSeats', JSON.stringify(customSeats))
-        }
-        body = form
-      } else if (arxivIdParam) {
-        body = JSON.stringify({ arxivId: arxivIdParam, mode, rounds, customSeats })
-        headers = { 'Content-Type': 'application/json' }
-      } else {
-        throw new Error('No paper provided')
-      }
-
-      const res = await fetch('/api/papers/upload', { method: 'POST', body, headers })
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error ?? `HTTP ${res.status}`)
-      }
-
-      sessionId = data.sessionId
-      paperTitle = data.paperTitle
-      paperAbstract = data.paperAbstract ?? ''
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to ingest paper')
-      setPhase('error')
-      return
-    }
-
-    setSession(makeEmptySession(paperTitle, paperAbstract, discussionAgents))
-    setPhase('running')
-
-    try {
-      const res = await fetch(`/api/sessions/${sessionId}/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-
-      if (!res.ok || !res.body) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error((d as { error?: string }).error ?? `HTTP ${res.status}`)
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const raw = line.slice(6).trim()
-          if (!raw) continue
-
-          let event: Record<string, unknown>
-          try { event = JSON.parse(raw) } catch { continue }
-
-          handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents)
-        }
-      }
-
-      setPhase('concluded')
-      setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stream error')
-      setPhase('error')
-    }
-  }, [arxivIdParam])
+  // ─── Event dispatch ──────────────────────────────────────────────────────────
 
   function handleEvent(
     event: Record<string, unknown>,
@@ -390,6 +292,81 @@ export function useCouncilReview(arxivIdParam?: string | null) {
       setPhase('error')
     }
   }
+
+  // ─── Public API ──────────────────────────────────────────────────────────────
+
+  const start = useCallback(async (opts?: {
+    mode?: 'critique' | 'gap'
+    rounds?: 1 | 2
+    customSeats?: CouncilSeat[]
+    discussionAgents?: Agent[]
+  }) => {
+    setError(null)
+    setPhase('ingesting')
+
+    const mode = opts?.mode ?? 'critique'
+    const rounds = opts?.rounds ?? 1
+    const customSeats = opts?.customSeats ?? []
+    const discussionAgents = opts?.discussionAgents?.length ? opts.discussionAgents : DEFAULT_AGENTS
+
+    let sessionId: string
+    let paperTitle: string
+    let paperAbstract: string
+
+    try {
+      const pendingFile = takePendingUpload()
+
+      let body: BodyInit
+      let headers: Record<string, string> = {}
+
+      if (pendingFile) {
+        const form = new FormData()
+        form.append('file', pendingFile)
+        form.append('mode', mode)
+        form.append('rounds', String(rounds))
+        if (customSeats.length) {
+          form.append('customSeats', JSON.stringify(customSeats))
+        }
+        body = form
+      } else if (arxivIdParam) {
+        body = JSON.stringify({ arxivId: arxivIdParam, mode, rounds, customSeats })
+        headers = { 'Content-Type': 'application/json' }
+      } else {
+        throw new Error('No paper provided')
+      }
+
+      const res = await fetch('/api/papers/upload', { method: 'POST', body, headers })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`)
+      }
+
+      sessionId = data.sessionId
+      paperTitle = data.paperTitle
+      paperAbstract = data.paperAbstract ?? ''
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to ingest paper')
+      setPhase('error')
+      return
+    }
+
+    setSession(makeEmptySession(paperTitle, paperAbstract, discussionAgents))
+    setPhase('running')
+
+    await runStream(
+      sessionId,
+      (event) => handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents),
+      () => {
+        setPhase('concluded')
+        setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
+      },
+      (message) => {
+        setError(message)
+        setPhase('error')
+      },
+    )
+  }, [arxivIdParam, runStream])
 
   return { session, phase, error, start }
 }

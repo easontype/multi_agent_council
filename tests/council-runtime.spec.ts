@@ -154,26 +154,28 @@ function installCouncilDbMock(initial: {
     queries.push({ text, params });
 
     if (text.includes("CREATE TABLE IF NOT EXISTS council_sessions")) {
-      return { rows: [] };
+      return { rows: [], command: 'SELECT', rowCount: 0, oid: 0, fields: [] };
     }
 
     if (text.startsWith("SELECT * FROM council_sessions WHERE id = $1")) {
-      return { rows: [session] };
+      return { rows: [session], command: 'SELECT', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.startsWith("SELECT * FROM council_turns WHERE session_id = $1")) {
-      return { rows: [...turns].sort((a, b) => {
+      const sorted = [...turns].sort((a, b) => {
         if (a.round !== b.round) return a.round - b.round;
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      }) };
+      });
+      return { rows: sorted, command: 'SELECT', rowCount: sorted.length, oid: 0, fields: [] };
     }
 
     if (text.startsWith("SELECT * FROM council_conclusions WHERE session_id = $1")) {
-      return { rows: conclusion ? [conclusion] : [] };
+      const conclusionRows = conclusion ? [conclusion] : [];
+      return { rows: conclusionRows, command: 'SELECT', rowCount: conclusionRows.length, oid: 0, fields: [] };
     }
 
     if (text.includes("SELECT ce.role, COUNT(DISTINCT sr->>'uri')")) {
-      return { rows: [] };
+      return { rows: [], command: 'SELECT', rowCount: 0, oid: 0, fields: [] };
     }
 
     if (text.startsWith("UPDATE council_sessions\n     SET status = 'running'")) {
@@ -184,19 +186,19 @@ function installCouncilDbMock(initial: {
       session.last_error = null;
       session.run_attempts += 1;
       session.updated_at = "2026-04-19T00:00:01.000Z";
-      return { rows: [] };
+      return { rows: [], command: 'UPDATE', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.startsWith("UPDATE council_sessions SET heartbeat_at = NOW()")) {
       session.heartbeat_at = "2026-04-19T00:00:02.000Z";
       session.updated_at = "2026-04-19T00:00:02.000Z";
-      return { rows: [] };
+      return { rows: [], command: 'UPDATE', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.startsWith("UPDATE council_sessions SET divergence_level = $1")) {
       session.divergence_level = String(params?.[0] ?? "");
       session.updated_at = "2026-04-19T00:00:03.000Z";
-      return { rows: [] };
+      return { rows: [], command: 'UPDATE', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.startsWith("INSERT INTO council_turns")) {
@@ -213,7 +215,7 @@ function installCouncilDbMock(initial: {
         created_at: `2026-04-19T00:00:${10 + turnInsertCount}.000Z`,
       };
       turns.push(row);
-      return { rows: [row] };
+      return { rows: [row], command: 'INSERT', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.startsWith("INSERT INTO council_conclusions")) {
@@ -233,7 +235,7 @@ function installCouncilDbMock(initial: {
         confidence_reason: params?.[8] ? String(params[8]) : null,
         created_at: "2026-04-19T00:00:59.000Z",
       };
-      return { rows: [conclusion] };
+      return { rows: [conclusion], command: 'INSERT', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.startsWith("UPDATE council_sessions\n     SET status = $1")) {
@@ -242,7 +244,7 @@ function installCouncilDbMock(initial: {
       session.concluded_at = "2026-04-19T00:01:00.000Z";
       session.heartbeat_at = "2026-04-19T00:01:00.000Z";
       session.updated_at = "2026-04-19T00:01:00.000Z";
-      return { rows: [] };
+      return { rows: [], command: 'UPDATE', rowCount: 1, oid: 0, fields: [] };
     }
 
     throw new Error(`Unexpected query: ${text}`);
@@ -553,7 +555,7 @@ test("runModeratorTurn persists the formatter-retried moderator payload consiste
     queries.push({ text, params });
 
     if (text.includes("SELECT ce.role, COUNT(DISTINCT sr->>'uri')")) {
-      return { rows: [{ role: "Methods Critic", cited_uris: "2" }] };
+      return { rows: [{ role: "Methods Critic", cited_uris: "2" }], command: 'SELECT', rowCount: 1, oid: 0, fields: [] };
     }
 
     if (text.includes("INSERT INTO council_turns")) {
@@ -569,6 +571,10 @@ test("runModeratorTurn persists the formatter-retried moderator payload consiste
           output_tokens: params?.[7],
           created_at: "2026-04-19T00:00:00.000Z",
         }],
+        command: 'INSERT',
+        rowCount: 1,
+        oid: 0,
+        fields: [],
       };
     }
 
@@ -586,6 +592,10 @@ test("runModeratorTurn persists the formatter-retried moderator payload consiste
           confidence_reason: params?.[8],
           created_at: "2026-04-19T00:00:01.000Z",
         }],
+        command: 'INSERT',
+        rowCount: 1,
+        oid: 0,
+        fields: [],
       };
     }
 
