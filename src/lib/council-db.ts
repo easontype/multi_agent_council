@@ -14,7 +14,10 @@ import type {
   CouncilConclusion,
   CouncilEvidence,
   CouncilEvidenceSource,
+  DissentItem,
+  ActionItem,
 } from "./council-types";
+import { DEFAULT_GEMMA_MODEL } from "./gemma-models";
 
 // ─── Schema singleton ──────────────────────────────────────────────────────────
 
@@ -32,7 +35,7 @@ export async function ensureCouncilSchema() {
           goal             TEXT,
           status           TEXT NOT NULL DEFAULT 'pending',
           rounds           INTEGER NOT NULL DEFAULT 1,
-          moderator_model  TEXT NOT NULL DEFAULT 'claude-opus-4-6',
+          moderator_model  TEXT NOT NULL DEFAULT '${DEFAULT_GEMMA_MODEL}',
           seats            JSONB NOT NULL DEFAULT '[]',
           owner_agent_id   UUID,
           created_at       TIMESTAMPTZ DEFAULT NOW(),
@@ -136,7 +139,6 @@ export function normalizeSeat(raw: unknown, fallbackModel: string): CouncilSeat 
   const systemPrompt = sanitizeText((raw as Record<string, unknown>).systemPrompt);
   const bias = sanitizeText((raw as Record<string, unknown>).bias) || undefined;
   const tools = normalizeToolRefs((raw as Record<string, unknown>).tools);
-  const allowElevatedTools = (raw as Record<string, unknown>).allowElevatedTools === true;
   const library_id = sanitizeText((raw as Record<string, unknown>).library_id) || undefined;
   if (!role || !systemPrompt) return null;
   return {
@@ -145,7 +147,6 @@ export function normalizeSeat(raw: unknown, fallbackModel: string): CouncilSeat 
     systemPrompt,
     bias,
     tools: tools.length ? tools : undefined,
-    allowElevatedTools: allowElevatedTools || undefined,
     library_id,
   };
 }
@@ -169,7 +170,7 @@ export function mapSessionRow(row: Record<string, unknown>, defaultModeratorMode
     status: (row.status as CouncilSessionStatus) ?? "pending",
     rounds: Number(row.rounds ?? 1),
     moderator_model: String(row.moderator_model ?? defaultModeratorModel),
-    seats: normalizeSeats(row.seats, "codex/codex"),
+    seats: normalizeSeats(row.seats, DEFAULT_GEMMA_MODEL),
     owner_agent_id: row.owner_agent_id ? String(row.owner_agent_id) : null,
     created_at: String(row.created_at ?? ""),
     started_at: row.started_at ? String(row.started_at) : null,
@@ -195,15 +196,64 @@ export function mapConclusionRow(row: Record<string, unknown>): CouncilConclusio
     session_id: String(row.session_id),
     summary: String(row.summary ?? ""),
     consensus: row.consensus ? String(row.consensus) : null,
-    dissent: row.dissent ? String(row.dissent) : null,
-    action_items: Array.isArray(row.action_items)
-      ? row.action_items.map((item) => String(item))
-      : [],
+    dissent: parseStoredDissent(row.dissent),
+    action_items: parseStoredActionItems(row.action_items),
     veto: row.veto ? String(row.veto) : null,
     confidence,
     confidence_reason: row.confidence_reason ? String(row.confidence_reason) : null,
     created_at: String(row.created_at ?? ""),
   };
+}
+
+function parseStoredDissent(raw: unknown): DissentItem[] | null {
+  if (!raw) return null;
+  // Stored as JSON string in TEXT column
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try { parsed = JSON.parse(raw); } catch { return [{ question: raw, seats: {} }]; }
+  }
+  if (Array.isArray(parsed)) {
+    const items = (parsed as unknown[])
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const obj = item as Record<string, unknown>;
+        const question = sanitizeText(obj.question);
+        if (!question) return null;
+        const seats: Record<string, string> = {};
+        if (obj.seats && typeof obj.seats === "object" && !Array.isArray(obj.seats)) {
+          for (const [k, v] of Object.entries(obj.seats as Record<string, unknown>)) {
+            const val = sanitizeText(v);
+            if (k && val) seats[k] = val;
+          }
+        }
+        return { question, seats };
+      })
+      .filter((item): item is DissentItem => item !== null);
+    return items.length ? items : null;
+  }
+  return null;
+}
+
+function parseStoredActionItems(raw: unknown): ActionItem[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[])
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === "object" && !Array.isArray(item)) {
+        const obj = item as Record<string, unknown>;
+        const action = sanitizeText(obj.action);
+        if (!action) return null;
+        const p = sanitizeText(obj.priority).toLowerCase();
+        const priority: ActionItem["priority"] =
+          p === "blocking" || p === "recommended" || p === "optional" ? p : "recommended";
+        return { action, priority };
+      }
+      // Legacy string
+      const action = sanitizeText(item);
+      if (!action) return null;
+      return { action, priority: "recommended" as const };
+    })
+    .filter((item): item is ActionItem => item !== null);
 }
 
 export function mapEvidenceSource(raw: unknown): CouncilEvidenceSource | null {
@@ -230,7 +280,7 @@ export function mapEvidenceRow(row: Record<string, unknown>): CouncilEvidence {
     role: String(row.role ?? ""),
     model: String(row.model ?? ""),
     tool: String(row.tool ?? ""),
-    runtime_class: row.runtime_class === "elevated_runtime" ? "elevated_runtime" : "strict_runtime",
+    runtime_class: "strict_runtime",
     status: row.status === "failed" ? "failed" : row.status === "completed" ? "completed" : "requested",
     args: normalizeJsonRecord(row.args),
     result: String(row.result ?? ""),

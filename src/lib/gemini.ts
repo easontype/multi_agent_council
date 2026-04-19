@@ -48,7 +48,8 @@ export async function runGemini(
   prompt: string,
   systemPrompt?: string,
   model?: string,
-  onUsage?: (usage: GeminiUsage) => void
+  onUsage?: (usage: GeminiUsage) => void,
+  maxTokens?: number,
 ): Promise<string> {
   const m = model || "gemini-2.0-flash";
   const url = `${GEMINI_BASE}/models/${m}:generateContent?key=${apiKey()}`;
@@ -57,7 +58,7 @@ export async function runGemini(
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...body, generationConfig: { maxOutputTokens: 8192 } }),
+    body: JSON.stringify({ ...body, generationConfig: { maxOutputTokens: maxTokens ?? 8192 } }),
   });
 
   if (!res.ok) {
@@ -80,7 +81,8 @@ export async function* streamGeminiText(
   prompt: string,
   systemPrompt?: string,
   model?: string,
-  history?: Array<{ role: string; content: string }>
+  history?: Array<{ role: string; content: string }>,
+  maxTokens?: number,
 ): AsyncGenerator<string> {
   const m = model || "gemini-2.0-flash";
   const url = `${GEMINI_BASE}/models/${m}:streamGenerateContent?alt=sse&key=${apiKey()}`;
@@ -89,7 +91,7 @@ export async function* streamGeminiText(
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...body, generationConfig: { maxOutputTokens: 8192 } }),
+    body: JSON.stringify({ ...body, generationConfig: { maxOutputTokens: maxTokens ?? 8192 } }),
   });
 
   if (!res.ok) {

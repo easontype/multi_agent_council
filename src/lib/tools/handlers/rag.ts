@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { runLLM } from "../../claude";
 import { runGemini } from "../../gemini";
 import { db } from "../../db";
+import { DEFAULT_GEMMA_RAG_MODEL } from "../../gemma-models";
 
 type Handler = (agentId: string, args: Record<string, unknown>, depth: number) => Promise<string>;
 
@@ -18,7 +19,7 @@ interface RetrievalResult {
   warnings: string[];
 }
 
-const DEFAULT_GEMINI_RAG_MODEL = "gemini-2.0-flash";
+const DEFAULT_GEMINI_RAG_MODEL = DEFAULT_GEMMA_RAG_MODEL;
 const DEFAULT_CONTEXT_LIMIT = 9_000;
 const HAS_CJK_RE = /[\u3400-\u9fff]/;
 
@@ -231,6 +232,22 @@ function buildSourceDigest(rows: SearchRow[]): string {
     .join("\n");
 }
 
+function compactSnippet(text: string, limit = 220): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= limit) return cleaned;
+  return `${cleaned.slice(0, Math.max(0, limit - 3))}...`;
+}
+
+function buildCompactEvidence(rows: SearchRow[], limit = 4): string {
+  return rows
+    .slice(0, limit)
+    .map((row, index) => {
+      const source = row.source_url ? ` | ${row.source_url}` : "";
+      return `- [${index + 1}] ${row.title}${source}\n  ${compactSnippet(row.chunk, 180)}`;
+    })
+    .join("\n");
+}
+
 function buildExtractiveFallback(question: string, rows: SearchRow[], retrievalMode: RetrievalResult["retrievalMode"]): string {
   const snippets = rows.slice(0, 3).map((row, index) => {
     const cleaned = row.chunk.replace(/\s+/g, " ").trim();
@@ -313,16 +330,17 @@ async function synthesizeRagAnswer(
 }
 
 function renderSearchRows(rows: SearchRow[], heading: string, retrievalMode: RetrievalResult["retrievalMode"], warnings: string[]): string {
-  const body = rows
+  const visibleRows = rows.slice(0, 6);
+  const body = visibleRows
     .map((row, index) => {
-      const source = row.source_url ? `\n> Source: ${row.source_url}` : "";
-      return `## ${index + 1}. ${row.title} (match ${(row.score * 100).toFixed(1)}%)${source}\n${row.chunk}`;
+      const source = row.source_url ? ` | ${row.source_url}` : "";
+      return `- [${index + 1}] ${row.title} (match ${(row.score * 100).toFixed(1)}%)${source}\n  ${compactSnippet(row.chunk, 220)}`;
     })
-    .join("\n\n---\n\n");
+    .join("\n");
 
   const footer = [
-    "---",
     `retrieval_mode: ${retrievalMode}`,
+    rows.length > visibleRows.length ? `omitted_results: ${rows.length - visibleRows.length}` : null,
     warnings.length ? `warnings: ${warnings.join(" | ")}` : null,
   ]
     .filter(Boolean)
@@ -413,17 +431,17 @@ export const handlers: Record<string, Handler> = {
 
     return [
       "## RAG Answer",
-      "",
-      answer.answer,
-      "",
-      "---",
+      `question: ${question}`,
       `retrieval_mode: ${retrieval.retrievalMode}`,
       `answer_mode: ${answer.answerMode}${answer.model ? ` (${answer.model})` : ""}`,
       `source_count: ${retrieval.rows.length}`,
       notes.length ? `warnings: ${notes.join(" | ")}` : null,
       "",
-      "Sources:",
-      buildSourceDigest(retrieval.rows),
+      "Answer:",
+      compactSnippet(answer.answer, 1600),
+      "",
+      "Evidence:",
+      buildCompactEvidence(retrieval.rows),
     ]
       .filter((line) => line !== null)
       .join("\n");

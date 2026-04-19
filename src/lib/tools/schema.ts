@@ -158,7 +158,7 @@ export const ANTHROPIC_PLATFORM_TOOL_SCHEMAS: AnthropicTool[] = [
         name: { type: "string", description: "Agent 名稱" },
         description: { type: "string", description: "Agent 描述" },
         systemPrompt: { type: "string", description: "Agent 的 system prompt" },
-        primaryModel: { type: "string", description: "使用的 LLM 模型（預設 gemini-3.1-flash-lite-preview；需思考推理才用 claude-sonnet-4-6）" },
+        primaryModel: { type: "string", description: "使用的 LLM 模型（預設 gemma-4-31b-it；需要本地路由時可改用 ollama/gemma4:*）" },
         role: { type: "string", enum: ["orchestrator", "worker", "both"] },
       },
       required: ["name"],
@@ -255,7 +255,7 @@ export const ANTHROPIC_PLATFORM_TOOL_SCHEMAS: AnthropicTool[] = [
       properties: {
         task: { type: "string", description: "要協調完成的任務描述（orchestrator 內部用，最終向用戶回報需用中文）" },
         workerIds: { type: "array", items: { type: "string" }, description: "指定 worker agent UUID 列表（可選，不填則使用所有 worker）" },
-        workerModelOverride: { type: "string", description: "覆蓋所有 worker 使用的模型，例如 gemini-3.1-flash-lite-preview（可選）" },
+        workerModelOverride: { type: "string", description: "覆蓋所有 worker 使用的模型，例如 gemma-4-31b-it 或 ollama/gemma4:31b（可選）" },
         maxTurns: { type: "number", description: `最大 subtask 數量（預設 ${ORCHESTRATE_MAX_TURNS}，上限 ${ORCHESTRATE_MAX_TURNS}）` },
       },
       required: ["task"],
@@ -576,7 +576,7 @@ export const ANTHROPIC_PLATFORM_TOOL_SCHEMAS: AnthropicTool[] = [
   },
   {
     name: "embed_documents",
-    description: "把還沒有向量嵌入的 documents 切 chunk 並呼叫 Gemini 嵌入，存入 document_chunks 表。第一次匯入後必須執行一次。",
+    description: "把還沒有向量嵌入的 documents 切 chunk 並呼叫目前配置的 embedding provider，存入 document_chunks 表。第一次匯入後必須執行一次。",
     input_schema: {
       type: "object",
       properties: {
@@ -613,7 +613,7 @@ export const ANTHROPIC_PLATFORM_TOOL_SCHEMAS: AnthropicTool[] = [
   },
   {
     name: "generate_article",
-    description: "從知識庫語意搜尋相關內容 → Gemini 生成繁體中文 HTML 文章 → 自動存入 generated_articles 表，可在 /blog 看到。需先完成 embed_documents。",
+    description: "從知識庫語意搜尋相關內容 → 以 Gemma 預設生成繁體中文 HTML 文章 → 自動存入 generated_articles 表，可在 /blog 看到。需先完成 embed_documents。",
     input_schema: {
       type: "object",
       properties: {
@@ -717,7 +717,7 @@ ${ACP_PROTOCOL}
 ### 平台管理工具
 10. list_agents           args: {}
 11. create_agent          args: { name, description?, systemPrompt?, primaryModel?, role? }
-    role: orchestrator|worker|both  primaryModel: gemini-3.1-flash-lite-preview（預設）或 claude-sonnet-4-6（需深度推理）
+    role: orchestrator|worker|both  primaryModel: gemma-4-31b-it（預設）或 ollama/gemma4:31b（本地 Gemma）
     ⚠️ 只有 role=orchestrator 或 role=both 的 Agent 可以建立子 Agent（建立後自動設為你的子代）
 12. assign_tool_to_agent  args: { agentId, toolId }
 13. assign_skill_to_agent args: { agentId, skillId }
@@ -728,7 +728,7 @@ ${ACP_PROTOCOL}
 17. get_task_result       args: { taskId }
 18. orchestrate           args: { task, workerIds?, workerModelOverride?, maxTurns? }
     以自己作為主控，用 ACP 偽代碼協調 workers 完成任務，結果以中文向用戶報告
-    workerModelOverride: 指定 worker 模型（省 token 推薦 gemini-3.1-flash-lite-preview）
+    workerModelOverride: 指定 worker 模型（省資源可用 ollama/gemma4:27b，通用預設為 gemma-4-31b-it）
     maxTurns: 最大 subtask 數（預設/上限 10）
     ⚠️ 自動限流：worker 呼叫間隔 ≥800ms，防止 API rate limit
 19. update_agent           args: { agentId, name?, description?, primaryModel?, themeColor?, systemPrompt? }
@@ -867,7 +867,7 @@ E3. etsy_upload_listing_file  args: { listing_id, file_path, file_name? }
 
 ### 審查流程工具（高風險操作必須先過審）
 21. request_review  args: { actionType, title, description, impact, payload? }
-    提交高風險操作審查請求，等待主腦（Claude VP）分析後由 CEO 決定是否核准
+    提交高風險操作審查請求，等待主腦（Gemma VP）分析後由 CEO 決定是否核准
     actionType: write_file | create_api | db_change | install_package | other
     ⚠️ 所有可能影響程式碼或系統的操作，必須先呼叫此工具，不得跳過
 22. get_review_status  args: { reviewId }
@@ -882,7 +882,7 @@ E3. etsy_upload_listing_file  args: { listing_id, file_path, file_name? }
     ✅ write_file 執行完後必須呼叫此工具回報變更
     changedFiles: string[] — 實際寫入的檔案路徑列表
     summary: string — 簡述做了什麼改動
-    平台會自動讀取這些檔案並回報給主腦（Claude VP）複查
+    平台會自動讀取這些檔案並回報給主腦（Gemma VP）複查
 25. export_csv     args: { filename, headers, rows }
     將表格資料直接匯出為 CSV 檔案並儲存至使用者的本機 Downloads 目錄。
     這個動作不需要提交審查 (request_review)，是唯一被允許直接由代理輸出的系統檔案。

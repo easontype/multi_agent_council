@@ -1,6 +1,7 @@
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from './council-academic'
 import type { CouncilSeat } from './council-types'
 import type { Agent } from '@/types/council'
+import { DEFAULT_GEMMA_MODEL } from './gemma-models'
 
 export type ReviewMode = 'critique' | 'gap'
 
@@ -486,7 +487,7 @@ function buildGeneratedAgent(
     systemPrompt,
     bias: `${STANCE_LABELS[brief.stance]}. Prioritize ${PRIORITY_LABELS[brief.priority]}.`,
     tools: template.tools ?? ['rag_query'],
-    model: 'claude-sonnet-4-6',
+    model: DEFAULT_GEMMA_MODEL,
     enabled: true,
     isCustom: true,
   }
@@ -516,8 +517,8 @@ function buildAgentFromSeat(
 
 export function buildEditableTeam(mode: ReviewMode): EditableReviewAgent[] {
   const seats = mode === 'gap'
-    ? buildGapAnalysisSeats('claude-sonnet-4-6')
-    : buildAcademicCritiqueSeats('claude-sonnet-4-6')
+    ? buildGapAnalysisSeats(DEFAULT_GEMMA_MODEL)
+    : buildAcademicCritiqueSeats(DEFAULT_GEMMA_MODEL)
   const metaTable = mode === 'gap' ? GAP_META : CRITIQUE_META
 
   return seats.map((seat, index) => buildAgentFromSeat(seat, metaTable[seat.role], index))
@@ -536,7 +537,7 @@ export function createCustomEditableAgent(existingCount: number): EditableReview
     systemPrompt: 'You are a specialized reviewer. State what perspective you represent, what evidence you prioritize, and how you want your critique structured.',
     bias: 'Bias toward specific, text-grounded critique.',
     tools: ['rag_query', 'search_papers'],
-    model: 'claude-sonnet-4-6',
+    model: DEFAULT_GEMMA_MODEL,
     enabled: true,
     isCustom: true,
   }
@@ -574,7 +575,7 @@ export function buildSeatsFromEditableAgents(agents: EditableReviewAgent[]): Cou
     .filter((agent) => agent.enabled)
     .map((agent) => ({
       role: agent.seatRole.trim() || agent.name.trim() || 'Custom Reviewer',
-      model: agent.model.trim() || 'claude-sonnet-4-6',
+      model: agent.model.trim() || DEFAULT_GEMMA_MODEL,
       systemPrompt: agent.systemPrompt.trim() || 'You are a specialized reviewer. Provide a structured critique.',
       bias: agent.bias?.trim() || undefined,
       tools: agent.tools.map((tool) => tool.trim()).filter(Boolean),

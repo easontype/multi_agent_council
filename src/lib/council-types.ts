@@ -14,7 +14,6 @@ export interface CouncilSeat {
   systemPrompt: string;
   bias?: string;
   tools?: string[];
-  allowElevatedTools?: boolean;
   library_id?: string;
 }
 
@@ -60,13 +59,23 @@ export interface CouncilTurn {
   created_at: string;
 }
 
+export interface DissentItem {
+  question: string;
+  seats: Record<string, string>;
+}
+
+export interface ActionItem {
+  action: string;
+  priority: "blocking" | "recommended" | "optional";
+}
+
 export interface CouncilConclusion {
   id: string;
   session_id: string;
   summary: string;
   consensus: string | null;
-  dissent: string | null;
-  action_items: string[];
+  dissent: DissentItem[] | null;
+  action_items: ActionItem[];
   veto: string | null;
   confidence: "high" | "medium" | "low" | null;
   confidence_reason: string | null;

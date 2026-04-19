@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Tool } from "@/types";
 import { db } from "./db";
-import { streamLLM, streamClaudeWithNativeTools, isOllamaModel, isOpenAIModel, isCodexModel } from "./claude";
+import { streamLLM, streamClaudeWithNativeTools, isAnthropicModel, isOllamaModel, isOpenAIModel } from "./claude";
 import { isGeminiModel } from "./gemini";
 import type { OllamaMessage } from "./ollama";
 import { ANTHROPIC_PLATFORM_TOOL_SCHEMAS } from "./tools/schema";
@@ -9,6 +9,7 @@ import { handlers as webHandlers } from "./tools/handlers/web";
 import { handlers as ragHandlers } from "./tools/handlers/rag";
 import { parseToolCalls } from "./tools/parser";
 import { compressToolResult } from "./tool-compressor";
+import { DEFAULT_GEMMA_MODEL } from "./gemma-models";
 
 // Stubs for removed platform dependencies
 async function listMCPTools(_serverId: string, _tool: Tool): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> { return []; }
@@ -53,6 +54,7 @@ const filesHandlers = {
 const DEFAULT_SAFE_TOOLSET = ["web_search", "fetch_url", "rag_query"];
 const DEFAULT_MAX_ROUNDS = 4;
 const DEFAULT_MAX_TOOL_CALLS = 4;
+const MAX_TOOL_CALL_REPAIR_ATTEMPTS = 1;
 const SAFE_PLATFORM_TOOL_HANDLERS = {
   list_directory: filesHandlers.list_directory,
   read_file: filesHandlers.read_file,
@@ -79,7 +81,7 @@ const SAFE_PLATFORM_TOOL_DOCS: Record<string, string> = {
 };
 
 type SafePlatformToolName = keyof typeof SAFE_PLATFORM_TOOL_HANDLERS;
-export type AgenticRuntimeClass = "strict_runtime" | "elevated_runtime";
+export type AgenticRuntimeClass = "strict_runtime";
 
 export interface AgenticRuntimeInput {
   prompt: string;
@@ -89,7 +91,6 @@ export interface AgenticRuntimeInput {
   role?: string;
   runtimeId?: string;
   allowedTools?: string[];
-  allowElevatedTools?: boolean;
   maxRounds?: number;
   maxToolCalls?: number;
   maxTokens?: number;
@@ -107,7 +108,6 @@ export interface AgenticRuntimeResult {
   toolsUsed: string[];
   runtimeClass: AgenticRuntimeClass;
   allowedTools: string[];
-  toolsRestricted: boolean;
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
@@ -130,22 +130,16 @@ function normalizeToolRefs(tools?: string[]): string[] {
 }
 
 export function getAgenticRuntimeClass(model?: string): AgenticRuntimeClass {
-  return isCodexModel(model) ? "elevated_runtime" : "strict_runtime";
+  void model;
+  return "strict_runtime";
 }
 
 function stripToolCallsForDisplay(text: string): string {
-  let cleaned = text
-    .replace(/\[TOOL_CALL\][\s\S]*?\[\/TOOL_CALL\]/g, "")
-    .replace(/<invoke\s+name="[^"]+">[\s\S]*?<\/invoke>/g, "");
+  let cleaned = text.replace(/\[TOOL_CALL\][\s\S]*?\[\/TOOL_CALL\]/g, "");
 
   const danglingToolCall = cleaned.lastIndexOf("[TOOL_CALL]");
   if (danglingToolCall !== -1) {
     cleaned = cleaned.slice(0, danglingToolCall);
-  }
-
-  const danglingInvoke = cleaned.lastIndexOf("<invoke");
-  if (danglingInvoke !== -1) {
-    cleaned = cleaned.slice(0, danglingInvoke);
   }
 
   return cleaned;
@@ -377,24 +371,24 @@ async function executeRuntimeTool(
 }
 
 export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<AgenticRuntimeResult> {
-  const model = input.model ?? "claude-sonnet-4-6";
+  const model = input.model ?? DEFAULT_GEMMA_MODEL;
   const role = input.role ?? "worker";
   const runtimeId = input.runtimeId ?? input.toolAgentId ?? `council:${role}`;
   const requestedTools = normalizeToolRefs(input.allowedTools);
   const runtimeClass = getAgenticRuntimeClass(model);
-  const toolsRestricted = runtimeClass === "elevated_runtime" && requestedTools.length > 0 && input.allowElevatedTools !== true;
-  const allowedTools = toolsRestricted ? [] : requestedTools;
+  const allowedTools = requestedTools;
   const toolSpec = await resolveRuntimeTools(input.toolAgentId, allowedTools);
   const maxRounds = input.maxRounds ?? DEFAULT_MAX_ROUNDS;
   const maxToolCalls = input.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
 
-  let assistantSegments: string[] = [];
+  let finalText = "";
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCostUsd = 0;
   let totalToolCalls = 0;
   const toolsUsed = new Set<string>();
   let pendingSeparator = false;
+  let awaitingFinalAnswer = false;
 
   // Merge per-tool arg overrides (e.g. library tag injection) — overrides win over seat-supplied args.
   const withOverrides = (tool: string, args: Record<string, unknown>): Record<string, unknown> => {
@@ -414,11 +408,8 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   const useNativeTools =
     toolSpec.nativeTools.length > 0 &&
-    apiKey.length > 40 &&
-    !isOllamaModel(model) &&
-    !isGeminiModel(model) &&
-    !isOpenAIModel(model) &&
-    !isCodexModel(model);
+    apiKey.length > 20 &&
+    isAnthropicModel(model);
   const toolGuide = useNativeTools ? toolSpec.nativeToolGuide : toolSpec.textToolGuide;
   const systemPrompt = [
     input.systemPrompt?.trim(),
@@ -427,9 +418,6 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
       ? "If evidence is missing or disputed, use tools before concluding."
       : "No platform tools are available in this seat. Do not claim to have used tools unless tool results were actually returned in-chat.",
     "Prefer repo files, saved documents, and RAG knowledge before web search when the answer is likely internal.",
-    toolsRestricted
-      ? "This model runs in elevated_runtime mode. Per-seat tool allowlists are not treated as a hard safety boundary here, so external tools are disabled unless the seat is explicitly trusted."
-      : null,
     allowedTools.length > 0
       ? "After receiving a tool result, your next response MUST explicitly reference at least one specific finding from that result (e.g. a paper title, a URL, a quoted passage, or a concrete data point). If the result was not useful, say so explicitly and explain what you concluded instead. Never silently ignore a tool result."
       : null,
@@ -464,12 +452,19 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
       }
 
       const roundText = roundTextParts.join("").trim();
-      if (roundText) {
-        assistantSegments.push(roundText);
-      }
-
-      if (stopReason !== "tool_use" || roundToolUses.length === 0 || totalToolCalls >= maxToolCalls) {
+      const requestedTools = stopReason === "tool_use" && roundToolUses.length > 0;
+      if (!requestedTools) {
+        if (awaitingFinalAnswer && !roundText) {
+          throw new Error("Runtime ended after tool usage without a finalized answer.");
+        }
+        if (roundText) {
+          finalText = roundText;
+          awaitingFinalAnswer = false;
+        }
         break;
+      }
+      if (totalToolCalls + roundToolUses.length > maxToolCalls) {
+        throw new Error("Runtime hit the tool-call limit before producing a finalized answer.");
       }
 
       const assistantContent: Anthropic.ContentBlockParam[] = [];
@@ -503,15 +498,19 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         });
       }
 
-      if (!toolResults.length) break;
+      if (!toolResults.length) {
+        throw new Error("Runtime received tool requests but produced no tool results.");
+      }
       sdkMessages.push({ role: "user", content: toolResults });
+      awaitingFinalAnswer = true;
       pendingSeparator = roundText.length > 0;
     }
   } else {
     let loopPrompt = input.prompt;
     let loopMessages: OllamaMessage[] | undefined;
+    let toolCallRepairAttempts = 0;
 
-    if (isOllamaModel(model) || isGeminiModel(model) || isOpenAIModel(model) || isCodexModel(model)) {
+    if (isOllamaModel(model) || isGeminiModel(model) || isOpenAIModel(model) || isAnthropicModel(model)) {
       loopMessages = [];
       if (systemPrompt) loopMessages.push({ role: "system", content: systemPrompt });
       loopMessages.push({ role: "user", content: input.prompt });
@@ -526,7 +525,7 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         totalInputTokens += usage.inputTokens;
         totalOutputTokens += usage.outputTokens;
         totalCostUsd += usage.costUsd;
-      });
+      }, input.maxTokens);
 
       for await (const delta of generator) {
         rawRoundText += delta;
@@ -539,18 +538,51 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
       }
 
       const roundText = stripToolCallsForDisplay(rawRoundText).trim();
-      if (roundText) {
-        assistantSegments.push(roundText);
+      const parsedToolCalls = parseToolCalls(rawRoundText);
+      if (parsedToolCalls.status === "truncated" || parsedToolCalls.status === "malformed") {
+        const issue = parsedToolCalls.status === "truncated"
+          ? "ended mid-[TOOL_CALL]"
+          : "returned a malformed [TOOL_CALL] block";
+        if (toolCallRepairAttempts >= MAX_TOOL_CALL_REPAIR_ATTEMPTS) {
+          throw new Error(`Runtime ${issue} and failed to repair the tool request.`);
+        }
+
+        toolCallRepairAttempts += 1;
+        const repairPrompt = parsedToolCalls.status === "truncated"
+          ? "Your previous response ended mid-[TOOL_CALL]. Reissue either one complete [TOOL_CALL] JSON block or a final answer with no tool call. Do not include partial tags."
+          : "Your previous response emitted a malformed [TOOL_CALL] JSON block. Reissue either one complete [TOOL_CALL] JSON block or a final answer with no tool call. Do not include invalid JSON.";
+
+        if (isOllamaModel(model) || isGeminiModel(model) || isOpenAIModel(model) || isAnthropicModel(model)) {
+          loopMessages = [
+            ...(loopMessages ?? []),
+            { role: "assistant", content: rawRoundText },
+            { role: "user", content: repairPrompt },
+          ];
+        } else {
+          loopPrompt += `\n\nAssistant:\n${rawRoundText}\n\nUser:\n${repairPrompt}`;
+        }
+
+        pendingSeparator = roundText.length > 0;
+        continue;
       }
 
-      const toolCalls = parseToolCalls(rawRoundText);
-      if (!toolCalls.length || totalToolCalls >= maxToolCalls) {
+      const toolCalls = parsedToolCalls.calls;
+      if (!toolCalls.length) {
+        if (awaitingFinalAnswer && !roundText) {
+          throw new Error("Runtime ended after tool usage without a finalized answer.");
+        }
+        if (roundText) {
+          finalText = roundText;
+          awaitingFinalAnswer = false;
+        }
         break;
+      }
+      if (toolCalls.length > maxToolCalls - totalToolCalls) {
+        throw new Error("Runtime hit the tool-call limit before producing a finalized answer.");
       }
 
       let toolResultsBlock = "";
       for (const toolCall of toolCalls) {
-        if (totalToolCalls >= maxToolCalls) break;
         totalToolCalls += 1;
         toolsUsed.add(toolCall.tool);
         const effectiveArgs = withOverrides(toolCall.tool, toolCall.args);
@@ -561,9 +593,11 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         toolResultsBlock += `\n[TOOL_RESULT tool="${toolCall.tool}"]\n${compressedResult}\n[/TOOL_RESULT]`;
       }
 
-      if (!toolResultsBlock) break;
+      if (!toolResultsBlock) {
+        throw new Error("Runtime received tool requests but produced no tool results.");
+      }
 
-      if (isOllamaModel(model) || isGeminiModel(model) || isOpenAIModel(model) || isCodexModel(model)) {
+      if (isOllamaModel(model) || isGeminiModel(model) || isOpenAIModel(model) || isAnthropicModel(model)) {
         loopMessages = [
           ...(loopMessages ?? []),
           { role: "assistant", content: rawRoundText },
@@ -573,17 +607,21 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         loopPrompt += `\n\nAssistant:\n${rawRoundText}\n\nTool results:\n${toolResultsBlock}\nContinue the analysis and cite concrete evidence.`;
       }
 
+      awaitingFinalAnswer = true;
       pendingSeparator = roundText.length > 0;
     }
   }
 
+  if (awaitingFinalAnswer && !finalText.trim()) {
+    throw new Error("Runtime exhausted its loop after tool usage without producing a finalized answer.");
+  }
+
   return {
-    text: assistantSegments.join("\n\n").trim(),
+    text: finalText.trim(),
     toolCalls: totalToolCalls,
     toolsUsed: [...toolsUsed],
     runtimeClass,
     allowedTools,
-    toolsRestricted,
     inputTokens: totalInputTokens,
     outputTokens: totalOutputTokens,
     costUsd: totalCostUsd,

@@ -1,5 +1,6 @@
 import { runLLM } from '@/lib/claude'
 import { extractFirstJsonObject } from '@/lib/council-prompts'
+import { DEFAULT_GEMMA_MODEL } from '@/lib/gemma-models'
 import {
   buildGeneratedTeamFromBrief,
   type EditableReviewAgent,
@@ -84,7 +85,7 @@ export async function generateTeamWithAI(input: {
     'Your job is to produce a reviewer lineup for a paper debate workspace.',
     'Return JSON only.',
     'The JSON schema is:',
-    '{"mode":"critique|gap","rounds":1|2,"rationale":"string","agents":[{"id":"string","seatRole":"string","name":"string","focus":"string","avatar":"string","color":"#RRGGBB","description":"string","systemPrompt":"string","bias":"string","tools":["rag_query"],"model":"claude-sonnet-4-6","enabled":true}]}',
+    `{"mode":"critique|gap","rounds":1|2,"rationale":"string","agents":[{"id":"string","seatRole":"string","name":"string","focus":"string","avatar":"string","color":"#RRGGBB","description":"string","systemPrompt":"string","bias":"string","tools":["rag_query"],"model":"${DEFAULT_GEMMA_MODEL}","enabled":true}]}`,
     'Rules:',
     '- Generate 4 to 6 agents only.',
     '- Make each agent distinct, not paraphrases of each other.',
@@ -104,7 +105,7 @@ export async function generateTeamWithAI(input: {
   ].join('\n')
 
   try {
-    const raw = await runLLM(prompt, systemPrompt, input.model ?? 'claude-sonnet-4-6')
+    const raw = await runLLM(prompt, systemPrompt, input.model ?? DEFAULT_GEMMA_MODEL)
     return normalizeBuilderResponse(raw, fallback)
   } catch {
     return fallback

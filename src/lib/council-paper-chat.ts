@@ -2,6 +2,7 @@ import { db } from './db'
 import { runLLM } from './claude'
 import { getSession } from './council'
 import type { CouncilEvidenceSource } from './council-types'
+import { DEFAULT_GEMMA_MODEL } from './gemma-models'
 
 interface SearchRow {
   chunk: string
@@ -123,7 +124,7 @@ export async function answerCouncilPaperQuestion(sessionId: string, question: st
     }
   }
 
-  const model = process.env.COUNCIL_CHAT_MODEL || process.env.RAG_CHAT_MODEL || 'claude-haiku-4-5-20251001'
+  const model = process.env.COUNCIL_CHAT_MODEL || process.env.RAG_CHAT_MODEL || DEFAULT_GEMMA_MODEL
   const systemPrompt = [
     'You answer questions about a single academic paper.',
     'Use only the supplied paper excerpts.',

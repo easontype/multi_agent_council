@@ -5,6 +5,7 @@ import { createCouncilSession } from "@/lib/council";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 import { getAuthenticatedCouncilOwnerEmail, createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/council-access";
 import type { CouncilSeat } from "@/lib/council-types";
+import { DEFAULT_GEMMA_MODEL } from "@/lib/gemma-models";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
@@ -107,8 +108,8 @@ export async function POST(req: NextRequest) {
   const rawSeats: CouncilSeat[] = customSeats.length
     ? customSeats
     : mode === "gap"
-      ? buildGapAnalysisSeats("claude-sonnet-4-6")
-      : buildAcademicCritiqueSeats("claude-sonnet-4-6");
+      ? buildGapAnalysisSeats(DEFAULT_GEMMA_MODEL)
+      : buildAcademicCritiqueSeats(DEFAULT_GEMMA_MODEL);
 
   const seats: CouncilSeat[] = rawSeats.map((seat) => ({ ...seat, library_id: libraryId }));
 

@@ -62,6 +62,12 @@ export interface SourceRef {
   agentName: string
 }
 
+export interface SessionAlert {
+  id: string
+  level: 'info' | 'warning'
+  message: string
+}
+
 export interface DiscussionSession {
   id: string
   paperId: string
@@ -72,6 +78,10 @@ export interface DiscussionSession {
   messages: AgentMessage[]
   sourceRefs: SourceRef[]
   conclusion?: string
+  currentRound?: number
+  divergenceLevel?: 'none' | 'low' | 'moderate' | 'high' | null
+  round2SkippedReason?: string
+  alerts?: SessionAlert[]
   startedAt: Date
   concludedAt?: Date
 }

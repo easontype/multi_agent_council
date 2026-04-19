@@ -1,24 +1,13 @@
-/**
- * tool-compressor.ts — Local Ollama pre-processing for long tool results.
- *
- * Compresses fetch_paper / fetch_url results before they reach the main LLM seat,
- * replacing the dumb hard-truncate with a structured summary so seats see the
- * paper's conclusions rather than just its introduction.
- *
- * Falls back to hard-truncate on any failure — never blocks the seat turn.
- */
-
 const OLLAMA_BASE = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const COMPRESSOR_MODEL = process.env.TOOL_COMPRESSOR_MODEL || "gemma4:2b";
-const COMPRESS_THRESHOLD = 4000;   // chars
+const COMPRESS_THRESHOLD = 2500;
 const COMPRESS_TIMEOUT_MS = 30_000;
-const FALLBACK_LIMIT = 10_000;     // chars — matches existing hard-truncate
-
-/** Tools that benefit from semantic compression vs. those already compact */
-const COMPRESSIBLE_TOOLS = new Set(["fetch_paper", "fetch_url"]);
+const FALLBACK_LIMIT = 3500;
+const MAX_PROMPT_CHARS = 40_000;
 
 export function shouldCompress(tool: string, result: string): boolean {
-  return COMPRESSIBLE_TOOLS.has(tool) && result.length > COMPRESS_THRESHOLD;
+  void tool;
+  return result.length > COMPRESS_THRESHOLD;
 }
 
 function buildPrompt(tool: string, raw: string): string {
@@ -31,25 +20,44 @@ function buildPrompt(tool: string, raw: string): string {
       '{ "title": "...", "hypothesis": "...", "methodology": "1-2 sentences", "key_results": ["result 1", "result 2"], "limitations": ["limit 1"], "conclusion": "1-2 sentences" }',
       "",
       "Paper text (may be truncated):",
-      raw.slice(0, 60_000),
+      raw.slice(0, MAX_PROMPT_CHARS),
     ].join("\n");
   }
 
-  // fetch_url — plain summarize
+  if (tool === "rag_query") {
+    return [
+      "Condense this RAG tool result for another model.",
+      "Keep only the direct answer, retrieval metadata, warnings if present, and up to 4 sources with one short evidence note each.",
+      "Return compact markdown only.",
+      "",
+      raw.slice(0, MAX_PROMPT_CHARS),
+    ].join("\n");
+  }
+
+  if (tool === "semantic_search") {
+    return [
+      "Condense these search results for another model.",
+      "Keep up to 5 results with title, source if present, and one short snippet each.",
+      "Return compact markdown only.",
+      "",
+      raw.slice(0, MAX_PROMPT_CHARS),
+    ].join("\n");
+  }
+
   return [
-    "Summarize the following web page content in 3-5 sentences.",
+    "Summarize this tool result for another model in compact markdown.",
     "Focus on the main claim, key data points, and conclusion.",
-    "Return only the summary text, no preamble.",
+    "Keep the output under 12 short lines.",
     "",
-    raw.slice(0, 60_000),
+    raw.slice(0, MAX_PROMPT_CHARS),
   ].join("\n");
 }
 
-function formatResult(tool: string, raw: string, compressed: string): string {
-  const prefix = tool === "fetch_paper"
-    ? "# Paper Summary (compressed by local model)\n\n"
-    : "# Page Summary (compressed by local model)\n\n";
-  return prefix + compressed.trim();
+function formatResult(tool: string, compressed: string): string {
+  if (tool === "fetch_paper") {
+    return `# Paper Summary (compressed by local model)\n\n${compressed.trim()}`;
+  }
+  return `# ${tool} Summary (compressed by local model)\n\n${compressed.trim()}`;
 }
 
 export async function compressToolResult(tool: string, result: string): Promise<string> {
@@ -69,22 +77,19 @@ export async function compressToolResult(tool: string, result: string): Promise<
         model: COMPRESSOR_MODEL,
         messages: [{ role: "user", content: buildPrompt(tool, result) }],
         stream: false,
-        options: { temperature: 0, num_predict: 800 },
+        options: { temperature: 0, num_predict: 700 },
       }),
     });
 
     clearTimeout(timeout);
-
     if (!res.ok) throw new Error(`Ollama ${res.status}`);
 
     const data = await res.json() as { message?: { content?: string } };
     const compressed = data.message?.content?.trim() ?? "";
+    if (!compressed || compressed.length < 40) throw new Error("Empty response");
 
-    if (!compressed || compressed.length < 50) throw new Error("Empty response");
-
-    return formatResult(tool, result, compressed);
+    return formatResult(tool, compressed).slice(0, FALLBACK_LIMIT);
   } catch {
-    // Silent fallback — never break a seat turn
     return result.slice(0, FALLBACK_LIMIT);
   }
 }

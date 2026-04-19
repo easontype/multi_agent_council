@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { DiscussionSession, Agent, AgentMessage, ContentBlock, SourceRef, DEFAULT_AGENTS } from '@/types/council'
+import { DiscussionSession, Agent, AgentMessage, ContentBlock, SourceRef, DEFAULT_AGENTS, SessionAlert } from '@/types/council'
 import { takePendingUpload } from '@/lib/pending-upload'
 import type { CouncilSeat } from '@/lib/council-types'
 
@@ -17,12 +17,21 @@ function makeEmptySession(title = '', abstract = '', agents: Agent[] = DEFAULT_A
     agents,
     messages: [],
     sourceRefs: [],
+    alerts: [],
     startedAt: new Date(),
   }
 }
 
 function findAgentByRole(agents: Agent[], role: string) {
   return agents.find((agent) => agent.seatRole === role) ?? agents.find((agent) => agent.name === role)
+}
+
+function appendAlert(existing: SessionAlert[] | undefined, next: Omit<SessionAlert, 'id'>): SessionAlert[] {
+  const alerts = existing ?? []
+  if (alerts.some((alert) => alert.level === next.level && alert.message === next.message)) {
+    return alerts
+  }
+  return [...alerts, { id: `${next.level}-${alerts.length + 1}-${Date.now()}`, ...next }]
 }
 
 export function useCouncilReview(arxivIdParam?: string | null) {
@@ -144,7 +153,52 @@ export function useCouncilReview(arxivIdParam?: string | null) {
 
     if (type === 'session_start') {
       setSession(makeEmptySession(paperTitle, paperAbstract, agents))
-      setSession((s) => ({ ...s, id: sessionId, paperId: sessionId, status: 'discussing', startedAt: new Date(), agents }))
+      setSession((s) => ({ ...s, id: sessionId, paperId: sessionId, status: 'discussing', startedAt: new Date(), agents, currentRound: 1 }))
+      return
+    }
+
+    if (type === 'round_start') {
+      const round = (event.round as number) ?? 1
+      setSession((s) => ({ ...s, currentRound: round, status: 'discussing' }))
+      return
+    }
+
+    if (type === 'divergence_check') {
+      const level = (event.level as DiscussionSession['divergenceLevel']) ?? null
+      const proceed = event.proceed_to_round2 === true
+      const summary = typeof event.summary === 'string' ? event.summary : ''
+      const message = summary || (proceed ? `Divergence check: ${level ?? 'unknown'}; proceeding to Round 2.` : `Divergence check: ${level ?? 'unknown'}; Round 2 skipped.`)
+      setSession((s) => ({
+        ...s,
+        divergenceLevel: level,
+        alerts: appendAlert(s.alerts, { level: level === 'high' ? 'warning' : 'info', message }),
+      }))
+      return
+    }
+
+    if (type === 'round2_skipped') {
+      const reason = typeof event.reason === 'string' ? event.reason : 'Round 2 was skipped.'
+      setSession((s) => ({
+        ...s,
+        round2SkippedReason: reason,
+        alerts: appendAlert(s.alerts, { level: 'info', message: reason }),
+      }))
+      return
+    }
+
+    if (type === 'high_divergence_warning') {
+      const message = typeof event.message === 'string' ? event.message : 'High divergence detected.'
+      setSession((s) => ({
+        ...s,
+        divergenceLevel: 'high',
+        alerts: appendAlert(s.alerts, { level: 'warning', message }),
+      }))
+      return
+    }
+
+    if (type === 'session_done') {
+      setPhase('concluded')
+      setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
       return
     }
 

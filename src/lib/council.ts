@@ -80,9 +80,7 @@ import {
 
 import {
   buildRound1Prompt,
-  buildRound2Prompt,
   MODERATOR_SYSTEM_PROMPT,
-  buildModeratorPrompt,
   extractFirstJsonObject,
   normalizeConclusion,
   extractEvidenceSources,
@@ -92,6 +90,8 @@ import {
   shouldUsePlannerClassifier,
   classifyPlanWithLLM,
 } from "./council-prompts";
+import { normalizeSeatTurnContent } from "./council-turn-normalizer";
+import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "./council-bounded-prompts";
 
 // ─── Module-level constants ────────────────────────────────────────────────────
 
@@ -114,6 +114,9 @@ const DEFAULT_PLAN_CLASSIFIER_MODEL = "gemma-4-31b-it";
 const DEFAULT_DIVERGENCE_CLASSIFIER_MODEL = "gemma-4-31b-it";
 const DEFAULT_STALE_AFTER_MS = 15 * 60 * 1000;
 const HEARTBEAT_WRITE_INTERVAL_MS = 1_500;
+const MODERATOR_MAX_TOKENS = 1_200;
+const MODERATOR_JSON_RETRY_MAX_TOKENS = 900;
+const DIVERGENCE_CLASSIFIER_MAX_TOKENS = 220;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HAS_CJK_RE = /[\u3400-\u9fff]/;
 
@@ -153,7 +156,6 @@ async function runSeatTurn(
       runtimeId: `council:${session.id}:${seat.role}`,
       role: "worker",
       allowedTools: seat.tools,
-      allowElevatedTools: seat.allowElevatedTools,
       maxTokens: round === 1 ? 800 : 500,
       toolArgOverrides: libraryTag ? {
         rag_query: { tag: libraryTag },
@@ -219,7 +221,9 @@ async function runSeatTurn(
     round,
     role: seat.role,
     model: seat.model,
-    content: runtimeResult.text.trim() || "[No final response]",
+    content: runtimeResult.text.trim()
+      ? normalizeSeatTurnContent(runtimeResult.text, round)
+      : "[No final response]",
     input_tokens: runtimeResult.inputTokens,
     output_tokens: runtimeResult.outputTokens,
   });
@@ -261,7 +265,7 @@ async function runModeratorTurn(
     // Non-fatal — proceed without evidence counts
   }
 
-  const prompt = buildModeratorPrompt(session, allTurns, evidenceCounts);
+  const prompt = buildBoundedModeratorPrompt(session, allTurns, evidenceCounts);
   let raw = "";
   let inputTokens = 0;
   let outputTokens = 0;
@@ -279,10 +283,10 @@ async function runModeratorTurn(
     (usage) => {
       inputTokens = usage.inputTokens;
       outputTokens = usage.outputTokens;
-    }
+    },
+    MODERATOR_MAX_TOKENS,
   )) {
     raw += delta;
-    onEvent({ type: "moderator_delta", delta });
     await touchHeartbeat();
   }
 
@@ -300,7 +304,12 @@ async function runModeratorTurn(
         "Text to convert:",
         raw.trim(),
       ].join("\n");
-      const retried = await runLLM(retryPrompt, "You are a strict JSON formatter. Output JSON only.", session.moderator_model);
+      const retried = await runLLM(
+        retryPrompt,
+        "You are a strict JSON formatter. Output JSON only.",
+        session.moderator_model,
+        MODERATOR_JSON_RETRY_MAX_TOKENS,
+      );
       if (extractFirstJsonObject(retried)) {
         finalRaw = retried;
       }
@@ -318,6 +327,10 @@ async function runModeratorTurn(
     input_tokens: inputTokens,
     output_tokens: outputTokens,
   });
+
+  if (finalRaw.trim()) {
+    onEvent({ type: "moderator_delta", delta: finalRaw.trim() });
+  }
 
   const parsed = normalizeConclusion(finalRaw);
   const conclusion = await saveConclusion({
@@ -355,7 +368,8 @@ async function classifyDivergence(round1Turns: CouncilTurn[]): Promise<Divergenc
     const raw = await runLLM(
       prompt,
       "You are a strict debate classifier. Output JSON only. No prose, no fences.",
-      DEFAULT_DIVERGENCE_CLASSIFIER_MODEL
+      DEFAULT_DIVERGENCE_CLASSIFIER_MODEL,
+      DIVERGENCE_CLASSIFIER_MAX_TOKENS,
     );
     const jsonText = extractFirstJsonObject(raw);
     if (!jsonText) throw new Error("no JSON");
@@ -583,7 +597,7 @@ export async function runCouncilSession(
           // enabling genuine cross-argument within the same round.
           for (const seat of session.seats) {
             if (doneRoles.has(seat.role)) continue;
-            const round2Prompt = buildRound2Prompt(session, round1Turns, round2TurnsSoFar);
+            const round2Prompt = buildBoundedRound2Prompt(session, round1Turns, round2TurnsSoFar);
             const turn = await runSeatTurn(session, seat, 2, round2Prompt, emitEvent, touchHeartbeat);
             round2TurnsSoFar.push(turn);
             allTurns.push(turn);

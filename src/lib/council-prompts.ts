@@ -406,20 +406,15 @@ export function buildSeat(
   role: string,
   systemPrompt: string,
   model: string,
-  options?: { bias?: string; tools?: string[]; allowElevatedTools?: boolean }
+  options?: { bias?: string; tools?: string[] }
 ): CouncilSeat {
   const hasTools = Boolean(options?.tools?.length);
-  // If the seat declares tools, auto-enable allowElevatedTools so elevated_runtime
-  // models (Codex, Gemini, OpenAI) aren't silently stripped of their tool access.
-  // Callers can still override by passing allowElevatedTools: false explicitly.
-  const allowElevatedTools = options?.allowElevatedTools !== false && hasTools ? true : options?.allowElevatedTools;
   return {
     role,
     model,
     systemPrompt,
     bias: options?.bias,
     tools: hasTools ? options!.tools : undefined,
-    allowElevatedTools,
   };
 }
 

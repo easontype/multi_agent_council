@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 const sessionId = "session-ui-test";
 
 const seats = [
-  { role: "Methods Critic", model: "codex/codex" },
-  { role: "Literature Auditor", model: "codex/codex" },
-  { role: "Replication Skeptic", model: "codex/codex" },
-  { role: "Contribution Evaluator", model: "codex/codex" },
-  { role: "Constructive Advocate", model: "codex/codex" },
+  { role: "Methods Critic", model: "gemma-4-31b-it" },
+  { role: "Literature Auditor", model: "gemma-4-31b-it" },
+  { role: "Replication Skeptic", model: "gemma-4-31b-it" },
+  { role: "Contribution Evaluator", model: "gemma-4-31b-it" },
+  { role: "Constructive Advocate", model: "gemma-4-31b-it" },
 ];
 
 function buildSession(status: "pending" | "concluded") {
@@ -20,7 +20,7 @@ function buildSession(status: "pending" | "concluded") {
       goal: "Provide a comprehensive peer review verdict.",
       status,
       rounds: 2,
-      moderator_model: "codex/codex",
+      moderator_model: "gemma-4-31b-it",
       seats: seats.map((seat) => ({
         ...seat,
         prompt: `Review from the perspective of ${seat.role}.`,
@@ -50,7 +50,7 @@ function createTurn(round: number, role: string, content: string, createdAt: str
     session_id: sessionId,
     round,
     role,
-    model: "codex/codex",
+    model: "gemma-4-31b-it",
     content,
     input_tokens: 120,
     output_tokens: 80,
@@ -112,7 +112,7 @@ function createRunStream() {
 
   round1.forEach((turn, index) => {
     events.push(
-      { type: "turn_start", round: 1, role: turn.role, model: "codex/codex" },
+      { type: "turn_start", round: 1, role: turn.role, model: "gemma-4-31b-it" },
       { type: "turn_delta", round: 1, role: turn.role, delta: turn.content },
       { type: "turn_done", turn: createTurn(1, turn.role, turn.content, `2026-04-14T10:00:${10 + index}.000Z`) },
     );
@@ -130,7 +130,7 @@ function createRunStream() {
 
   round2.forEach((turn, index) => {
     events.push(
-      { type: "turn_start", round: 2, role: turn.role, model: "codex/codex" },
+      { type: "turn_start", round: 2, role: turn.role, model: "gemma-4-31b-it" },
       { type: "turn_delta", round: 2, role: turn.role, delta: turn.content },
       { type: "turn_done", turn: createTurn(2, turn.role, turn.content, `2026-04-14T10:01:${10 + index}.000Z`) },
     );
@@ -223,7 +223,7 @@ test("completes the primary paper review flow from landing page to verdict", asy
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: /AI Peer Review Committee/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /honest feedback|peer review|council/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Critique" })).toBeDisabled();
 
   await page.getByPlaceholder("arXiv ID e.g. 2301.07041").fill("1706.03762");

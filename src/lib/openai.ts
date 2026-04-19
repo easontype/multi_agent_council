@@ -49,14 +49,15 @@ export async function runOpenAI(
   prompt: string,
   systemPrompt?: string,
   model?: string,
-  onUsage?: (usage: OpenAIUsage) => void
+  onUsage?: (usage: OpenAIUsage) => void,
+  maxTokens?: number,
 ): Promise<string> {
   const m = model || "gpt-4o";
   const messages = buildMessages(prompt, systemPrompt);
   const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
-    body: JSON.stringify({ model: m, messages, max_tokens: 8192 }),
+    body: JSON.stringify({ model: m, messages, max_tokens: maxTokens ?? 8192 }),
   });
   if (!res.ok) throw new Error(`OpenAI error ${res.status}: ${await res.text()}`);
   const data = await res.json();
@@ -69,13 +70,20 @@ export async function runOpenAI(
 export async function* streamOpenAIText(
   messages: OpenAIMessage[],
   model?: string,
-  onUsage?: (usage: OpenAIUsage) => void
+  onUsage?: (usage: OpenAIUsage) => void,
+  maxTokens?: number,
 ): AsyncGenerator<string> {
   const m = model || "gpt-4o";
   const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
-    body: JSON.stringify({ model: m, messages, max_tokens: 8192, stream: true, stream_options: { include_usage: true } }),
+    body: JSON.stringify({
+      model: m,
+      messages,
+      max_tokens: maxTokens ?? 8192,
+      stream: true,
+      stream_options: { include_usage: true },
+    }),
   });
   if (!res.ok) throw new Error(`OpenAI error ${res.status}: ${await res.text()}`);
   if (!res.body) throw new Error("OpenAI: no response body");

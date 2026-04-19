@@ -10,7 +10,7 @@ const seats = [
   "Constructive Advocate",
 ].map((role) => ({
   role,
-  model: "codex/codex",
+  model: "gemma-4-31b-it",
   prompt: `Review from the perspective of ${role}.`,
   tools: ["rag_query"],
   allowElevatedTools: false,
@@ -26,7 +26,7 @@ const concludedBundle = {
     goal: "Provide a comprehensive peer review verdict.",
     status: "concluded",
     rounds: 1,
-    moderator_model: "codex/codex",
+    moderator_model: "gemma-4-31b-it",
     seats,
     owner_agent_id: null,
     created_at: "2026-04-14T10:00:00.000Z",
@@ -44,7 +44,7 @@ const concludedBundle = {
       session_id: sessionId,
       round: 1,
       role: "Methods Critic",
-      model: "codex/codex",
+      model: "gemma-4-31b-it",
       content:
         "The paper makes a strong architectural claim, but the ablation story still needs sharper isolation of which components drive the gains.",
       input_tokens: 412,
@@ -56,7 +56,7 @@ const concludedBundle = {
       session_id: sessionId,
       round: 1,
       role: "Literature Auditor",
-      model: "codex/codex",
+      model: "gemma-4-31b-it",
       content:
         "The positioning against recurrent and convolutional baselines is compelling, and the contribution clearly stands out relative to prior sequence modeling work.",
       input_tokens: 398,
@@ -68,7 +68,7 @@ const concludedBundle = {
       session_id: sessionId,
       round: 1,
       role: "Replication Skeptic",
-      model: "codex/codex",
+      model: "gemma-4-31b-it",
       content:
         "Reproducibility remains the main concern because optimization details, training schedules, and a few implementation choices are under-specified.",
       input_tokens: 421,

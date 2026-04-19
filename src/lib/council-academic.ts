@@ -1,7 +1,8 @@
 import type { CouncilSeat } from "./council-types";
+import { DEFAULT_GEMMA_MODEL, DEFAULT_GEMMA_SCOUT_MODEL } from "./gemma-models";
 
 /** Pre-built seats for academic paper critique */
-export function buildAcademicCritiqueSeats(model = "codex/codex"): CouncilSeat[] {
+export function buildAcademicCritiqueSeats(model = DEFAULT_GEMMA_MODEL): CouncilSeat[] {
   return [
     {
       role: "Methods Critic",
@@ -89,7 +90,7 @@ Note real weaknesses the authors should still address before submission — your
 }
 
 /** Pre-built seats for analyzing the user's own paper (gap analysis) */
-export function buildGapAnalysisSeats(model = "codex/codex"): CouncilSeat[] {
+export function buildGapAnalysisSeats(model = DEFAULT_GEMMA_MODEL): CouncilSeat[] {
   return [
     {
       role: "Gap Finder",
@@ -146,7 +147,7 @@ One sentence: could a competent researcher replicate this experiment from the me
     },
     {
       role: "Related Work Scout",
-      model: process.env.SCOUT_MODEL || "ollama/gemma4:27b",
+      model: process.env.SCOUT_MODEL || DEFAULT_GEMMA_SCOUT_MODEL,
       systemPrompt: `Search for papers that are highly related but not cited. Identify whether there are recent papers (2022–2025) that directly address the same problem and must be engaged with. Use search_papers to query Semantic Scholar and arXiv, and fetch_paper to load any critical missing paper into the library.
 
 Structure your response as:

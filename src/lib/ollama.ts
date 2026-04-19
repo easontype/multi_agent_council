@@ -14,7 +14,8 @@ export function ollamaModelName(model: string): string {
 export async function runOllama(
   prompt: string,
   systemPrompt?: string,
-  model?: string
+  model?: string,
+  maxTokens?: number,
 ): Promise<string> {
   const messages: OllamaMessage[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
@@ -27,6 +28,7 @@ export async function runOllama(
       model: ollamaModelName(model || "llama3"),
       messages,
       stream: false,
+      options: typeof maxTokens === "number" ? { num_predict: maxTokens } : undefined,
     }),
   });
 
@@ -42,7 +44,8 @@ export async function runOllama(
 /** Streaming completion via Ollama — yields text chunks */
 export async function* streamOllamaText(
   messages: OllamaMessage[],
-  model?: string
+  model?: string,
+  maxTokens?: number,
 ): AsyncGenerator<string> {
   const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
     method: "POST",
@@ -51,6 +54,7 @@ export async function* streamOllamaText(
       model: ollamaModelName(model || "llama3"),
       messages,
       stream: true,
+      options: typeof maxTokens === "number" ? { num_predict: maxTokens } : undefined,
     }),
   });
 
