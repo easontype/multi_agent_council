@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
+import { recordUploadedFile } from "@/lib/uploaded-files";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -31,6 +33,8 @@ export async function POST(req: NextRequest) {
     let title: string | undefined;
     let libraryId: string | undefined;
     let uploadedPdfBuffer: Buffer | undefined;
+    let uploadedFilename: string | undefined;
+    let uploadedMimeType: string | undefined;
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -48,6 +52,8 @@ export async function POST(req: NextRequest) {
           );
         }
         uploadedPdfBuffer = Buffer.from(await file.arrayBuffer());
+        uploadedFilename = file.name;
+        uploadedMimeType = file.type || "application/pdf";
         if (!title) title = file.name.replace(/\.pdf$/i, "");
       }
     } else {
@@ -83,6 +89,20 @@ export async function POST(req: NextRequest) {
     if (!paperText.trim()) throw new Error("Could not extract text from paper");
 
     const result = await ingestPaper({ text: paperText, title: paperTitle, sourceUrl, libraryId });
+    if (uploadedPdfBuffer && uploadedFilename) {
+      const account = await resolveAuthAccountContext();
+      void recordUploadedFile({
+        workspaceId: account?.workspaceId,
+        createdByUserId: account?.userId,
+        filename: uploadedFilename,
+        mimeType: uploadedMimeType,
+        sizeBytes: uploadedPdfBuffer.byteLength,
+        buffer: uploadedPdfBuffer,
+        sourceRoute: "/api/papers/ingest",
+        documentId: result.documentId,
+        libraryId: result.libraryId,
+      }).catch(() => {});
+    }
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

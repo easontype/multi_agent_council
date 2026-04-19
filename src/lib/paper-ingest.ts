@@ -74,8 +74,7 @@ export async function ingestPaper(params: {
   );
   const insertedId: string = (insertRes.rows[0] as Record<string, string>).id;
 
-  // Trigger embedding (non-blocking)
-  triggerEmbedding(insertedId).catch(() => {});
+  await embedDocument(insertedId);
 
   return {
     documentId: insertedId,
@@ -94,8 +93,7 @@ async function ensureDocumentSchema() {
   `);
 }
 
-async function triggerEmbedding(documentId: string) {
-  // Import rag handlers lazily to avoid circular deps
-  const { handlers } = await import("./tools/handlers/rag");
-  await handlers.embed_documents("system", { limit: 5 }, 0);
+async function embedDocument(documentId: string) {
+  const { embedDocumentById } = await import("@/lib/tools/handlers/rag");
+  await embedDocumentById(documentId);
 }

@@ -19,6 +19,12 @@ interface RetrievalResult {
   warnings: string[];
 }
 
+export interface EmbedDocumentResult {
+  chunkCount: number;
+  embeddedChunkCount: number;
+  fallbackChunkCount: number;
+}
+
 const DEFAULT_GEMINI_RAG_MODEL = DEFAULT_GEMMA_RAG_MODEL;
 const DEFAULT_CONTEXT_LIMIT = 9_000;
 const HAS_CJK_RE = /[\u3400-\u9fff]/;
@@ -49,7 +55,11 @@ function chunkText(text: string, maxLen = 600, overlap = 80): string[] {
     if (end >= text.length) break;
     start = end - overlap;
   }
-  return chunks.filter((chunk) => chunk.length > 30);
+  const filtered = chunks.filter((chunk) => chunk.length > 30);
+  if (filtered.length) return filtered;
+
+  const trimmed = text.trim();
+  return trimmed ? [trimmed.slice(0, maxLen)] : [];
 }
 
 function clampLimit(value: unknown, fallback: number, max: number) {
@@ -349,8 +359,88 @@ function renderSearchRows(rows: SearchRow[], heading: string, retrievalMode: Ret
   return `${heading}\n\n${body}\n\n${footer}`;
 }
 
+export async function embedDocumentById(documentId: string): Promise<EmbedDocumentResult> {
+  const trimmedId = documentId.trim();
+  if (!trimmedId) {
+    throw new Error("documentId is required");
+  }
+
+  const client = await db.getClient();
+
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      `SELECT id, content
+       FROM documents
+       WHERE id = $1
+       FOR UPDATE`,
+      [trimmedId],
+    );
+
+    if (!rows.length) {
+      throw new Error(`Document ${trimmedId} not found`);
+    }
+
+    const doc = rows[0] as { id: string; content: string | null };
+    const chunks = chunkText(doc.content ?? "");
+
+    await client.query(`DELETE FROM document_chunks WHERE document_id = $1`, [trimmedId]);
+
+    let embeddedChunkCount = 0;
+    let fallbackChunkCount = 0;
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index];
+      try {
+        const vector = await embedText(chunk);
+        await client.query(
+          `INSERT INTO document_chunks (document_id, chunk_index, content, embedding)
+           VALUES ($1, $2, $3, $4::vector)`,
+          [trimmedId, index, chunk, `[${vector.join(",")}]`],
+        );
+        embeddedChunkCount += 1;
+      } catch {
+        await client.query(
+          `INSERT INTO document_chunks (document_id, chunk_index, content, embedding)
+           VALUES ($1, $2, $3, NULL)`,
+          [trimmedId, index, chunk],
+        );
+        fallbackChunkCount += 1;
+      }
+    }
+
+    await client.query(`UPDATE documents SET done = true WHERE id = $1`, [trimmedId]);
+    await client.query("COMMIT");
+
+    return {
+      chunkCount: chunks.length,
+      embeddedChunkCount,
+      fallbackChunkCount,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export const handlers: Record<string, Handler> = {
   async embed_documents(_agentId, args) {
+    const documentId = typeof args.documentId === "string" ? args.documentId.trim() : "";
+
+    if (documentId) {
+      const result = await embedDocumentById(documentId);
+      return [
+        "embed_documents complete",
+        `- document_id: ${documentId}`,
+        `- chunks: ${result.chunkCount}`,
+        `- embedded_chunks: ${result.embeddedChunkCount}`,
+        `- fallback_chunks: ${result.fallbackChunkCount}`,
+      ].join("\n");
+    }
+
     const limit = clampLimit(args.limit, 10, 50);
 
     const { rows: docs } = await db.query(
@@ -373,15 +463,7 @@ export const handlers: Record<string, Handler> = {
 
     for (const doc of docs as Array<{ id: string; content: string }>) {
       try {
-        const chunks = chunkText(doc.content);
-        for (let index = 0; index < chunks.length; index += 1) {
-          const vector = await embedText(chunks[index]);
-          await db.query(
-            `INSERT INTO document_chunks (document_id, chunk_index, content, embedding)
-             VALUES ($1, $2, $3, $4::vector)`,
-            [doc.id, index, chunks[index], `[${vector.join(",")}]`],
-          );
-        }
+        await embedDocumentById(doc.id);
         embedded += 1;
       } catch {
         failed += 1;

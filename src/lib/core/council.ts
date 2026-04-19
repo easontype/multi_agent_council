@@ -446,6 +446,8 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
   const title = sanitizeText(input.title) || planned?.title || topic.slice(0, 80);
   const rounds = clamp(input.rounds ?? planned?.rounds ?? 1, 1, 2);
   const moderatorModel = sanitizeText(input.moderator_model) || planned?.moderator_model || DEFAULT_MODERATOR_MODEL;
+  const workspaceId = sanitizeText(input.workspaceId) || null;
+  const createdByUserId = sanitizeText(input.createdByUserId) || null;
   const ownerAgentId = sanitizeText(input.ownerAgentId);
   const ownerApiKeyId = sanitizeText(input.ownerApiKeyId) || null;
   const ownerUserEmail = sanitizeText(input.ownerUserEmail).toLowerCase() || null;
@@ -454,9 +456,9 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
 
   const { rows } = await db.query(
     `INSERT INTO council_sessions (
-       id, title, topic, context, goal, rounds, moderator_model, seats, owner_agent_id, owner_api_key_id, owner_user_email, access_token_hash
+       id, title, topic, context, goal, rounds, moderator_model, seats, workspace_id, created_by_user_id, owner_agent_id, owner_api_key_id, owner_user_email, access_token_hash
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING *`,
     [
       id,
@@ -467,6 +469,8 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
       rounds,
       moderatorModel,
       JSON.stringify(seats),
+      workspaceId,
+      createdByUserId,
       UUID_RE.test(ownerAgentId) ? ownerAgentId : null,
       ownerApiKeyId,
       ownerUserEmail,
@@ -639,20 +643,26 @@ export async function getSession(id: string): Promise<CouncilSession | null> {
   return rows[0] ? _mapSessionRow(rows[0] as Record<string, unknown>) : null;
 }
 
-export async function listSessions(ownerUserEmail?: string | null): Promise<(CouncilSession & { has_veto: boolean })[]> {
+export async function listSessions(input: {
+  workspaceId?: string | null;
+  ownerUserEmail?: string | null;
+} = {}): Promise<(CouncilSession & { has_veto: boolean })[]> {
   await getSchemaReady();
-  const normalizedOwnerUserEmail = sanitizeText(ownerUserEmail).toLowerCase();
+  const normalizedWorkspaceId = sanitizeText(input.workspaceId);
+  const normalizedOwnerUserEmail = sanitizeText(input.ownerUserEmail).toLowerCase();
   const params: unknown[] = [];
-  const where = normalizedOwnerUserEmail
-    ? `WHERE s.owner_user_email = $1`
-    : "";
-  if (normalizedOwnerUserEmail) {
+  let where = "";
+  if (normalizedWorkspaceId) {
+    where = `WHERE s.workspace_id = $1`;
+    params.push(normalizedWorkspaceId);
+  } else if (normalizedOwnerUserEmail) {
+    where = `WHERE s.owner_user_email = $1`;
     params.push(normalizedOwnerUserEmail);
   }
 
   const { rows } = await db.query(
     `SELECT s.id, s.title, s.topic, s.context, s.goal, s.status, s.rounds, s.moderator_model, s.seats,
-            s.owner_agent_id, s.owner_api_key_id, s.created_at, s.started_at, s.heartbeat_at, s.concluded_at,
+            s.workspace_id, s.created_by_user_id, s.owner_agent_id, s.owner_api_key_id, s.created_at, s.started_at, s.heartbeat_at, s.concluded_at,
             s.last_error, s.run_attempts, s.updated_at, s.divergence_level,
             (c.veto IS NOT NULL AND c.veto <> '') AS has_veto
      FROM council_sessions s

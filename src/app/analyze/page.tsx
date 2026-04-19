@@ -67,7 +67,13 @@ function AnalyzeContent() {
     setSidebarTab('sources')
   }, [])
 
-  useEffect(() => { setSavedTemplates(loadSavedTeamTemplates()) }, [])
+  useEffect(() => {
+    let cancelled = false
+    loadSavedTeamTemplates().then((templates) => {
+      if (!cancelled) setSavedTemplates(templates)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     if (pendingFile) {
@@ -163,11 +169,11 @@ function AnalyzeContent() {
     setTimeout(() => setShareCopied(false), 2500)
   }
 
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = async () => {
     const name = window.prompt('Template name', `${mode === 'gap' ? 'Gap' : 'Critique'} Team`)
     if (!name?.trim()) return
     const now = new Date().toISOString()
-    setSavedTemplates(upsertSavedTeamTemplate({ id: createTemplateId(), name: name.trim(), mode, rounds, agents: teamAgents, createdAt: now, updatedAt: now }))
+    setSavedTemplates(await upsertSavedTeamTemplate({ id: createTemplateId(), name: name.trim(), mode, rounds, agents: teamAgents, createdAt: now, updatedAt: now }))
   }
 
   const handleLoadTemplate = (template: SavedTeamTemplate) => {
@@ -176,19 +182,19 @@ function AnalyzeContent() {
     setTeamAgents(template.agents)
   }
 
-  const handleDeleteTemplate = (id: string) => { setSavedTemplates(deleteSavedTeamTemplate(id)) }
+  const handleDeleteTemplate = async (id: string) => { setSavedTemplates(await deleteSavedTeamTemplate(id)) }
 
-  const handleRenameTemplate = (template: SavedTeamTemplate) => {
+  const handleRenameTemplate = async (template: SavedTeamTemplate) => {
     const name = window.prompt('Rename template', template.name)
     if (!name?.trim()) return
-    setSavedTemplates(upsertSavedTeamTemplate({ ...template, name: name.trim(), updatedAt: new Date().toISOString() }))
+    setSavedTemplates(await upsertSavedTeamTemplate({ ...template, name: name.trim(), updatedAt: new Date().toISOString() }))
   }
 
-  const handleDuplicateTemplate = (template: SavedTeamTemplate) => {
+  const handleDuplicateTemplate = async (template: SavedTeamTemplate) => {
     const name = window.prompt('Duplicate template as', `${template.name} Copy`)
     if (!name?.trim()) return
     const now = new Date().toISOString()
-    setSavedTemplates(upsertSavedTeamTemplate({ ...template, id: createTemplateId(), name: name.trim(), createdAt: now, updatedAt: now }))
+    setSavedTemplates(await upsertSavedTeamTemplate({ ...template, id: createTemplateId(), name: name.trim(), createdAt: now, updatedAt: now }))
   }
 
   return (

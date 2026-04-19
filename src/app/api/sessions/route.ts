@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createCouncilSession, listSessions } from "@/lib/council";
+import { ensureAccountContextForAuthUser, resolveAuthAccountContext } from "@/lib/auth-account";
 import {
   attachCouncilSessionCookie,
   createCouncilAnonymousAccess,
-  getAuthenticatedCouncilOwnerEmail,
 } from "@/lib/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
@@ -13,12 +13,15 @@ export const GET = auth(async (req) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const ownerUserEmail = req.auth.user.email?.trim().toLowerCase();
-  if (!ownerUserEmail) {
+  const account = await ensureAccountContextForAuthUser(req.auth.user);
+  if (!account) {
     return NextResponse.json({ error: "Account email required" }, { status: 403 });
   }
 
-  const sessions = await listSessions(ownerUserEmail);
+  const sessions = await listSessions({
+    workspaceId: account.workspaceId,
+    ownerUserEmail: account.email,
+  });
   return NextResponse.json(sessions);
 });
 
@@ -41,11 +44,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const ownerUserEmail = await getAuthenticatedCouncilOwnerEmail();
-    const anonymousAccess = ownerUserEmail ? null : createCouncilAnonymousAccess();
+    const account = await resolveAuthAccountContext();
+    const anonymousAccess = account ? null : createCouncilAnonymousAccess();
     const session = await createCouncilSession({
       ...body,
-      ownerUserEmail: ownerUserEmail ?? undefined,
+      workspaceId: account?.workspaceId,
+      createdByUserId: account?.userId,
+      ownerUserEmail: account?.email ?? undefined,
       accessTokenHash: anonymousAccess?.tokenHash,
     });
 

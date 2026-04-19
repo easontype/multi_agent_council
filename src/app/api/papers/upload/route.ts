@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
+import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/council-academic";
 import { createCouncilSession } from "@/lib/council";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
-import { getAuthenticatedCouncilOwnerEmail, createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/council-access";
+import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/council-access";
 import type { CouncilSeat } from "@/lib/council-types";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/gemma-models";
+import { recordUploadedFile } from "@/lib/uploaded-files";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
@@ -96,12 +98,29 @@ export async function POST(req: NextRequest) {
 
   // 2. Ingest into RAG library
   let libraryId: string;
+  let documentId: string | undefined;
   try {
     const ingested = await ingestPaper({ text: paperText, title: paperTitle, sourceUrl });
     libraryId = ingested.libraryId;
+    documentId = ingested.documentId;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to ingest paper";
     return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
+  const account = await resolveAuthAccountContext();
+  if (uploadedBuffer && uploadTitle && documentId) {
+    void recordUploadedFile({
+      workspaceId: account?.workspaceId,
+      createdByUserId: account?.userId,
+      filename: `${uploadTitle}.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: uploadedBuffer.byteLength,
+      buffer: uploadedBuffer,
+      sourceRoute: "/api/papers/upload",
+      documentId,
+      libraryId,
+    }).catch(() => {});
   }
 
   // 3. Build seats with library binding
@@ -118,8 +137,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Create council session
-  const ownerUserEmail = await getAuthenticatedCouncilOwnerEmail();
-  const anonymousAccess = ownerUserEmail ? null : createCouncilAnonymousAccess();
+  const anonymousAccess = account ? null : createCouncilAnonymousAccess();
 
   let sessionId: string;
   try {
@@ -132,7 +150,9 @@ export async function POST(req: NextRequest) {
         : "Provide rigorous multi-perspective academic critique.",
       seats,
       rounds,
-      ownerUserEmail: ownerUserEmail ?? undefined,
+      workspaceId: account?.workspaceId,
+      createdByUserId: account?.userId,
+      ownerUserEmail: account?.email ?? undefined,
       accessTokenHash: anonymousAccess?.tokenHash,
     });
     sessionId = session.id;

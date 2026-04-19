@@ -36,6 +36,8 @@ export interface CouncilSession {
   rounds: number;
   moderator_model: string;
   seats: CouncilSeat[];
+  workspace_id: string | null;
+  created_by_user_id: string | null;
   owner_agent_id: string | null;
   owner_api_key_id: string | null;
   created_at: string;
@@ -136,6 +138,8 @@ export interface CouncilCreateInput {
   preferredModel?: string;
   maxSeats?: number;
   autoPlan?: boolean;
+  workspaceId?: string;
+  createdByUserId?: string;
   ownerAgentId?: string;
   ownerApiKeyId?: string;
   ownerUserEmail?: string;

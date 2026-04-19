@@ -109,10 +109,6 @@ export async function enforceAnonymousWebQuota(
   windows: QuotaWindow[],
 ): Promise<WebQuotaResult> {
   const actor = await resolveWebQuotaActor(req);
-  if (actor.kind === "user") {
-    return { ok: true };
-  }
-
   await ensureWebQuotaSchema();
 
   const now = Date.now();
@@ -126,7 +122,7 @@ export async function enforceAnonymousWebQuota(
       const retryAfterSeconds = Math.max(1, Math.ceil((windowMs - (now % windowMs)) / 1000));
       return {
         ok: false,
-        error: `Anonymous usage limit reached for ${action}: ${window.limit} per ${window.label}.`,
+        error: `${actor.kind === "user" ? "User" : "Anonymous"} usage limit reached for ${action}: ${window.limit} per ${window.label}.`,
         retryAfterSeconds,
       };
     }

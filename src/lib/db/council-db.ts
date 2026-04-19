@@ -5,6 +5,7 @@
 
 import { nanoid } from "nanoid";
 import { db } from "./db";
+import { ensureAccountSchema } from "./account-db";
 import type { AgenticRuntimeClass } from "../core/council-types";
 import type {
   CouncilSeat,
@@ -26,6 +27,7 @@ let councilSchemaReady: Promise<void> | null = null;
 export async function ensureCouncilSchema() {
   if (!councilSchemaReady) {
     councilSchemaReady = (async () => {
+      await ensureAccountSchema();
       await db.query(`
         CREATE TABLE IF NOT EXISTS council_sessions (
           id               TEXT PRIMARY KEY,
@@ -37,6 +39,8 @@ export async function ensureCouncilSchema() {
           rounds           INTEGER NOT NULL DEFAULT 1,
           moderator_model  TEXT NOT NULL DEFAULT '${DEFAULT_GEMMA_MODEL}',
           seats            JSONB NOT NULL DEFAULT '[]',
+          workspace_id     TEXT REFERENCES workspaces(id),
+          created_by_user_id TEXT REFERENCES users(id),
           owner_agent_id   UUID,
           created_at       TIMESTAMPTZ DEFAULT NOW(),
           started_at       TIMESTAMPTZ,
@@ -91,6 +95,8 @@ export async function ensureCouncilSchema() {
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS context TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS goal TEXT;
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS workspace_id TEXT REFERENCES workspaces(id);
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS created_by_user_id TEXT REFERENCES users(id);
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_agent_id UUID;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_api_key_id TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_user_email TEXT;
@@ -102,6 +108,8 @@ export async function ensureCouncilSchema() {
 
         CREATE INDEX IF NOT EXISTS idx_council_turns_session ON council_turns(session_id, round, created_at);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_status ON council_sessions(status, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_council_sessions_workspace_id ON council_sessions(workspace_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_council_sessions_created_by_user_id ON council_sessions(created_by_user_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_api_key_id ON council_sessions(owner_api_key_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_user_email ON council_sessions(owner_user_email, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_evidence_session ON council_evidence(session_id, round, created_at);
@@ -173,6 +181,8 @@ export function mapSessionRow(row: Record<string, unknown>, defaultModeratorMode
     rounds: Number(row.rounds ?? 1),
     moderator_model: String(row.moderator_model ?? defaultModeratorModel),
     seats: normalizeSeats(row.seats, DEFAULT_GEMMA_MODEL),
+    workspace_id: row.workspace_id ? String(row.workspace_id) : null,
+    created_by_user_id: row.created_by_user_id ? String(row.created_by_user_id) : null,
     owner_agent_id: row.owner_agent_id ? String(row.owner_agent_id) : null,
     owner_api_key_id: row.owner_api_key_id ? String(row.owner_api_key_id) : null,
     created_at: String(row.created_at ?? ""),

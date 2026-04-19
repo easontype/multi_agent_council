@@ -13,14 +13,18 @@ import {
 } from "crypto";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
+import { ensureAccountSchema } from "@/lib/db/account-db";
 
 export async function ensureApiKeySchema(): Promise<void> {
+  await ensureAccountSchema();
   await db.query(`
     CREATE TABLE IF NOT EXISTS council_api_keys (
       id                      TEXT PRIMARY KEY,
       key_hash                TEXT NOT NULL UNIQUE,
       name                    TEXT NOT NULL,
       email                   TEXT,
+      workspace_id            TEXT REFERENCES workspaces(id),
+      created_by_user_id      TEXT REFERENCES users(id),
       tier                    TEXT NOT NULL DEFAULT 'free',
       daily_limit             INTEGER NOT NULL DEFAULT 10,
       used_today              INTEGER NOT NULL DEFAULT 0,
@@ -39,6 +43,22 @@ export async function ensureApiKeySchema(): Promise<void> {
 
   await db
     .query(`ALTER TABLE council_api_keys ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT UNIQUE`)
+    .catch(() => {});
+
+  await db
+    .query(`ALTER TABLE council_api_keys ADD COLUMN IF NOT EXISTS workspace_id TEXT REFERENCES workspaces(id)`)
+    .catch(() => {});
+
+  await db
+    .query(`ALTER TABLE council_api_keys ADD COLUMN IF NOT EXISTS created_by_user_id TEXT REFERENCES users(id)`)
+    .catch(() => {});
+
+  await db
+    .query(`CREATE INDEX IF NOT EXISTS idx_council_api_keys_workspace_id ON council_api_keys(workspace_id, created_at DESC)`)
+    .catch(() => {});
+
+  await db
+    .query(`CREATE INDEX IF NOT EXISTS idx_council_api_keys_created_by_user_id ON council_api_keys(created_by_user_id, created_at DESC)`)
     .catch(() => {});
 }
 
@@ -89,7 +109,11 @@ function decryptPendingPlaintextKey(encryptedValue: string): string {
 
 export async function generateApiKey(
   name: string,
-  email?: string
+  email?: string,
+  ownership?: {
+    workspaceId?: string | null;
+    createdByUserId?: string | null;
+  },
 ): Promise<{ id: string; plaintextKey: string; keyHash: string }> {
   await ensureApiKeySchema();
 
@@ -99,9 +123,9 @@ export async function generateApiKey(
   const keyHash = hashKey(plaintextKey);
 
   await db.query(
-    `INSERT INTO council_api_keys (id, key_hash, name, email)
-     VALUES ($1, $2, $3, $4)`,
-    [id, keyHash, name, email ?? null]
+    `INSERT INTO council_api_keys (id, key_hash, name, email, workspace_id, created_by_user_id)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, keyHash, name, email ?? null, ownership?.workspaceId ?? null, ownership?.createdByUserId ?? null]
   );
 
   return { id, plaintextKey, keyHash };
@@ -211,6 +235,53 @@ export async function checkApiKey(plaintextKey: string): Promise<{
 export async function revokeApiKey(id: string): Promise<void> {
   await ensureApiKeySchema();
   await db.query(`UPDATE council_api_keys SET revoked_at = NOW() WHERE id = $1`, [id]);
+}
+
+export async function revokeApiKeyForWorkspace(id: string, workspaceId: string): Promise<boolean> {
+  await ensureApiKeySchema();
+  const { rowCount } = await db.query(
+    `UPDATE council_api_keys
+     SET revoked_at = NOW()
+     WHERE id = $1
+       AND workspace_id = $2
+       AND revoked_at IS NULL`,
+    [id, workspaceId],
+  );
+  return Boolean(rowCount);
+}
+
+export async function listApiKeysForWorkspace(workspaceId: string): Promise<Array<{
+  id: string;
+  name: string;
+  email: string | null;
+  tier: string;
+  daily_limit: number;
+  used_today: number;
+  reset_date: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}>> {
+  await ensureApiKeySchema();
+  const { rows } = await db.query(
+    `SELECT id, name, email, tier, daily_limit, used_today, reset_date, created_at, last_used_at, revoked_at
+     FROM council_api_keys
+     WHERE workspace_id = $1
+     ORDER BY created_at DESC`,
+    [workspaceId],
+  );
+  return rows as Array<{
+    id: string;
+    name: string;
+    email: string | null;
+    tier: string;
+    daily_limit: number;
+    used_today: number;
+    reset_date: string;
+    created_at: string;
+    last_used_at: string | null;
+    revoked_at: string | null;
+  }>;
 }
 
 async function ensurePendingKeySchema(): Promise<void> {
