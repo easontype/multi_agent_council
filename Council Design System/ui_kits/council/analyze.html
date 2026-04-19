@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Council · /analyze</title>
+<link rel="stylesheet" href="council.css">
+<style>
+  body { background: #fafafa; overflow: hidden; }
+  .workspace {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 320px;
+    gap: 14px;
+    padding: 14px;
+    height: calc(100vh - 56px);
+    min-height: 0;
+  }
+  @media (max-width: 1400px) {
+    .workspace { grid-template-columns: 1fr 1fr 300px; }
+  }
+  .workspace.pre-start { grid-template-columns: 1.3fr 380px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="chrome.jsx"></script>
+<script type="text/babel" src="setup.jsx"></script>
+<script type="text/babel" src="timeline.jsx"></script>
+<script type="text/babel" src="sources.jsx"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+function App() {
+  const [started, setStarted] = useState(true);
+  const [mode, setMode] = useState("debate");
+  const [rounds, setRounds] = useState(2);
+  const agents = window.COUNCIL_AGENTS;
+  const paper = window.COUNCIL_PAPER;
+
+  return (
+    <div data-screen-label="/analyze" style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <AppHeader paper={paper} />
+
+      {/* Mode toggle bar (below header) */}
+      <div style={{
+        padding: "10px 20px",
+        borderBottom: "1px solid #f0f0f2",
+        background: "#fff",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+      }}>
+        <span className="micro">Session</span>
+        <div style={{ display: "inline-flex", background: "#f5f5f7", borderRadius: 10, padding: 3, gap: 2 }}>
+          <button onClick={() => setStarted(false)} style={{
+            background: !started ? "#111827" : "transparent",
+            color: !started ? "#fff" : "#71717a",
+            border: "none", borderRadius: 8, padding: "5px 12px",
+            font: (!started ? 600 : 500) + " 11.5px inherit", cursor: "pointer",
+          }}>Setup</button>
+          <button onClick={() => setStarted(true)} style={{
+            background: started ? "#111827" : "transparent",
+            color: started ? "#fff" : "#71717a",
+            border: "none", borderRadius: 8, padding: "5px 12px",
+            font: (started ? 600 : 500) + " 11.5px inherit", cursor: "pointer",
+          }}>Discussion</button>
+        </div>
+        <span style={{ fontSize: 11, color: "#a1a1aa" }}>
+          {started ? "live" : "preview"} · {agents.length} reviewers · {rounds} rounds
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <button className="btn-ghost">
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <CouncilIcon name="message" size={11} />Chat with paper
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div className={"workspace" + (started ? "" : " pre-start")}>
+        <PaperPreview paper={paper} />
+        {started ? (
+          <>
+            <DiscussionTimeline agents={agents} />
+            <SourcesPanel agents={agents} />
+          </>
+        ) : (
+          <SetupPanel
+            agents={agents}
+            mode={mode} setMode={setMode}
+            rounds={rounds} setRounds={setRounds}
+            onStart={() => setStarted(true)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

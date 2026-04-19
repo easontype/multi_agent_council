@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { PricingCard } from "./_components/PricingCard";
+import { FreeKeyForm } from "./_components/FreeKeyForm";
+import { KeySuccess } from "./_components/KeySuccess";
+import { ProKeyForm } from "./_components/ProKeyForm";
 
 type View = "pricing" | "free-form" | "pro-form" | "free-success";
 
@@ -10,6 +14,11 @@ interface KeyResult {
   name: string;
   tier: string;
   dailyLimit: number;
+}
+
+function validateEmail(email: string) {
+  if (!email.trim()) return "";
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "" : "Enter a valid email address";
 }
 
 export default function KeysPage() {
@@ -31,11 +40,6 @@ export default function KeysPage() {
   const [proError, setProError] = useState<string | null>(null);
   const [proFieldErrors, setProFieldErrors] = useState<{ name?: string; email?: string }>({});
 
-  function validateEmail(email: string) {
-    if (!email.trim()) return "";
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "" : "Enter a valid email address";
-  }
-
   async function handleFreeSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFreeError(null);
@@ -53,10 +57,7 @@ export default function KeysPage() {
         body: JSON.stringify({ name: freeName.trim(), email: freeEmail.trim() || undefined }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setFreeError(data.error ?? "Failed to create API key");
-        return;
-      }
+      if (!res.ok) { setFreeError(data.error ?? "Failed to create API key"); return; }
       setFreeResult(data as KeyResult);
       setView("free-success");
     } catch {
@@ -92,10 +93,7 @@ export default function KeysPage() {
         body: JSON.stringify({ name: proName.trim(), email: proEmail.trim() || undefined }),
       });
       const data = await res.json();
-      if (!res.ok || !data.url) {
-        setProError(data.error ?? "Failed to start checkout");
-        return;
-      }
+      if (!res.ok || !data.url) { setProError(data.error ?? "Failed to start checkout"); return; }
       window.location.href = data.url;
     } catch {
       setProError("Network error — please try again");
@@ -107,17 +105,13 @@ export default function KeysPage() {
   return (
     <div style={{
       minHeight: "100vh", background: "var(--bg-primary)",
-      // Override --accent to near-black for all button CTAs on this page
       ["--accent" as string]: "#111",
     }}>
       {/* Nav */}
       <nav style={{
         borderBottom: "1px solid var(--border)",
-        padding: "0 24px",
-        height: 56,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
+        padding: "0 24px", height: 56,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <a href="/home" style={{ fontWeight: 700, fontSize: 18, color: "var(--accent)", textDecoration: "none" }}>Council</a>
         <a href="/analyze" style={{
@@ -127,14 +121,10 @@ export default function KeysPage() {
       </nav>
 
       <div style={{
-        maxWidth: 640,
-        margin: "0 auto",
+        maxWidth: 640, margin: "0 auto",
         padding: "60px 24px 80px",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
+        display: "flex", flexDirection: "column", alignItems: "center",
       }}>
-        {/* ── Pricing view ── */}
         {view === "pricing" && (
           <>
             <div style={{ textAlign: "center", marginBottom: 48 }}>
@@ -147,7 +137,6 @@ export default function KeysPage() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, width: "100%" }}>
-              {/* Free tier */}
               <PricingCard
                 tier="Free"
                 price="$0"
@@ -157,8 +146,6 @@ export default function KeysPage() {
                 ctaVariant="secondary"
                 onCta={() => setView("free-form")}
               />
-
-              {/* Pro tier */}
               <PricingCard
                 tier="Pro"
                 price="$20"
@@ -177,357 +164,43 @@ export default function KeysPage() {
           </>
         )}
 
-        {/* ── Free form ── */}
         {view === "free-form" && (
-          <div style={{ width: "100%", maxWidth: 440 }}>
-            <button onClick={() => setView("pricing")} style={{
-              background: "none", border: "none", color: "var(--text-secondary)",
-              fontSize: 13, cursor: "pointer", marginBottom: 24, padding: 0,
-            }}>← Back</button>
-            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)" }}>
-              Get Free API Key
-            </h2>
-            <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 28 }}>
-              10 reviews per day, forever free.
-            </p>
-            <form onSubmit={handleFreeSubmit} style={{
-              background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: 12, padding: 28, display: "flex", flexDirection: "column", gap: 18,
-            }}>
-              <Field label="Name or project label" required error={freeFieldErrors.name}>
-                <input
-                  type="text"
-                  placeholder="e.g. My Research Tool"
-                  value={freeName}
-                  onChange={(e) => { setFreeName(e.target.value); setFreeFieldErrors((p) => ({ ...p, name: undefined })); }}
-                  style={{
-                    width: "100%",
-                    outline: "none",
-                    border: `1px solid ${freeFieldErrors.name ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
-                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
-                    background: freeFieldErrors.name ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-              </Field>
-              <Field label="Email" note="optional" error={freeFieldErrors.email}>
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={freeEmail}
-                  onChange={(e) => { setFreeEmail(e.target.value); setFreeFieldErrors((p) => ({ ...p, email: undefined })); }}
-                  style={{
-                    width: "100%",
-                    outline: "none",
-                    border: `1px solid ${freeFieldErrors.email ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
-                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
-                    background: freeFieldErrors.email ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-              </Field>
-              {freeError && <ErrorBox>{freeError}</ErrorBox>}
-              <button
-                type="submit"
-                disabled={freeLoading}
-                style={{
-                  background: freeLoading ? "var(--bg-elevated)" : "var(--accent)",
-                  color: freeLoading ? "var(--text-muted)" : "#fff",
-                  border: "none", borderRadius: 8, padding: "12px 24px",
-                  fontSize: 15, fontWeight: 600, cursor: freeLoading ? "not-allowed" : "pointer",
-                }}
-              >
-                {freeLoading ? "Generating…" : "Generate API Key"}
-              </button>
-            </form>
-          </div>
+          <FreeKeyForm
+            name={freeName}
+            email={freeEmail}
+            loading={freeLoading}
+            error={freeError}
+            fieldErrors={freeFieldErrors}
+            onNameChange={(v) => { setFreeName(v); setFreeFieldErrors(p => ({ ...p, name: undefined })); }}
+            onEmailChange={(v) => { setFreeEmail(v); setFreeFieldErrors(p => ({ ...p, email: undefined })); }}
+            onSubmit={handleFreeSubmit}
+            onBack={() => setView("pricing")}
+          />
         )}
 
-        {/* ── Free success ── */}
         {view === "free-success" && freeResult && (
-          <div style={{ width: "100%", maxWidth: 480 }}>
-            <div style={{
-              background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: 12, padding: 32, display: "flex", flexDirection: "column", gap: 24,
-            }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  width: 48, height: 48, borderRadius: "50%",
-                  background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)",
-                  marginBottom: 14, fontSize: 22,
-                }}>✓</div>
-                <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
-                  Key created
-                </h2>
-                <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-                  Save it now — it won&apos;t be shown again.
-                </p>
-              </div>
-
-              <div style={{
-                background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)",
-                borderRadius: 8, padding: "10px 14px", color: "var(--warning)", fontSize: 13, fontWeight: 500,
-              }}>
-                Copy before closing this page.
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 500 }}>Your API key</span>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  background: "var(--bg-elevated)", border: "1px solid var(--border-accent)",
-                  borderRadius: 8, padding: "10px 14px",
-                }}>
-                  <code style={{ flex: 1, fontSize: 13, color: "var(--accent)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                    {freeResult.key}
-                  </code>
-                  <button
-                    onClick={handleFreeCopy}
-                    style={{
-                      background: freeCopied ? "var(--success)" : "var(--bg-primary)",
-                      color: freeCopied ? "#fff" : "var(--text-secondary)",
-                      border: "1px solid var(--border)", borderRadius: 6, padding: "6px 12px",
-                      fontSize: 13, fontWeight: 500, flexShrink: 0, cursor: "pointer",
-                      transition: "all 150ms ease",
-                    }}
-                  >
-                    {freeCopied ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{
-                background: "var(--bg-elevated)", borderRadius: 8, padding: "12px 14px",
-                display: "flex", flexDirection: "column", gap: 6,
-              }}>
-                <Row label="Plan" value="Free" />
-                <Row label="Daily limit" value="10 requests / day" />
-                <Row label="Key ID" value={freeResult.id} mono />
-              </div>
-
-              <div style={{ display: "flex", gap: 12 }}>
-                <button
-                  onClick={() => { setView("pro-form"); }}
-                  style={{
-                    flex: 1, background: "var(--accent)", color: "#fff",
-                    border: "none", borderRadius: 8, padding: "10px 16px",
-                    fontSize: 14, fontWeight: 600, cursor: "pointer",
-                  }}
-                >
-                  Upgrade to Pro — $20/mo
-                </button>
-                <a href="/home" style={{
-                  flex: 1, textAlign: "center", color: "var(--text-secondary)",
-                  border: "1px solid var(--border)", borderRadius: 8, padding: "10px 16px",
-                  fontSize: 14, fontWeight: 500, textDecoration: "none",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  Done
-                </a>
-              </div>
-            </div>
-          </div>
+          <KeySuccess
+            result={freeResult}
+            copied={freeCopied}
+            onCopy={handleFreeCopy}
+            onUpgrade={() => setView("pro-form")}
+          />
         )}
 
-        {/* ── Pro form ── */}
         {view === "pro-form" && (
-          <div style={{ width: "100%", maxWidth: 440 }}>
-            <button onClick={() => setView("pricing")} style={{
-              background: "none", border: "none", color: "var(--text-secondary)",
-              fontSize: 13, cursor: "pointer", marginBottom: 24, padding: 0,
-            }}>← Back</button>
-
-            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)" }}>
-              Subscribe to Pro
-            </h2>
-            <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 28 }}>
-              500 reviews/day. $20/month. Cancel anytime.
-            </p>
-
-            <form onSubmit={handleProSubmit} style={{
-              background: "var(--bg-card)", border: "1px solid var(--border-accent)",
-              borderRadius: 12, padding: 28, display: "flex", flexDirection: "column", gap: 18,
-            }}>
-              <Field label="Name or project label" required error={proFieldErrors.name}>
-                <input
-                  type="text"
-                  placeholder="e.g. My Research Tool"
-                  value={proName}
-                  onChange={(e) => { setProName(e.target.value); setProFieldErrors((p) => ({ ...p, name: undefined })); }}
-                  style={{
-                    width: "100%",
-                    outline: "none",
-                    border: `1px solid ${proFieldErrors.name ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
-                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
-                    background: proFieldErrors.name ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-              </Field>
-              <Field label="Email" note="optional — for key recovery" error={proFieldErrors.email}>
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={proEmail}
-                  onChange={(e) => { setProEmail(e.target.value); setProFieldErrors((p) => ({ ...p, email: undefined })); }}
-                  style={{
-                    width: "100%",
-                    outline: "none",
-                    border: `1px solid ${proFieldErrors.email ? "rgba(239,68,68,0.7)" : "var(--border)"}`,
-                    borderRadius: 6, padding: "9px 12px", fontSize: 14,
-                    background: proFieldErrors.email ? "rgba(239,68,68,0.04)" : "var(--bg-primary)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-              </Field>
-
-              {proError && <ErrorBox>{proError}</ErrorBox>}
-
-              <div style={{
-                background: "var(--bg-elevated)", borderRadius: 8, padding: "12px 14px",
-                display: "flex", flexDirection: "column", gap: 6,
-              }}>
-                <Row label="Plan" value="Pro" accent />
-                <Row label="Daily limit" value="500 requests / day" />
-                <Row label="Price" value="$20 / month" />
-                <Row label="Billing" value="Monthly, cancel anytime" />
-              </div>
-
-              <button
-                type="submit"
-                disabled={proLoading || !proName.trim()}
-                style={{
-                  background: proLoading || !proName.trim() ? "var(--bg-elevated)" : "var(--accent)",
-                  color: proLoading || !proName.trim() ? "var(--text-muted)" : "#fff",
-                  border: "none", borderRadius: 8, padding: "13px 24px",
-                  fontSize: 15, fontWeight: 600, cursor: proLoading || !proName.trim() ? "not-allowed" : "pointer",
-                }}
-              >
-                {proLoading ? "Redirecting to Stripe…" : "Continue to subscription →"}
-              </button>
-
-              <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
-                Secured by Stripe. We never see your card details.
-              </p>
-            </form>
-          </div>
+          <ProKeyForm
+            name={proName}
+            email={proEmail}
+            loading={proLoading}
+            error={proError}
+            fieldErrors={proFieldErrors}
+            onNameChange={(v) => { setProName(v); setProFieldErrors(p => ({ ...p, name: undefined })); }}
+            onEmailChange={(v) => { setProEmail(v); setProFieldErrors(p => ({ ...p, email: undefined })); }}
+            onSubmit={handleProSubmit}
+            onBack={() => setView("pricing")}
+          />
         )}
       </div>
-    </div>
-  );
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function PricingCard({
-  tier, price, priceNote, features, ctaLabel, ctaVariant, badge, onCta,
-}: {
-  tier: string;
-  price: string;
-  priceNote: string;
-  features: string[];
-  ctaLabel: string;
-  ctaVariant: "primary" | "secondary";
-  badge?: string;
-  onCta: () => void;
-}) {
-  return (
-    <div style={{
-      background: "var(--bg-card)",
-      border: `1px solid ${ctaVariant === "primary" ? "var(--border-accent)" : "var(--border)"}`,
-      borderRadius: 12, padding: 24,
-      display: "flex", flexDirection: "column", gap: 20,
-      position: "relative",
-    }}>
-      {badge && (
-        <div style={{
-          position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
-          background: "var(--accent)", color: "#fff",
-          fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-          padding: "3px 10px", borderRadius: 20,
-        }}>{badge}</div>
-      )}
-
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>{tier}</div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 32, fontWeight: 800, color: "var(--text-primary)" }}>{price}</span>
-          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{priceNote}</span>
-        </div>
-      </div>
-
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        {features.map((f) => (
-          <li key={f} style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <span style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }}>✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-
-      <button onClick={onCta} style={{
-        background: ctaVariant === "primary" ? "var(--accent)" : "transparent",
-        color: ctaVariant === "primary" ? "#fff" : "var(--text-primary)",
-        border: ctaVariant === "primary" ? "none" : "1px solid var(--border)",
-        borderRadius: 8, padding: "11px 0", fontSize: 14, fontWeight: 600,
-        cursor: "pointer", width: "100%",
-        transition: "opacity 150ms ease",
-      }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-      >
-        {ctaLabel}
-      </button>
-    </div>
-  );
-}
-
-function Field({ label, required, note, error, children }: {
-  label: string; required?: boolean; note?: string; error?: string; children: React.ReactNode;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 500 }}>
-        {label}
-        {required && <span style={{ color: "var(--danger)" }}> *</span>}
-        {note && <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> ({note})</span>}
-      </label>
-      {children}
-      {error && (
-        <p style={{ margin: 0, fontSize: 12, color: "var(--danger)", display: "flex", alignItems: "center", gap: 4 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ErrorBox({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
-      borderRadius: 6, padding: "10px 14px", color: "var(--danger)", fontSize: 14,
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function Row({ label, value, mono, accent }: { label: string; value: string; mono?: boolean; accent?: boolean }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{label}</span>
-      <span style={{
-        fontSize: mono ? 12 : 13,
-        fontWeight: 600,
-        color: accent ? "var(--accent)" : "var(--text-primary)",
-        fontFamily: mono ? "monospace" : undefined,
-        textTransform: accent ? "capitalize" : undefined,
-      }}>{value}</span>
     </div>
   );
 }

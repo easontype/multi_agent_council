@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"></head>
+<body>
+<div class="card" style="padding: 28px 32px;">
+
+  <!-- Status row — flat, monochrome-first, with small colored marks -->
+  <div class="micro" style="margin-bottom: 12px;">Status</div>
+  <div style="border: 1px solid #ececf1; border-radius: 10px; overflow: hidden;">
+    <div style="display:grid; grid-template-columns: 24px 1fr auto; gap: 14px; padding: 11px 14px; align-items: center;">
+      <span style="width:6px; height:6px; border-radius:50%; background:#3f6b52; display:inline-block; justify-self:center;"></span>
+      <div style="font-size: 12.5px; color:#27272a;"><span style="font-weight:600; color:#1f3d2e;">Concluded</span> &middot; all reviewers submitted</div>
+      <span class="mono" style="font-size:10px; color:#a1a1aa;">#3f6b52</span>
+    </div>
+    <div style="height:1px; background:#f0f0f2;"></div>
+    <div style="display:grid; grid-template-columns: 24px 1fr auto; gap: 14px; padding: 11px 14px; align-items: center;">
+      <span style="width:6px; height:6px; border-radius:50%; background:#8b6b35; display:inline-block; justify-self:center;"></span>
+      <div style="font-size: 12.5px; color:#27272a;"><span style="font-weight:600; color:#5f4a24;">In progress</span> &middot; Replication Skeptic is thinking</div>
+      <span class="mono" style="font-size:10px; color:#a1a1aa;">#8b6b35</span>
+    </div>
+    <div style="height:1px; background:#f0f0f2;"></div>
+    <div style="display:grid; grid-template-columns: 24px 1fr auto; gap: 14px; padding: 11px 14px; align-items: center;">
+      <span style="width:6px; height:6px; border-radius:50%; background:#8a4545; display:inline-block; justify-self:center;"></span>
+      <div style="font-size: 12.5px; color:#27272a;"><span style="font-weight:600; color:#5c2f2f;">Failed</span> &middot; ingestion did not complete</div>
+      <span class="mono" style="font-size:10px; color:#a1a1aa;">#8a4545</span>
+    </div>
+    <div style="height:1px; background:#f0f0f2;"></div>
+    <div style="display:grid; grid-template-columns: 24px 1fr auto; gap: 14px; padding: 11px 14px; align-items: center;">
+      <span style="width:6px; height:6px; border-radius:50%; background:#a1a1aa; display:inline-block; justify-self:center;"></span>
+      <div style="font-size: 12.5px; color:#52525b;"><span style="font-weight:600; color:#3f3f46;">Idle</span> &middot; awaiting input</div>
+      <span class="mono" style="font-size:10px; color:#a1a1aa;">#a1a1aa</span>
+    </div>
+  </div>
+
+  <!-- Moderator confidence, outlined pills on muted paper -->
+  <div style="margin-top: 22px; padding-top: 16px; border-top: 1px solid #f0f0f2;">
+    <div class="micro" style="margin-bottom: 12px;">Moderator confidence</div>
+    <div style="display:flex; gap: 8px; flex-wrap: wrap;">
+      <span style="display:inline-flex; align-items:center; gap:7px; font-family: Georgia, serif; font-size:12.5px; font-style:italic; color:#3f6b52; border:1px solid #3f6b52; border-radius:999px; padding:3px 12px;">
+        <span style="width:5px; height:5px; border-radius:50%; background:#3f6b52;"></span>high
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:7px; font-family: Georgia, serif; font-size:12.5px; font-style:italic; color:#8b6b35; border:1px solid #8b6b35; border-radius:999px; padding:3px 12px;">
+        <span style="width:5px; height:5px; border-radius:50%; background:#8b6b35;"></span>medium
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:7px; font-family: Georgia, serif; font-size:12.5px; font-style:italic; color:#8a4545; border:1px solid #8a4545; border-radius:999px; padding:3px 12px;">
+        <span style="width:5px; height:5px; border-radius:50%; background:#8a4545;"></span>low
+      </span>
+    </div>
+  </div>
+
+  <div style="margin-top: 16px; font-size: 11px; color:#9ca3af; line-height: 1.6;">
+    Muted earth tones &mdash; forest, ochre, oxblood. Used as a small mark plus text, not as filled panels.
+  </div>
+</div>
+</body>
+</html>

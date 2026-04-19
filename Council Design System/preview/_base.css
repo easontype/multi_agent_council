@@ -1,0 +1,54 @@
+/* Shared styles for all design system preview cards.
+   Each preview is a 700×? card, minimally chromed. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  color: #18181b;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.card {
+  padding: 24px 28px;
+  min-height: 150px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.micro {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.hairline {
+  height: 1px;
+  background: #f0f0f2;
+  width: 100%;
+}
+
+.serif {
+  font-family: Georgia, "Times New Roman", serif;
+}

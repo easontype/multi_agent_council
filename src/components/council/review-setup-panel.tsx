@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import type { EditableReviewAgent, ReviewMode, TeamBuilderResult } from '@/lib/review-presets'
 import { HoverHint } from '@/components/ui/hover-hint'
 import { AgentCard, AgentDetailModal, TeamBuilderModal, SectionLabel } from './review-setup'
+import { useReviewSetupStore } from '@/stores/review-setup-store'
 
 interface ReviewSetupPanelProps {
   paperTitle: string
@@ -43,8 +43,7 @@ export function ReviewSetupPanel({
   const enabledCount = agents.filter((agent) => agent.enabled).length
   const startDisabled = busy || !canStart || enabledCount < 2
 
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [builderOpen, setBuilderOpen] = useState(false)
+  const { editingId, builderOpen, setEditingId, setBuilderOpen } = useReviewSetupStore()
 
   const editingAgent = agents.find((agent) => agent.id === editingId) ?? null
 
