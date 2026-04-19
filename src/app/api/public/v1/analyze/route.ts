@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
           : "Provide a rigorous multi-perspective academic critique of the paper.",
       seats,
       rounds,
+      ownerApiKeyId: auth.keyId,
     });
   } catch (error) {
     const message =

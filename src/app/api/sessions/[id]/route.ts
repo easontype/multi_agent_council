@@ -44,8 +44,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const allowed = await canAccessCouncilSession(req, id);
-  if (!allowed) {
+  const isOwner = await isCouncilSessionOwner(req, id);
+  if (!isOwner) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 

@@ -447,15 +447,16 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
   const rounds = clamp(input.rounds ?? planned?.rounds ?? 1, 1, 2);
   const moderatorModel = sanitizeText(input.moderator_model) || planned?.moderator_model || DEFAULT_MODERATOR_MODEL;
   const ownerAgentId = sanitizeText(input.ownerAgentId);
+  const ownerApiKeyId = sanitizeText(input.ownerApiKeyId) || null;
   const ownerUserEmail = sanitizeText(input.ownerUserEmail).toLowerCase() || null;
   const accessTokenHash = sanitizeText(input.accessTokenHash) || null;
   const id = nanoid();
 
   const { rows } = await db.query(
     `INSERT INTO council_sessions (
-       id, title, topic, context, goal, rounds, moderator_model, seats, owner_agent_id, owner_user_email, access_token_hash
+       id, title, topic, context, goal, rounds, moderator_model, seats, owner_agent_id, owner_api_key_id, owner_user_email, access_token_hash
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING *`,
     [
       id,
@@ -467,6 +468,7 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
       moderatorModel,
       JSON.stringify(seats),
       UUID_RE.test(ownerAgentId) ? ownerAgentId : null,
+      ownerApiKeyId,
       ownerUserEmail,
       accessTokenHash,
     ]
@@ -650,7 +652,7 @@ export async function listSessions(ownerUserEmail?: string | null): Promise<(Cou
 
   const { rows } = await db.query(
     `SELECT s.id, s.title, s.topic, s.context, s.goal, s.status, s.rounds, s.moderator_model, s.seats,
-            s.owner_agent_id, s.created_at, s.started_at, s.heartbeat_at, s.concluded_at,
+            s.owner_agent_id, s.owner_api_key_id, s.created_at, s.started_at, s.heartbeat_at, s.concluded_at,
             s.last_error, s.run_attempts, s.updated_at, s.divergence_level,
             (c.veto IS NOT NULL AND c.veto <> '') AS has_veto
      FROM council_sessions s

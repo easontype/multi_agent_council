@@ -37,15 +37,19 @@ export async function GET(
   // ── 2. Fetch session ─────────────────────────────────────────────────────
   const { id } = await params;
 
-  const [session, turns, conclusion] = await Promise.all([
-    getSession(id),
-    getSessionTurns(id),
-    getSessionConclusion(id),
-  ]);
-
+  const session = await getSession(id);
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
+
+  if (!auth.keyId || session.owner_api_key_id !== auth.keyId) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  const [turns, conclusion] = await Promise.all([
+    getSessionTurns(id),
+    getSessionConclusion(id),
+  ]);
 
   // ── 3. Shape response ────────────────────────────────────────────────────
   const publicTurns = turns

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCouncilSession, type CouncilEvent } from "@/lib/council";
-import { canAccessCouncilSession } from "@/lib/council-access";
+import { isCouncilSessionOwner } from "@/lib/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 export async function POST(
@@ -8,8 +8,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const allowed = await canAccessCouncilSession(req, id);
-  if (!allowed) {
+  const isOwner = await isCouncilSessionOwner(req, id);
+  if (!isOwner) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 

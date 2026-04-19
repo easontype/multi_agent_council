@@ -29,6 +29,7 @@ const concludedBundle = {
     moderator_model: "gemma-4-31b-it",
     seats,
     owner_agent_id: null,
+    owner_api_key_id: null,
     created_at: "2026-04-14T10:00:00.000Z",
     started_at: "2026-04-14T10:00:10.000Z",
     heartbeat_at: "2026-04-14T10:00:20.000Z",

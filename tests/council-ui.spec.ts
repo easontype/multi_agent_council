@@ -29,6 +29,7 @@ function buildSession(status: "pending" | "concluded") {
         library_id: "paper:test-lib",
       })),
       owner_agent_id: null,
+      owner_api_key_id: null,
       created_at: "2026-04-14T10:00:00.000Z",
       started_at: "2026-04-14T10:00:10.000Z",
       heartbeat_at: "2026-04-14T10:00:20.000Z",

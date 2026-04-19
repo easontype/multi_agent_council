@@ -126,6 +126,7 @@ function makeSessionRow(overrides?: Partial<CouncilSession> & { seats?: ReturnTy
     moderator_model: overrides?.moderator_model ?? "gemma-4-31b-it",
     seats: overrides?.seats ?? [makeSeat("Methods Critic"), makeSeat("Literature Auditor"), makeSeat("Replication Skeptic")],
     owner_agent_id: overrides?.owner_agent_id ?? null,
+    owner_api_key_id: overrides?.owner_api_key_id ?? null,
     created_at: overrides?.created_at ?? "2026-04-19T00:00:00.000Z",
     started_at: overrides?.started_at ?? null,
     heartbeat_at: overrides?.heartbeat_at ?? null,

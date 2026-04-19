@@ -92,6 +92,7 @@ export async function ensureCouncilSchema() {
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS context TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS goal TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_agent_id UUID;
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_api_key_id TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_user_email TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS access_token_hash TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS last_error TEXT;
@@ -101,6 +102,7 @@ export async function ensureCouncilSchema() {
 
         CREATE INDEX IF NOT EXISTS idx_council_turns_session ON council_turns(session_id, round, created_at);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_status ON council_sessions(status, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_api_key_id ON council_sessions(owner_api_key_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_user_email ON council_sessions(owner_user_email, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_evidence_session ON council_evidence(session_id, round, created_at);
       `);
@@ -172,6 +174,7 @@ export function mapSessionRow(row: Record<string, unknown>, defaultModeratorMode
     moderator_model: String(row.moderator_model ?? defaultModeratorModel),
     seats: normalizeSeats(row.seats, DEFAULT_GEMMA_MODEL),
     owner_agent_id: row.owner_agent_id ? String(row.owner_agent_id) : null,
+    owner_api_key_id: row.owner_api_key_id ? String(row.owner_api_key_id) : null,
     created_at: String(row.created_at ?? ""),
     started_at: row.started_at ? String(row.started_at) : null,
     heartbeat_at: row.heartbeat_at ? String(row.heartbeat_at) : null,
