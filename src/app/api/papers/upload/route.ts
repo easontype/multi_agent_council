@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
-import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/council-academic";
-import { createCouncilSession } from "@/lib/council";
+import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/core/council-academic";
+import { createCouncilSession } from "@/lib/core/council";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
-import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/council-access";
-import type { CouncilSeat } from "@/lib/council-types";
-import { DEFAULT_GEMMA_MODEL } from "@/lib/gemma-models";
+import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/core/council-access";
+import type { CouncilSeat } from "@/lib/core/council-types";
+import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { recordUploadedFile } from "@/lib/uploaded-files";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;

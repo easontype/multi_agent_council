@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { runAgenticRuntime } from "../src/lib/agentic-runtime";
-import { runLLM, streamLLM } from "../src/lib/claude";
-import { runCouncilSession, runModeratorTurn } from "../src/lib/council";
-import { db } from "../src/lib/db";
-import { runGemini } from "../src/lib/gemini";
+import { runAgenticRuntime } from "../src/lib/agents/agentic-runtime";
+import { runLLM, streamLLM } from "../src/lib/llm/claude";
+import { runCouncilSession, runModeratorTurn } from "../src/lib/core/council";
+import { db } from "../src/lib/db/db";
+import { runGemini } from "../src/lib/llm/gemini";
 import { parseToolCalls } from "../src/lib/tools/parser";
-import { normalizeSeatTurnContent } from "../src/lib/council-turn-normalizer";
-import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../src/lib/council-bounded-prompts";
-import type { CouncilConclusion, CouncilEvent, CouncilSession, CouncilTurn } from "../src/lib/council-types";
+import { normalizeSeatTurnContent } from "../src/lib/prompts/council-turn-normalizer";
+import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../src/lib/prompts/council-bounded-prompts";
+import type { CouncilConclusion, CouncilEvent, CouncilSession, CouncilTurn } from "../src/lib/core/council-types";
 
 type MockFetchCall = {
   url: string;

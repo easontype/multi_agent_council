@@ -120,7 +120,7 @@ async function stubCouncilFlow(page: Page) {
     });
   });
 
-  await page.route("**/api/council", async (route) => {
+  await page.route("**/api/sessions", async (route) => {
     if (route.request().method() !== "POST") {
       await route.fallback();
       return;
@@ -133,7 +133,7 @@ async function stubCouncilFlow(page: Page) {
     });
   });
 
-  await page.route(`**/api/council/${sessionId}`, async (route) => {
+  await page.route(`**/api/sessions/${sessionId}`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",

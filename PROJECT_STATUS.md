@@ -36,6 +36,44 @@ The app supports:
 
 ## Recently Completed
 
+### Repository Structure Cleanup and Namespace Convergence
+
+Completed in the 2026-05-01 work:
+
+- Moved static architecture artifacts under `docs/architecture/`.
+- Moved design-system and sidecar project material under `references/`.
+- Removed committed local build/debug artifacts from the repo root and tightened `.gitignore`.
+- Removed top-level `src/lib` compatibility wrapper files after migrating imports to canonical module paths:
+  - `src/lib/core/*`
+  - `src/lib/db/*`
+  - `src/lib/llm/*`
+  - `src/lib/prompts/*`
+  - `src/lib/agents/*`
+- Removed legacy redirect-only API namespaces:
+  - `src/app/api/council/*`
+  - `src/app/api/v1/*`
+- Kept canonical API namespaces:
+  - internal app/runtime routes under `src/app/api/sessions/*`
+  - public API routes under `src/app/api/public/v1/*`
+- Updated Playwright and runtime tests to target the canonical namespaces.
+- Updated `tsconfig.json` so `references/` and `docs/` stay outside TypeScript compilation.
+
+Important files:
+
+- `tsconfig.json`
+- `.gitignore`
+- `PROJECT_TREE.md`
+- `src/app/api/sessions/`
+- `src/app/api/public/v1/`
+- `src/lib/core/`
+- `src/lib/db/`
+- `src/lib/llm/`
+- `src/lib/prompts/`
+
+Validation run:
+
+- `npm run build` passed after the namespace and wrapper cleanup.
+
 ### Saved Review Restore
 
 Completed in the 2026-04-30 work:
@@ -180,9 +218,8 @@ These are not progress logs and should remain:
 
 Do not start the large paper asset or billing work yet.
 
-The next useful task is to clean the working tree:
+The next useful task is to stabilize the broader test baseline after the repository cleanup:
 
-1. Decide whether the deleted roadmap/planning Markdown files should be permanently removed or restored.
-2. Remove or archive `.tmp-live-sse*` captures.
-3. Fix the `tests/council-runtime.spec.ts` account-schema DB mock gap.
-4. Run the broader unit and UI checks again before starting project-count cleanup or repository pruning.
+1. Fix the `tests/council-runtime.spec.ts` account-schema DB mock gap.
+2. Run the broader unit and UI checks again against the canonical `src/lib/*` and API namespace layout.
+3. Decide whether the deleted roadmap/planning Markdown files should be permanently removed or restored.

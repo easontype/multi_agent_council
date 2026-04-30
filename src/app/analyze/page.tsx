@@ -19,7 +19,7 @@ import {
   createCustomEditableAgent,
   type EditableReviewAgent,
   type ReviewMode,
-} from '@/lib/review-presets'
+} from '@/lib/prompts/review-presets'
 import {
   deleteSavedTeamTemplate,
   loadSavedTeamTemplates,

@@ -1,6 +1,6 @@
 'use client'
 
-import type { EditableReviewAgent } from '@/lib/review-presets'
+import type { EditableReviewAgent } from '@/lib/prompts/review-presets'
 import { colorAlpha } from './shared'
 
 export function AgentCard({

@@ -12,7 +12,7 @@ import {
   randomBytes,
 } from "crypto";
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db";
+import { db } from "@/lib/db/db";
 import { ensureAccountSchema } from "@/lib/db/account-db";
 
 export async function ensureApiKeySchema(): Promise<void> {

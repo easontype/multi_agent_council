@@ -1,13 +1,13 @@
-import { runLLM } from '@/lib/claude'
-import { extractFirstJsonObject } from '@/lib/council-prompts'
-import { DEFAULT_GEMMA_MODEL } from '@/lib/gemma-models'
+import { runLLM } from '@/lib/llm/claude'
+import { extractFirstJsonObject } from '@/lib/prompts/council-prompts'
+import { DEFAULT_GEMMA_MODEL } from '@/lib/llm/gemma-models'
 import {
   buildGeneratedTeamFromBrief,
   type EditableReviewAgent,
   type ReviewMode,
   type TeamBuilderBrief,
   type TeamBuilderResult,
-} from '@/lib/review-presets'
+} from '@/lib/prompts/review-presets'
 
 function sanitizeText(value: unknown, fallback = '') {
   return typeof value === 'string' ? value.trim() || fallback : fallback

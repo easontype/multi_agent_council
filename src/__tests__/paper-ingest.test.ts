@@ -1,4 +1,4 @@
-jest.mock("@/lib/db", () => ({
+jest.mock("@/lib/db/db", () => ({
   db: {
     query: jest.fn(),
   },
@@ -9,7 +9,7 @@ jest.mock("@/lib/tools/handlers/rag", () => ({
 }));
 
 import { ingestPaper } from "@/lib/paper-ingest";
-import { db } from "@/lib/db";
+import { db } from "@/lib/db/db";
 import { embedDocumentById } from "@/lib/tools/handlers/rag";
 
 const mockedDbQuery = jest.mocked(db.query);

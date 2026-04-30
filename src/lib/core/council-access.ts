@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import type { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
+import { db } from "@/lib/db/db";
 
 const COOKIE_PREFIX = "council_session_";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;

@@ -1,4 +1,4 @@
-import type { EditableReviewAgent, ReviewMode } from "./review-presets";
+import type { EditableReviewAgent, ReviewMode } from "./prompts/review-presets";
 
 export interface SavedTeamTemplate {
   id: string;

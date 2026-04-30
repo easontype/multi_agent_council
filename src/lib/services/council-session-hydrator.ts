@@ -3,7 +3,7 @@ import type {
   CouncilEvidence,
   CouncilSession,
   CouncilTurn,
-} from '@/lib/council-types'
+} from '@/lib/core/council-types'
 import type { ReviewPhase } from '@/lib/council-review-phase'
 import type {
   Agent,

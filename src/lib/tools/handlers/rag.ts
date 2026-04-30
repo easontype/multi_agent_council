@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { runLLM } from "../../claude";
-import { runGemini } from "../../gemini";
-import { db } from "../../db";
-import { DEFAULT_GEMMA_RAG_MODEL } from "../../gemma-models";
+import { runLLM } from "../../llm/claude";
+import { runGemini } from "../../llm/gemini";
+import { db } from "../../db/db";
+import { DEFAULT_GEMMA_RAG_MODEL } from "../../llm/gemma-models";
 
 type Handler = (agentId: string, args: Record<string, unknown>, depth: number) => Promise<string>;
 

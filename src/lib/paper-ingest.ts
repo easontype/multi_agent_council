@@ -3,7 +3,7 @@
  * Supports: arXiv ID, DOI (via Unpaywall), direct PDF URL, raw text paste.
  */
 
-import { db } from "./db";
+import { db } from "./db/db";
 import { nanoid } from "nanoid";
 
 export interface IngestResult {

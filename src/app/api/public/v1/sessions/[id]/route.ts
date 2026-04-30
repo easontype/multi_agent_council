@@ -5,7 +5,7 @@ import {
   getSessionTurns,
   getSessionConclusion,
   MODERATOR_ROUND,
-} from "@/lib/council";
+} from "@/lib/core/council";
 
 function extractBearerToken(req: NextRequest): string | null {
   const auth = req.headers.get("authorization") ?? "";

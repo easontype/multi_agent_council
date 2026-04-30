@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { enforceAnonymousWebQuota } from '@/lib/web-quota'
 import { generateTeamWithAI } from '@/lib/team-builder'
-import type { TeamBuilderBrief } from '@/lib/review-presets'
+import type { TeamBuilderBrief } from '@/lib/prompts/review-presets'
 
 function isValidBrief(value: unknown): value is TeamBuilderBrief {
   if (!value || typeof value !== 'object') return false

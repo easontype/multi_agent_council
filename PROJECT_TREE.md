@@ -12,6 +12,9 @@ Active project files:
 - `next.config.ts`, `middleware.ts`, `proxy.ts` - Next.js app configuration and request plumbing.
 - `tsconfig.json`, `jest.config.ts`, `playwright.config.ts` - TypeScript and test configuration.
 - `components.json`, `postcss.config.mjs`, `src/app/globals.css` - UI and styling configuration.
+- `docs/architecture/` - static architecture explanation artifacts.
+- `references/design-system/` - design-system reference package.
+- `references/experiments/` - sidecar or archived experimental projects kept out of the main app/runtime path.
 - `.env.local.example` - environment template.
 - `PRODUCT_SPEC.md` - product shape and original spec.
 - `PROJECT_STATUS.md` - current progress and verification notes.
@@ -28,13 +31,6 @@ Generated or local-only files and directories:
 - `.tmp-live-sse*.txt` and `.tmp-live-review.log` - local live review/SSE captures.
 - `.tmp-playwright-dev.log` - local Playwright/dev-server log.
 
-Reference or sidecar material:
-
-- `ARCHITECTURE_FLOWCHART.html` - static architecture explanation artifact.
-- `DEBATE_RUNTIME_FLOW_EXPLAINED.html` - static runtime explanation artifact.
-- `Council Design System/` - design-system reference package.
-- `b_M8mWwJO8byO/` - copied/generated side project or scaffold; not part of the main Next app until explicitly adopted.
-
 Cleanup candidates currently visible:
 
 - Deleted but not committed old planning docs:
@@ -48,9 +44,7 @@ Cleanup candidates currently visible:
   - `SESSION_RESTORE_ARCHITECTURE_PLAN.md`
   - `USER_DATA_MODEL_PLAN.md`
   - `design-system-audit.md`
-- Local `.tmp-live-sse*` captures.
-
-Do not commit or delete cleanup candidates until the cleanup policy is explicit.
+- Local deleted planning docs pending final keep/delete policy.
 
 ## Source Tree
 
@@ -74,8 +68,7 @@ Important API groups:
 - `api/team-templates` and `api/teams/builder` - team template and builder routes.
 - `api/keys` - API key routes.
 - `api/stripe` - billing checkout/session/webhook routes.
-- `api/public/v1` and `api/v1` - public/API-facing analyze and session routes.
-- `api/council` - legacy or compatibility council route group; keep until route migration is intentional.
+- `api/public/v1` - public/API-facing analyze and session routes.
 
 ### `src/components`
 
@@ -105,7 +98,7 @@ Client state and workflow hooks.
 
 ### `src/lib`
 
-Core implementation. The canonical implementation is mostly in subdirectories; several top-level files are compatibility re-export wrappers.
+Core implementation. Canonical imports now point directly at the subdirectories below; the old top-level compatibility wrappers were removed.
 
 Canonical implementation directories:
 
@@ -127,17 +120,6 @@ Important standalone modules:
 - `evidence-annotations.ts` - source/ref matching for inline citations.
 - `team-builder.ts`, `team-templates.ts`, `team-template-store.ts` - team generation/template support.
 - `tool-compressor.ts` - tool output compression before feeding LLMs.
-
-Compatibility wrappers:
-
-- `src/lib/council.ts` -> `src/lib/core/council`
-- `src/lib/council-access.ts` -> `src/lib/core/council-access`
-- `src/lib/council-db.ts` -> `src/lib/db/council-db`
-- `src/lib/db.ts` -> `src/lib/db/db`
-- `src/lib/agentic-runtime.ts` -> `src/lib/agents/agentic-runtime`
-- Similar wrappers exist for LLM and prompt modules.
-
-Keep wrappers until all imports are audited and migrated.
 
 ### `src/stores`
 
@@ -198,12 +180,9 @@ Primary anonymous/local review path:
 
 ## Cleanup Order
 
-Recommended cleanup sequence:
+Recommended next cleanup sequence:
 
 1. Confirm whether deleted root planning docs should remain deleted.
-2. Remove or archive local `.tmp-live-sse*` captures.
-3. Decide whether `ARCHITECTURE_FLOWCHART.html`, `DEBATE_RUNTIME_FLOW_EXPLAINED.html`, `Council Design System/`, and `b_M8mWwJO8byO/` should stay in repo root, move under `docs/` or `references/`, or leave the repo.
-4. Fix `tests/council-runtime.spec.ts` DB mock gap.
-5. Add `.gitignore` entries for local live SSE/debug captures if they are expected to recur.
-6. Only after tests are stable, consider import cleanup for `src/lib` compatibility wrappers.
-
+2. Fix `tests/council-runtime.spec.ts` DB mock gap.
+3. Run the broader unit and UI suite after the canonical import and API namespace cleanup.
+4. Decide whether the material under `references/experiments/` should remain in-repo long term or move out to a separate archive.

@@ -3,7 +3,7 @@ jest.mock("@/auth", () => ({
 }));
 
 import { NextResponse } from "next/server";
-import { attachCouncilSessionCookie } from "@/lib/council-access";
+import { attachCouncilSessionCookie } from "@/lib/core/council-access";
 
 describe("council access cookies", () => {
   const originalNodeEnv = process.env.NODE_ENV;

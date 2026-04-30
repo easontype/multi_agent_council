@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import type { NextRequest } from "next/server";
-import { db } from "@/lib/db";
-import { getAuthenticatedCouncilOwnerEmail } from "@/lib/council-access";
+import { db } from "@/lib/db/db";
+import { getAuthenticatedCouncilOwnerEmail } from "@/lib/core/council-access";
 
 interface QuotaWindow {
   limit: number;

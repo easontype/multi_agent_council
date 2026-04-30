@@ -1,15 +1,15 @@
-jest.mock("@/lib/council-access", () => ({
+jest.mock("@/lib/core/council-access", () => ({
   canAccessCouncilSession: jest.fn(),
   clearCouncilSessionCookie: jest.fn(),
   isCouncilSessionOwner: jest.fn(),
 }));
 
-jest.mock("@/lib/council", () => ({
+jest.mock("@/lib/core/council", () => ({
   getCouncilSessionBundle: jest.fn(),
   runCouncilSession: jest.fn(),
 }));
 
-jest.mock("@/lib/db", () => ({
+jest.mock("@/lib/db/db", () => ({
   db: {
     query: jest.fn(),
   },
@@ -21,9 +21,9 @@ jest.mock("@/lib/web-quota", () => ({
 
 import { DELETE as deleteSession } from "@/app/api/sessions/[id]/route";
 import { POST as runSession } from "@/app/api/sessions/[id]/run/route";
-import { clearCouncilSessionCookie, isCouncilSessionOwner } from "@/lib/council-access";
-import { runCouncilSession } from "@/lib/council";
-import { db } from "@/lib/db";
+import { clearCouncilSessionCookie, isCouncilSessionOwner } from "@/lib/core/council-access";
+import { runCouncilSession } from "@/lib/core/council";
+import { db } from "@/lib/db/db";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 const mockedIsCouncilSessionOwner = jest.mocked(isCouncilSessionOwner);

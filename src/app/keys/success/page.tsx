@@ -53,7 +53,7 @@ function SuccessContent() {
   }
 
   const curlExample = keyData
-    ? `curl -X POST https://YOUR_DOMAIN/api/v1/analyze \\
+    ? `curl -X POST https://YOUR_DOMAIN/api/public/v1/analyze \\
   -H "Authorization: Bearer ${keyData.key}" \\
   -H "Content-Type: application/json" \\
   -d '{"arxivId": "2301.07041", "template": "critique", "rounds": 2}'`

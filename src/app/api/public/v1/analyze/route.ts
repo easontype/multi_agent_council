@@ -4,10 +4,10 @@ import { fetchArxivPaper, ingestPaper } from "@/lib/paper-ingest";
 import {
   buildAcademicCritiqueSeats,
   buildGapAnalysisSeats,
-} from "@/lib/council-academic";
-import { createCouncilSession, runCouncilSession } from "@/lib/council";
-import type { CouncilSeat } from "@/lib/council-types";
-import { DEFAULT_GEMMA_MODEL } from "@/lib/gemma-models";
+} from "@/lib/core/council-academic";
+import { createCouncilSession, runCouncilSession } from "@/lib/core/council";
+import type { CouncilSeat } from "@/lib/core/council-types";
+import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 
 function extractBearerToken(req: NextRequest): string | null {
   const auth = req.headers.get("authorization") ?? "";

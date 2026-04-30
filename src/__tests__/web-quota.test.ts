@@ -1,16 +1,16 @@
-jest.mock("@/lib/db", () => ({
+jest.mock("@/lib/db/db", () => ({
   db: {
     query: jest.fn(),
   },
 }));
 
-jest.mock("@/lib/council-access", () => ({
+jest.mock("@/lib/core/council-access", () => ({
   getAuthenticatedCouncilOwnerEmail: jest.fn(),
 }));
 
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
-import { db } from "@/lib/db";
-import { getAuthenticatedCouncilOwnerEmail } from "@/lib/council-access";
+import { db } from "@/lib/db/db";
+import { getAuthenticatedCouncilOwnerEmail } from "@/lib/core/council-access";
 
 const mockedDbQuery = jest.mocked(db.query);
 const mockedGetAuthenticatedCouncilOwnerEmail = jest.mocked(getAuthenticatedCouncilOwnerEmail);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { getCouncilSessionBundle } from "@/lib/council";
-import { canAccessCouncilSession, clearCouncilSessionCookie, isCouncilSessionOwner } from "@/lib/council-access";
+import { db } from "@/lib/db/db";
+import { getCouncilSessionBundle } from "@/lib/core/council";
+import { canAccessCouncilSession, clearCouncilSessionCookie, isCouncilSessionOwner } from "@/lib/core/council-access";
 
 export async function GET(
   req: NextRequest,

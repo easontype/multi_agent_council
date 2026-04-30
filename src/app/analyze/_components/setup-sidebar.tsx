@@ -2,7 +2,7 @@
 
 import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
 import { ChevronIcon } from './icons'
-import type { EditableReviewAgent, ReviewMode } from '@/lib/review-presets'
+import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-presets'
 import type { SavedTeamTemplate } from '@/lib/team-template-store'
 
 interface SetupSidebarProps {

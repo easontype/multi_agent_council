@@ -188,7 +188,7 @@ test("completes the primary paper review flow from landing page to verdict", asy
     });
   });
 
-  await page.route("**/api/council", async (route) => {
+  await page.route("**/api/sessions", async (route) => {
     if (route.request().method() !== "POST") {
       await route.fallback();
       return;
@@ -201,7 +201,7 @@ test("completes the primary paper review flow from landing page to verdict", asy
     });
   });
 
-  await page.route(`**/api/council/${sessionId}`, async (route) => {
+  await page.route(`**/api/sessions/${sessionId}`, async (route) => {
     sessionFetchCount += 1;
     await route.fulfill({
       status: 200,
@@ -210,7 +210,7 @@ test("completes the primary paper review flow from landing page to verdict", asy
     });
   });
 
-  await page.route(`**/api/council/${sessionId}/run`, async (route) => {
+  await page.route(`**/api/sessions/${sessionId}/run`, async (route) => {
     await route.fulfill({
       status: 200,
       headers: {

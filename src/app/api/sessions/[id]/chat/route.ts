@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { canAccessCouncilSession } from '@/lib/council-access'
-import { answerCouncilPaperQuestion } from '@/lib/council-paper-chat'
+import { canAccessCouncilSession } from '@/lib/core/council-access'
+import { answerCouncilPaperQuestion } from '@/lib/core/council-paper-chat'
 
 export async function POST(
   req: NextRequest,

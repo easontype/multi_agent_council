@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db";
+import { db } from "@/lib/db/db";
 import { ensureAccountSchema } from "@/lib/db/account-db";
-import type { EditableReviewAgent, ReviewMode } from "@/lib/review-presets";
+import type { EditableReviewAgent, ReviewMode } from "@/lib/prompts/review-presets";
 
 export interface TeamTemplateRecord {
   id: string;

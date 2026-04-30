@@ -2,7 +2,7 @@ jest.mock("@/lib/api-keys", () => ({
   checkApiKey: jest.fn(),
 }));
 
-jest.mock("@/lib/council", () => ({
+jest.mock("@/lib/core/council", () => ({
   getSession: jest.fn(),
   getSessionTurns: jest.fn(),
   getSessionConclusion: jest.fn(),
@@ -11,7 +11,7 @@ jest.mock("@/lib/council", () => ({
 
 import { GET as getPublicSession } from "@/app/api/public/v1/sessions/[id]/route";
 import { checkApiKey } from "@/lib/api-keys";
-import { getSession, getSessionConclusion, getSessionTurns } from "@/lib/council";
+import { getSession, getSessionConclusion, getSessionTurns } from "@/lib/core/council";
 
 const mockedCheckApiKey = jest.mocked(checkApiKey);
 const mockedGetSession = jest.mocked(getSession);

@@ -10,12 +10,12 @@ jest.mock("@/lib/auth-account", () => ({
   resolveAuthAccountContext: jest.fn(),
 }));
 
-jest.mock("@/lib/council", () => ({
+jest.mock("@/lib/core/council", () => ({
   createCouncilSession: jest.fn(),
   listSessions: jest.fn(),
 }));
 
-jest.mock("@/lib/council-access", () => ({
+jest.mock("@/lib/core/council-access", () => ({
   attachCouncilSessionCookie: jest.fn(),
   createCouncilAnonymousAccess: jest.fn(),
 }));
@@ -26,8 +26,8 @@ jest.mock("@/lib/web-quota", () => ({
 
 import { GET, POST } from "@/app/api/sessions/route";
 import { ensureAccountContextForAuthUser, resolveAuthAccountContext } from "@/lib/auth-account";
-import { createCouncilSession, listSessions } from "@/lib/council";
-import { attachCouncilSessionCookie, createCouncilAnonymousAccess } from "@/lib/council-access";
+import { createCouncilSession, listSessions } from "@/lib/core/council";
+import { attachCouncilSessionCookie, createCouncilAnonymousAccess } from "@/lib/core/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 const mockedEnsureAccountContextForAuthUser = jest.mocked(ensureAccountContextForAuthUser);

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCouncilSessionBundle } from "@/lib/council";
-import { canAccessCouncilSession } from "@/lib/council-access";
+import { getCouncilSessionBundle } from "@/lib/core/council";
+import { canAccessCouncilSession } from "@/lib/core/council-access";
 import type {
   CouncilConclusion,
   CouncilEvidence,
   CouncilSeat,
   CouncilTurn,
-} from "@/lib/council-types";
+} from "@/lib/core/council-types";
 
 function slugify(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);

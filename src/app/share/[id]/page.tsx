@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
-import { getCouncilSessionBundle } from '@/lib/council'
-import { db } from '@/lib/db'
-import type { CouncilConclusion, CouncilTurn } from '@/lib/council-types'
+import { getCouncilSessionBundle } from '@/lib/core/council'
+import { db } from '@/lib/db/db'
+import type { CouncilConclusion, CouncilTurn } from '@/lib/core/council-types'
 import { MarkdownContent } from '@/components/council/markdown-content'
 
 async function getPublicBundle(id: string) {

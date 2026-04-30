@@ -38,9 +38,11 @@ Thumbs.db
 # Testing
 playwright-report/
 test-results/
+.pw-results-current/
 coverage/
 
 # Temp
 .tmp/
 .tmp-live-*.txt
+.tmp-playwright-dev.log
 *.tsbuildinfo

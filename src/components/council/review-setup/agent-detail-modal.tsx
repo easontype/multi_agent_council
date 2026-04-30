@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { EditableReviewAgent } from '@/lib/review-presets'
+import type { EditableReviewAgent } from '@/lib/prompts/review-presets'
 import { FieldLabel, fieldStyle } from './shared'
 
 export function AgentDetailModal({

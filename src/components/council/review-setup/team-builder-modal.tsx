@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { buildGeneratedTeamFromBrief, type TeamBuilderBrief, type TeamBuilderResult } from '@/lib/review-presets'
+import { buildGeneratedTeamFromBrief, type TeamBuilderBrief, type TeamBuilderResult } from '@/lib/prompts/review-presets'
 import { HoverHint } from '@/components/ui/hover-hint'
 import { FieldLabel, fieldStyle, colorAlpha } from './shared'
 

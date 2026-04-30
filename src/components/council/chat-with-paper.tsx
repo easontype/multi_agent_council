@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { CouncilEvidenceSource } from '@/lib/council-types'
+import type { CouncilEvidenceSource } from '@/lib/core/council-types'
 import { MarkdownContent } from './markdown-content'
 
 interface ChatMessage {

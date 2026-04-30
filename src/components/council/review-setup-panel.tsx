@@ -1,6 +1,6 @@
 'use client'
 
-import type { EditableReviewAgent, ReviewMode, TeamBuilderResult } from '@/lib/review-presets'
+import type { EditableReviewAgent, ReviewMode, TeamBuilderResult } from '@/lib/prompts/review-presets'
 import { HoverHint } from '@/components/ui/hover-hint'
 import { AgentCard, AgentDetailModal, TeamBuilderModal, SectionLabel } from './review-setup'
 import { useReviewSetupStore } from '@/stores/review-setup-store'

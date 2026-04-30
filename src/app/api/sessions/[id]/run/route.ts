@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runCouncilSession, type CouncilEvent } from "@/lib/council";
-import { isCouncilSessionOwner } from "@/lib/council-access";
+import { runCouncilSession, type CouncilEvent } from "@/lib/core/council";
+import { isCouncilSessionOwner } from "@/lib/core/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 export async function POST(

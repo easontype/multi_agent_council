@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createCouncilSession, listSessions } from "@/lib/council";
+import { createCouncilSession, listSessions } from "@/lib/core/council";
 import { ensureAccountContextForAuthUser, resolveAuthAccountContext } from "@/lib/auth-account";
 import {
   attachCouncilSessionCookie,
   createCouncilAnonymousAccess,
-} from "@/lib/council-access";
+} from "@/lib/core/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 
 export const GET = auth(async (req) => {
