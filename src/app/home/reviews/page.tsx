@@ -8,6 +8,8 @@ interface SessionItem {
   title: string;
   status: string;
   created_at: string;
+  has_veto?: boolean;
+  rounds?: number;
 }
 
 const STATUS_CONFIG: Record<string, { dot: string; label: string; bg: string; text: string }> = {
@@ -52,12 +54,23 @@ function ExternalIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
 export default function ReviewsPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [query, setQuery] = useState("");
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -80,6 +93,20 @@ export default function ReviewsPage() {
     pending: sessions.filter(s => s.status === "pending").length,
     failed: sessions.filter(s => s.status === "failed").length,
   };
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    if (!confirm("Delete this review? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+      setSessions(prev => prev.filter(s => s.id !== id));
+    } catch {
+      // silently fail — row stays
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div style={{ padding: "40px 48px 60px", maxWidth: 860, margin: "0 auto" }}>
@@ -152,7 +179,7 @@ export default function ReviewsPage() {
         <div style={{ border: "1px solid #f0f0f2", borderRadius: 10, overflow: "hidden" }}>
           {/* Header */}
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 100px 80px 28px",
+            display: "grid", gridTemplateColumns: "1fr 110px 80px 48px",
             padding: "9px 16px", background: "#fafafa",
             borderBottom: "1px solid #f0f0f2",
             fontSize: 10, fontWeight: 700, letterSpacing: "0.07em",
@@ -166,21 +193,49 @@ export default function ReviewsPage() {
 
           {filtered.map((s, i) => {
             const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.pending;
+            const isHovered = hoveredId === s.id;
+            const isDeleting = deletingId === s.id;
+
             return (
               <div key={s.id}
                 onClick={() => router.push(`/analyze?session=${encodeURIComponent(s.id)}`)}
+                onMouseEnter={() => setHoveredId(s.id)}
+                onMouseLeave={() => setHoveredId(null)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 100px 80px 28px",
+                  display: "grid", gridTemplateColumns: "1fr 110px 80px 48px",
                   alignItems: "center", padding: "11px 16px",
                   borderBottom: i < filtered.length - 1 ? "1px solid #f5f5f7" : "none",
                   cursor: "pointer", transition: "background 120ms",
+                  background: isHovered ? "#fafafa" : "transparent",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "#fafafa" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent" }}
               >
-                <span style={{ fontSize: 13, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 16 }}>
-                  {truncate(s.title.replace(/^Review:\s*/i, ""), 64)}
-                </span>
+                {/* Title */}
+                <div style={{ overflow: "hidden", paddingRight: 16 }}>
+                  <div style={{
+                    fontSize: 13, color: "#1a1a1a",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {truncate(s.title.replace(/^Review:\s*/i, ""), 64)}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    {s.rounds && (
+                      <span style={{ fontSize: 10, color: "#bbb" }}>
+                        {s.rounds} round{s.rounds !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {s.has_veto && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+                        color: "#b91c1c", background: "#fef2f2",
+                        border: "1px solid #fecaca", borderRadius: 3, padding: "1px 5px",
+                      }}>
+                        VETO
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status */}
                 <span>
                   <span style={{
                     fontSize: 10, fontWeight: 600, padding: "2px 7px",
@@ -190,13 +245,44 @@ export default function ReviewsPage() {
                     {cfg.label.toUpperCase()}
                   </span>
                 </span>
+
+                {/* Time */}
                 <span style={{ fontSize: 12, color: "#bbb" }}>{timeAgo(s.created_at)}</span>
-                <span style={{ color: "#ddd", display: "flex" }}><ExternalIcon /></span>
+
+                {/* Actions */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                  {isHovered && !isDeleting ? (
+                    <button
+                      onClick={(e) => handleDelete(e, s.id)}
+                      title="Delete review"
+                      style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        color: "#d4d4d8", padding: 4, borderRadius: 5,
+                        display: "flex", alignItems: "center", transition: "color 120ms",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = "#ef4444" }}
+                      onMouseLeave={e => { e.currentTarget.style.color = "#d4d4d8" }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  ) : isDeleting ? (
+                    <span style={{
+                      width: 13, height: 13, border: "1.5px solid #d4d4d8",
+                      borderTopColor: "#888", borderRadius: "50%",
+                      display: "inline-block",
+                      animation: "spin 0.7s linear infinite",
+                    }} />
+                  ) : (
+                    <span style={{ color: "#e5e7eb", display: "flex" }}><ExternalIcon /></span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

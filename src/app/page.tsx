@@ -1,23 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { setPendingUpload } from "@/lib/pending-upload";
 
 export default function HomePage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [arxivId, setArxivId] = useState("");
   const [loading, setLoading] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   async function handleQuickCritique(e: React.FormEvent) {
     e.preventDefault();
     if (!arxivId.trim()) return;
     setLoading(true);
     router.push(`/analyze?arxiv=${encodeURIComponent(arxivId.trim())}`);
+  }
+
+  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingUpload(file);
+    router.push("/analyze");
   }
 
   return (
@@ -57,9 +66,21 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="mx-auto max-w-[800px] px-8 pt-24 pb-20 text-center">
-        <div className="mb-7 inline-flex items-center gap-1.5 rounded-full border border-[#ddd] bg-[#f5f5f7] px-[14px] py-[5px] text-xs font-semibold tracking-[0.05em] text-[#555]">
+        <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-[#ddd] bg-[#f5f5f7] px-[14px] py-[5px] text-xs font-semibold tracking-[0.05em] text-[#555]">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#999]" />
           MULTI-AGENT PEER REVIEW
+        </div>
+
+        {/* Audience chips */}
+        <div className="mb-8 flex flex-wrap justify-center gap-2">
+          {["PhD Students", "Postdocs & PIs", "Research Teams"].map((who) => (
+            <span
+              key={who}
+              className="rounded-full border border-border bg-card px-3 py-[5px] text-[12px] font-semibold text-muted-foreground"
+            >
+              {who}
+            </span>
+          ))}
         </div>
 
         <h1 className="mb-6 text-[clamp(32px,5vw,54px)] font-extrabold leading-[1.1] tracking-[-0.03em] text-foreground">
@@ -67,16 +88,13 @@ export default function HomePage() {
           <span className="text-[#6366f1]">your paper before submission</span>
         </h1>
 
-        <p className="mx-auto mb-3 max-w-[560px] text-lg leading-[1.7] text-muted-foreground">
+        <p className="mx-auto mb-12 max-w-[560px] text-lg leading-[1.7] text-muted-foreground">
           Five specialized AI reviewers debate your work — methods, literature, reproducibility,
           contribution, and advocacy — then a moderator delivers a structured verdict.
         </p>
-        <p className="mb-12 text-sm text-muted-foreground/70">
-          Built for PhD students, postdocs, and research teams.
-        </p>
 
         {/* Quick input */}
-        <form onSubmit={handleQuickCritique} className="mx-auto mb-4 flex max-w-[480px] gap-2">
+        <form onSubmit={handleQuickCritique} className="mx-auto mb-3 flex max-w-[480px] gap-2">
           <Input
             type="text"
             value={arxivId}
@@ -95,6 +113,22 @@ export default function HomePage() {
             {loading ? "Loading…" : "Critique Paper"}
           </Button>
         </form>
+
+        {/* PDF upload */}
+        <div className="mb-4 flex items-center justify-center gap-2 text-[13px] text-muted-foreground/70">
+          <span>or</span>
+          <label className="cursor-pointer font-semibold text-foreground underline-offset-2 hover:underline">
+            Upload a PDF
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              className="sr-only"
+              onChange={handlePdfChange}
+            />
+          </label>
+        </div>
+
         <p className="text-[13px] text-muted-foreground/70">
           Free — 10 reviews/day, no account required
         </p>
@@ -176,8 +210,8 @@ export default function HomePage() {
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_4px_24px_rgba(0,0,0,0.07)]">
             {/* Mock verdict preview header */}
             <div className="flex items-center gap-3 border-b border-border bg-muted px-6 py-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#374151] text-sm text-white">
-                ⚖
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#374151] text-white">
+                <ScalesIcon />
               </div>
               <div>
                 <div className="text-sm font-bold">Moderator Verdict</div>
@@ -292,6 +326,18 @@ export default function HomePage() {
         AI-powered peer review — not a substitute for human expert review.
       </footer>
     </div>
+  );
+}
+
+function ScalesIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+      <path d="M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+      <path d="M7 21h10" />
+      <path d="M12 3v18" />
+      <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+    </svg>
   );
 }
 

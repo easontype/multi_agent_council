@@ -24,7 +24,7 @@ export function RecentReviews({ sessions, loadingSessions, onSessionClick }: Rec
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", color: "#bbb", textTransform: "uppercase" }}>
           Recent Reviews
         </span>
-        {sessions.length > 5 && (
+        {sessions.length > 0 && (
           <a href="/home/reviews" style={{ fontSize: 12, color: "#888", textDecoration: "none", fontWeight: 500, transition: "color 150ms" }}
             onMouseEnter={e => e.currentTarget.style.color = "#111"}
             onMouseLeave={e => e.currentTarget.style.color = "#888"}
@@ -80,7 +80,7 @@ export function RecentReviews({ sessions, loadingSessions, onSessionClick }: Rec
             </div>
           ))}
 
-          {sessions.length > 5 && (
+          {sessions.length > 0 && (
             <a href="/home/reviews" style={{
               display: "block", textAlign: "center", marginTop: 14,
               fontSize: 12, color: "#888", textDecoration: "none", fontWeight: 500,
