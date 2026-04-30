@@ -71,6 +71,7 @@ export default function ReviewsPage() {
   const [query, setQuery] = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -98,11 +99,15 @@ export default function ReviewsPage() {
     e.stopPropagation();
     if (!confirm("Delete this review? This cannot be undone.")) return;
     setDeletingId(id);
+    setDeleteError(null);
     try {
-      await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        throw new Error("Delete failed");
+      }
       setSessions(prev => prev.filter(s => s.id !== id));
     } catch {
-      // silently fail — row stays
+      setDeleteError("Could not delete that review. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -145,7 +150,7 @@ export default function ReviewsPage() {
 
         {/* Filter chips */}
         <div style={{ display: "flex", gap: 6 }}>
-          {(["all", "concluded", "running", "pending"] as FilterStatus[]).map(f => {
+          {(["all", "concluded", "running", "pending", "failed"] as FilterStatus[]).map(f => {
             const active = filter === f;
             const cfg = f === "all" ? null : STATUS_CONFIG[f];
             return (
@@ -164,6 +169,23 @@ export default function ReviewsPage() {
           })}
         </div>
       </div>
+
+      {deleteError && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 14,
+            border: "1px solid #fecaca",
+            borderRadius: 8,
+            background: "#fef2f2",
+            color: "#b91c1c",
+            fontSize: 12,
+            padding: "8px 10px",
+          }}
+        >
+          {deleteError}
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (
@@ -254,7 +276,9 @@ export default function ReviewsPage() {
                   {isHovered && !isDeleting ? (
                     <button
                       onClick={(e) => handleDelete(e, s.id)}
+                      aria-label={`Delete ${s.title.replace(/^Review:\s*/i, "")}`}
                       title="Delete review"
+                      disabled={isDeleting}
                       style={{
                         background: "none", border: "none", cursor: "pointer",
                         color: "#d4d4d8", padding: 4, borderRadius: 5,

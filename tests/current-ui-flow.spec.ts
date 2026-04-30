@@ -388,6 +388,30 @@ test("landing page can start a mocked review run and render streamed debate outp
   await expectNoClientErrors(errors);
 });
 
+test("landing page can hand off a PDF upload to analyze setup", async ({
+  page,
+}) => {
+  const errors = installErrorCollector(page);
+  await mockAnalyzeApis(page);
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "draft-paper.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%EOF"),
+  });
+
+  await expect(page).toHaveURL(/\/analyze$/);
+  await expect(page.getByText("draft-paper").first()).toBeVisible();
+  await expect(page.getByText("Uploaded PDF - draft-paper.pdf").first()).toBeVisible();
+
+  await page.getByRole("button", { name: /^Start Review$/i }).click();
+  await expect(page.getByText("The empirical case is strong, but ablation coverage is too thin.")).toBeVisible();
+  await expect(page.getByText("Review concluded")).toBeVisible();
+
+  await expectNoClientErrors(errors);
+});
+
 test("saved review navigation restores the selected review session", async ({
   page,
 }) => {
@@ -398,7 +422,7 @@ test("saved review navigation restores the selected review session", async ({
   await page.goto("/login");
   await loginAsDevAdmin(page);
 
-  await page.getByRole("link", { name: /reviews/i }).click();
+  await page.getByRole("link", { name: "Reviews", exact: true }).click();
   await expect(page).toHaveURL(/\/home\/reviews$/);
   await expect(page.getByRole("heading", { name: "Reviews" })).toBeVisible();
   await expect(page.getByText("Attention Is All You Need")).toBeVisible();
