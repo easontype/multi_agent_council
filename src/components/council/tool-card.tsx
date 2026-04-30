@@ -42,6 +42,11 @@ function ErrorIcon() {
 }
 
 const TOOL_LABELS: Record<string, string> = {
+  rag_query: 'RAG Query',
+  semantic_search: 'Semantic Search',
+  search_papers: 'Search Papers',
+  web_search: 'Web Search',
+  fetch_url: 'Fetch URL',
   search_arxiv: 'Search arXiv',
   search_semantic_scholar: 'Search Semantic Scholar',
   fetch_paper: 'Fetch Paper',
@@ -72,7 +77,7 @@ export function ToolCard({ tool, agentColor }: ToolCardProps) {
     }}>
       <span style={{ color: '#a1a1aa', display: 'flex' }}><ToolIcon /></span>
       <span style={{ color: '#3f3f46', fontWeight: 500 }}>
-        {TOOL_LABELS[tool.name] || tool.name}
+        {TOOL_LABELS[tool.name] || tool.name.replace(/_/g, ' ')}
       </span>
       <span style={{ display: 'flex', color: statusColor }}><StatusIcon /></span>
     </div>

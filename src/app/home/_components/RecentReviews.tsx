@@ -12,7 +12,7 @@ interface SessionItem {
 interface RecentReviewsProps {
   sessions: SessionItem[];
   loadingSessions: boolean;
-  onSessionClick: () => void;
+  onSessionClick: (session: SessionItem) => void;
 }
 
 export function RecentReviews({ sessions, loadingSessions, onSessionClick }: RecentReviewsProps) {
@@ -47,7 +47,7 @@ export function RecentReviews({ sessions, loadingSessions, onSessionClick }: Rec
         <div>
           {recent.map((s, i) => (
             <div key={s.id}
-              onClick={onSessionClick}
+              onClick={() => onSessionClick(s)}
               style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "11px 10px", borderRadius: 8, cursor: "pointer",

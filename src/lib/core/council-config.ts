@@ -32,9 +32,9 @@ export interface CouncilModelStrategyTemplate {
 
 export const COUNCIL_MODEL_GROUPS: CouncilModelGroup[] = [
   {
-    group: "Gemma",
+    group: "Google Hosted",
     options: [
-      { value: DEFAULT_GEMMA_MODEL, label: "Gemma 4 31B Instruct", provider: "Google", toolMode: "text-loop" },
+      { value: DEFAULT_GEMMA_MODEL, label: "Gemini 3.1 Flash Lite", provider: "Google", toolMode: "text-loop" },
     ],
   },
   {
@@ -55,24 +55,24 @@ export const COUNCIL_MODEL_STRATEGIES: CouncilModelStrategyTemplate[] = [
   {
     id: "fast_poc",
     label: "Fast POC",
-    description: "Keep every seat and the moderator on hosted Gemma for a single-model baseline.",
-    note: "Fastest way to pressure-test the debate flow without cross-provider variance.",
+    description: "Keep every seat and the moderator on hosted Gemini Flash Lite for rapid output-shape validation.",
+    note: "Fastest way to pressure-test markdown review output without cross-provider variance.",
     moderatorModel: DEFAULT_GEMMA_MODEL,
     defaultSeatModel: DEFAULT_GEMMA_MODEL,
   },
   {
     id: "reliable_research",
     label: "Reliable Research",
-    description: "Put every seat and the moderator on hosted Gemma for consistent review behavior.",
-    note: "Best option when you want one stable hosted model across the full debate.",
+    description: "Put every seat and the moderator on hosted Gemini Flash Lite for a stable academic-review baseline.",
+    note: "Best option when you want one fast hosted model across the full debate while validating markdown output.",
     moderatorModel: DEFAULT_GEMMA_MODEL,
     defaultSeatModel: DEFAULT_GEMMA_MODEL,
   },
   {
     id: "hybrid_builder",
     label: "Hybrid Builder",
-    description: "Use local Ollama Gemma for heavier seats and hosted Gemma for the rest.",
-    note: "Good default when you want the entire panel to stay inside the Gemma family while still mixing hosted and local inference.",
+    description: "Use local Ollama Gemma for heavier seats and hosted Gemini Flash Lite for the rest.",
+    note: "Good default when you want a fast hosted baseline while still mixing in local inference for selected roles.",
     moderatorModel: DEFAULT_GEMMA_MODEL,
     defaultSeatModel: DEFAULT_GEMMA_MODEL,
     preferredRoles: {

@@ -62,6 +62,7 @@ export interface SourceRef {
   label: string
   uri: string | null
   snippet: string | null
+  round: number
   agentId: string
   agentColor: string
   agentAvatar: string

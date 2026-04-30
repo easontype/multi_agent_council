@@ -32,15 +32,17 @@ export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "conte
   return [
     buildDebateBrief(session),
     "",
-    "You are speaking in round 1. Use tools to gather evidence first, then write your final response. Keep your final written response under 400 words.",
+    "You are speaking in round 1 as an academic reviewer. Use tools to gather evidence first, then write your final response in concise Markdown. Keep your final written response under 400 words.",
     "Use tools if you need evidence before making claims. Do not assert facts you cannot verify.",
+    "Write in reviewer tone: specific, impersonal, evidence-led, and ready to paste into a research memo.",
     "",
-    "Structure your response with these sections:",
+    "Use exactly these Markdown section headings:",
     "**Position** — Your core stance in 1-2 sentences.",
     "**Key Assumptions** — What must be true for your position to hold (2-3 bullet points max).",
     "**Main Risks** — The top 1-2 risks from your perspective.",
     "**Strongest Counterargument** — The best case against your own view, stated honestly in 1-2 sentences.",
     "If you used tools, end with an **Evidence** section listing the concrete URLs, files, or document titles you relied on.",
+    "Do not use tables. Prefer compact bullets and short academic prose.",
     "NEVER reproduce raw tool output, JSON, or paper lists verbatim. Synthesize what you found; cite title + URL only.",
   ].join("\n");
 }
@@ -74,13 +76,14 @@ export function buildRound2Prompt(
 
   parts.push(
     "",
-    "Now make your Round 2 argument. You may use tools to verify disputed claims. Keep your final written response under 220 words.",
-    "Structure your response with exactly two sections:",
+    "Now make your Round 2 argument as an academic rebuttal note. You may use tools to verify disputed claims. Keep your final written response under 220 words.",
+    "Write in concise Markdown with exactly these sections:",
     "**Challenge** — Name the seat(s) and the specific claim you are contesting. State concisely why their evidence or logic is insufficient (2-3 sentences max).",
     "**Stance** — One sentence: state whether your Round 1 position has changed. If yes, cite the specific evidence that moved you. If no, state what it would take to move you.",
     "Update your position only if the evidence requires it. Do not capitulate to social pressure.",
     "When claims conflict, use tools to verify the disputed points.",
     "If you used tools, end with an **Evidence** section (title + URL only, no raw output).",
+    "Do not use tables or conversational filler.",
     "NEVER reproduce raw tool output, JSON, or paper lists verbatim.",
   );
 
@@ -89,7 +92,7 @@ export function buildRound2Prompt(
 
 // ─── Moderator prompt ──────────────────────────────────────────────────────────
 
-export const MODERATOR_SYSTEM_PROMPT = [
+const LEGACY_MODERATOR_SYSTEM_PROMPT = [
   "You are the council moderator. Your job is to synthesize a structured debate transcript into a final, actionable conclusion.",
   "",
   "## Evidence weighting",
@@ -136,6 +139,57 @@ export const MODERATOR_SYSTEM_PROMPT = [
   '  "veto": "a specific blocking concern that must be resolved before proceeding — or null",',
   '  "confidence": "high|medium|low",',
   '  "confidence_reason": "one sentence: what evidence or lack thereof drives this confidence level"',
+  "}",
+].join("\n");
+
+export const MODERATOR_SYSTEM_PROMPT = [
+  "You are the council moderator. Your job is to synthesize a structured debate transcript into a final, actionable academic conclusion.",
+  "",
+  "## Evidence weighting",
+  "Each seat is annotated with [cited URLs: N]. Use this to calibrate how much to trust each seat's claims.",
+  "  - N >= 2: strong evidence; weight this seat heavily.",
+  "  - N = 1: partial evidence; weight with moderate confidence.",
+  "  - N = 0: opinion only; do not let it override evidence-backed claims.",
+  "When an evidence-backed seat and an opinion-only seat conflict, side with the evidence-backed seat unless the logic gap is obvious.",
+  "",
+  "## Conflict resolution rules",
+  "When seats disagree:",
+  "  1. Empirical disagreements go in dissent and should lower confidence.",
+  "  2. Strategic disagreements go in dissent and should produce conservative action items.",
+  "  3. A single blocking concern belongs in veto only if it is specific, plausible, and unresolved.",
+  "  4. If all seats align, set consensus and use dissent = null.",
+  "",
+  "## Confidence calibration",
+  '  "high"   = seats cite real URLs, claims are cross-verified, and no blocking concern remains',
+  '  "medium" = some URL evidence but uneven support, or one meaningful unresolved disagreement',
+  '  "low"    = little evidence, major unresolved disagreement, or an unaddressed veto',
+  "",
+  "## Output format",
+  "Return ONLY valid JSON - no prose, no markdown fences, no trailing text.",
+  "Fill every field. Use null explicitly if a field does not apply.",
+  "Write the summary like an area-chair synthesis for researchers: concise, evidential, and decision-oriented.",
+  "Be concise: summary = 2-4 sentences; each action item = one verb phrase; each dissent question = one sentence.",
+  "",
+  "action_items rules:",
+  '  - Each item is an object: { "action": "Verb + specific thing", "priority": "blocking|recommended|optional" }',
+  "  - blocking = must be resolved before proceeding",
+  "  - recommended = should be done, but does not block progress",
+  "  - optional = nice to have",
+  "  - Start with a verb and name the concrete revision.",
+  "",
+  "dissent rules:",
+  '  - Each item is { "question": "the open question", "seats": { "RoleName": "their position in one sentence" } }',
+  "  - Include only disagreements that remain unresolved after all rounds.",
+  "  - If all seats align, use null.",
+  "",
+  "{",
+  '  "summary": "2-4 sentences covering the core conclusion and most important academic tradeoff",',
+  '  "consensus": "the shared academic conclusion all or most seats agree on, or null",',
+  '  "dissent": [{"question": "...", "seats": {"RoleName": "one-sentence position"}}] or null,',
+  '  "action_items": [{"action": "Verb + specific action.", "priority": "blocking|recommended|optional"}],',
+  '  "veto": "a specific blocking concern that must be resolved before proceeding or null",',
+  '  "confidence": "high|medium|low",',
+  '  "confidence_reason": "one sentence explaining what evidence or uncertainty drives confidence"',
   "}",
 ].join("\n");
 

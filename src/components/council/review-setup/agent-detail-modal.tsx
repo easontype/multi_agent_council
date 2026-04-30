@@ -36,7 +36,7 @@ export function AgentDetailModal({
       description: draft.description.trim() || 'A custom debate seat in the review team.',
       systemPrompt: draft.systemPrompt.trim(),
       bias: draft.bias?.trim() || undefined,
-      model: draft.model.trim() || 'gemma-4-31b-it',
+      model: draft.model.trim() || 'gemini-3.1-flash-lite-preview',
       tools: draft.tools.map((tool) => tool.trim()).filter(Boolean),
     })
     onClose()

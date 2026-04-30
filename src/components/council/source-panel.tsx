@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { DiscussionSession } from '@/types/council'
+import { getSourceRefDisplayUrl, isInspectableSourceRef } from '@/lib/evidence-annotations'
 
 interface SourcePanelProps {
   session: DiscussionSession
@@ -40,7 +41,7 @@ function BookOpenIcon() {
 }
 
 export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
-  const sourceRefs = session.sourceRefs ?? []
+  const sourceRefs = (session.sourceRefs ?? []).filter(isInspectableSourceRef)
   const isActive = session.status !== 'waiting'
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
@@ -133,7 +134,7 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
             }}
           >
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase' }}>
-              Cited Sources
+              Detailed Evidence
             </span>
             <span
               style={{
@@ -172,6 +173,7 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {sourceRefs.map((ref, index) => {
+                  const displayUrl = getSourceRefDisplayUrl(ref)
                   const refIsActive = Boolean(activeLabel && (
                     ref.label === activeLabel ||
                     ref.uri === activeLabel ||
@@ -191,7 +193,7 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                         border: `1px solid ${refIsActive ? `${ref.agentColor}55` : '#ececf1'}`,
                         borderLeft: `3px solid ${ref.agentColor}`,
                         borderRadius: '0 10px 10px 0',
-                        padding: '10px 12px',
+                        padding: '12px 12px',
                         cursor: ref.uri ? 'pointer' : 'default',
                         transition: 'box-shadow 150ms, background 200ms, border-color 200ms',
                         boxShadow: refIsActive ? `0 0 0 2px ${ref.agentColor}22` : 'none',
@@ -234,20 +236,14 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                         >
                           {ref.label}
                         </span>
-                        {ref.uri && (
-                          <span style={{ color: '#a1a1aa', display: 'flex' }}>
-                            <ExternalLinkIcon />
-                          </span>
-                        )}
-                      </div>
+                          {ref.uri && (
+                            <span style={{ color: '#a1a1aa', display: 'flex' }}>
+                              <ExternalLinkIcon />
+                            </span>
+                          )}
+                        </div>
 
-                      {ref.snippet && (
-                        <p style={{ fontSize: 12, color: '#71717a', lineHeight: 1.6, margin: 0 }}>
-                          {ref.snippet}
-                        </p>
-                      )}
-
-                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                         <span
                           style={{
                             fontSize: 10,
@@ -261,7 +257,48 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                         >
                           cited by {ref.agentName}
                         </span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: '#71717a',
+                            background: '#f8f8fa',
+                            border: '1px solid #ececf1',
+                            borderRadius: 999,
+                            padding: '3px 7px',
+                          }}
+                        >
+                          Round {ref.round === 99 ? 'Synthesis' : ref.round}
+                        </span>
+                        {displayUrl && (
+                          <span style={{ fontSize: 10, color: '#71717a' }}>{displayUrl}</span>
+                        )}
                       </div>
+
+                      {ref.snippet && (
+                        <div
+                          style={{
+                            background: '#fcfcfb',
+                            border: '1px solid #ececf1',
+                            borderRadius: 8,
+                            padding: '10px 11px',
+                            marginBottom: 8,
+                          }}
+                        >
+                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 5 }}>
+                            Retrieved Quote
+                          </div>
+                          <p style={{ fontSize: 12, color: '#52525b', lineHeight: 1.65, margin: 0 }}>
+                            "{ref.snippet}"
+                          </p>
+                        </div>
+                      )}
+
+                      {ref.uri && (
+                        <div style={{ fontSize: 11, color: '#355d7a', textDecoration: 'underline' }}>
+                          Open original source
+                        </div>
+                      )}
                     </div>
                   )
                 })}

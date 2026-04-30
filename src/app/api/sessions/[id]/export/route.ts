@@ -22,7 +22,7 @@ function truncate(text: string | null | undefined, max = 1200) {
 function formatSeatMarkdown(seats: CouncilSeat[]): string {
   if (!seats.length) return "";
 
-  const parts: string[] = ["## Reviewer Team\n"];
+  const parts: string[] = ["## Reviewer Panel\n"];
   for (const seat of seats) {
     parts.push(`- **${seat.role}**`);
     parts.push(`  - Model: \`${seat.model}\``);
@@ -58,16 +58,16 @@ function formatTurnsMarkdown(turns: CouncilTurn[]): string {
 }
 
 function formatConclusionMarkdown(conclusion: CouncilConclusion): string {
-  const lines: string[] = ["## Moderator Verdict\n"];
+  const lines: string[] = ["## Editorial Synthesis\n"];
   if (conclusion.confidence) {
     lines.push(
       `**Confidence:** ${conclusion.confidence}${conclusion.confidence_reason ? ` (${conclusion.confidence_reason})` : ""}\n`,
     );
   }
-  lines.push(`### Summary\n\n${conclusion.summary.trim()}\n`);
-  if (conclusion.consensus) lines.push(`### Consensus\n\n${conclusion.consensus.trim()}\n`);
+  lines.push(`### Summary Judgment\n\n${conclusion.summary.trim()}\n`);
+  if (conclusion.consensus) lines.push(`### Consensus View\n\n${conclusion.consensus.trim()}\n`);
   if (conclusion.dissent?.length) {
-    lines.push("### Dissent\n");
+    lines.push("### Unresolved Disagreements\n");
     for (const d of conclusion.dissent) {
       lines.push(`**${d.question}**`);
       for (const [seat, position] of Object.entries(d.seats)) {
@@ -76,9 +76,9 @@ function formatConclusionMarkdown(conclusion: CouncilConclusion): string {
       lines.push("");
     }
   }
-  if (conclusion.veto) lines.push(`### Veto\n\n${conclusion.veto.trim()}\n`);
+  if (conclusion.veto) lines.push(`### Blocking Concern\n\n${conclusion.veto.trim()}\n`);
   if (conclusion.action_items.length) {
-    lines.push("### Action Items\n");
+    lines.push("### Revision Checklist\n");
     for (const item of conclusion.action_items) {
       lines.push(`- [${item.priority.toUpperCase()}] ${item.action}`);
     }
@@ -90,7 +90,7 @@ function formatConclusionMarkdown(conclusion: CouncilConclusion): string {
 function formatEvidenceMarkdown(evidence: CouncilEvidence[]): string {
   if (!evidence.length) return "";
 
-  const parts: string[] = ["## Evidence Log\n"];
+  const parts: string[] = ["## Evidence Appendix\n"];
   for (const item of evidence) {
     parts.push(`### Round ${item.round} - ${item.role}`);
     parts.push(`- Tool: \`${item.tool}\``);
@@ -144,6 +144,8 @@ export async function GET(
   const lines: string[] = [
     `# Council Review: ${session.title}`,
     "",
+    "Academic peer-review export optimized for Markdown-first research workflows.",
+    "",
     `**Date:** ${date}  `,
     `**Status:** ${session.status}  `,
     `**Rounds:** ${session.rounds}  `,
@@ -165,7 +167,7 @@ export async function GET(
 
   if (turns.length) {
     lines.push("---\n");
-    lines.push("## Debate Transcript\n");
+    lines.push("## Debate Record\n");
     lines.push(formatTurnsMarkdown(turns));
   }
 

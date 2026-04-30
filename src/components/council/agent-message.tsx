@@ -5,8 +5,9 @@ import { Agent, AgentMessage as AgentMessageType, SourceRef } from '@/types/coun
 import { AgentAvatar } from './agent-avatar'
 import { ThinkingBlock } from './thinking-block'
 import { ToolCard } from './tool-card'
+import { EvidenceAnnotatedMarkdown } from './evidence-annotated-markdown'
 
-const TEXT_COLLAPSE_THRESHOLD = 900 // chars before showing collapse toggle
+const TEXT_COLLAPSE_THRESHOLD = 900
 
 interface AgentMessageProps {
   message: AgentMessageType
@@ -141,27 +142,39 @@ function CollapsibleText({
   content,
   agentColor,
   isStreaming,
+  sourceRefs,
 }: {
   content: string
   agentColor: string
   isStreaming: boolean
+  sourceRefs: SourceRef[]
 }) {
   const [expanded, setExpanded] = useState(false)
   const isLong = content.length > TEXT_COLLAPSE_THRESHOLD
   const visible = isLong && !expanded ? content.slice(0, TEXT_COLLAPSE_THRESHOLD) : content
+  const preview = visible
+    .replace(/\*\*/g, '')
+    .replace(/^#+\s*/gm, '')
+    .replace(/^\s*[-*]\s*/gm, '- ')
 
   return (
     <div>
-      <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
-        {visible}
-        {isLong && !expanded && '…'}
+      <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75 }}>
+        {isLong && !expanded ? preview : (
+          <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} />
+        )}
+        {isLong && !expanded && '...'}
         {isStreaming && !isLong && (
           <span
             style={{
-              display: 'inline-block', width: 2, height: 14,
-              background: agentColor, marginLeft: 2,
+              display: 'inline-block',
+              width: 2,
+              height: 14,
+              background: agentColor,
+              marginLeft: 2,
               animation: 'cur-blink 0.8s infinite',
-              verticalAlign: 'text-bottom', borderRadius: 1,
+              verticalAlign: 'text-bottom',
+              borderRadius: 1,
             }}
           />
         )}
@@ -170,11 +183,18 @@ function CollapsibleText({
         <button
           onClick={() => setExpanded((v) => !v)}
           style={{
-            marginTop: 6, background: 'none',
-            border: '1px solid #e4e4e7', borderRadius: 6,
-            padding: '3px 10px', fontSize: 11, fontWeight: 600,
-            color: '#71717a', cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', gap: 4,
+            marginTop: 6,
+            background: 'none',
+            border: '1px solid #e4e4e7',
+            borderRadius: 6,
+            padding: '3px 10px',
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#71717a',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
           }}
         >
           {expanded ? 'Collapse' : `Show full (${Math.round(content.length / 100) * 100}+ chars)`}
@@ -190,6 +210,8 @@ function CollapsibleText({
 export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }: AgentMessageProps) {
   const isStreaming = !message.isComplete
   const roundLabel = message.round === 99 ? 'Synthesis' : `Round ${message.round ?? 1}`
+  const hasTextBlock = message.blocks.some((block) => block.type === 'text' && block.content.trim().length > 0)
+  const hasRunningTool = message.blocks.some((block) => block.type === 'tool_use' && block.tool.status === 'running')
 
   const time = new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
@@ -246,6 +268,7 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }:
                     content={main}
                     agentColor={agent.color}
                     isStreaming={block.isStreaming === true && !evidenceText}
+                    sourceRefs={sourceRefs}
                   />
                   {evidenceText && (
                     <EvidenceSection text={evidenceText} agent={agent} sourceRefs={sourceRefs} onSourceClick={onSourceClick} />
@@ -255,6 +278,18 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }:
             }
             return null
           })}
+          {!hasTextBlock && hasRunningTool && (
+            <div
+              style={{
+                fontSize: 13,
+                color: '#71717a',
+                lineHeight: 1.7,
+                fontStyle: 'italic',
+              }}
+            >
+              Gathering evidence...
+            </div>
+          )}
         </div>
       </div>
 

@@ -92,6 +92,7 @@ import {
 } from "../prompts/council-prompts";
 import { normalizeSeatTurnContent } from "../prompts/council-turn-normalizer";
 import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../prompts/council-bounded-prompts";
+import { DEFAULT_GEMMA_MODEL } from "../llm/gemma-models";
 
 // ─── Module-level constants ────────────────────────────────────────────────────
 
@@ -108,10 +109,10 @@ function getSchemaReady(): Promise<void> {
   return schemaInit;
 }
 
-const DEFAULT_MODERATOR_MODEL = "gemma-4-31b-it";
-const DEFAULT_SEAT_MODEL = "gemma-4-31b-it";
-const DEFAULT_PLAN_CLASSIFIER_MODEL = "gemma-4-31b-it";
-const DEFAULT_DIVERGENCE_CLASSIFIER_MODEL = "gemma-4-31b-it";
+const DEFAULT_MODERATOR_MODEL = DEFAULT_GEMMA_MODEL;
+const DEFAULT_SEAT_MODEL = DEFAULT_GEMMA_MODEL;
+const DEFAULT_PLAN_CLASSIFIER_MODEL = DEFAULT_GEMMA_MODEL;
+const DEFAULT_DIVERGENCE_CLASSIFIER_MODEL = DEFAULT_GEMMA_MODEL;
 const DEFAULT_STALE_AFTER_MS = 15 * 60 * 1000;
 const HEARTBEAT_WRITE_INTERVAL_MS = 1_500;
 const MODERATOR_MAX_TOKENS = 1_200;

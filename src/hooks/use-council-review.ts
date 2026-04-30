@@ -3,10 +3,13 @@
 import { useState, useCallback } from 'react'
 import { DiscussionSession, Agent, AgentMessage, ContentBlock, SourceRef, DEFAULT_AGENTS, SessionAlert } from '@/types/council'
 import { takePendingUpload } from '@/lib/pending-upload'
+import { sanitizeToolTextForDisplay } from '@/lib/tools/display'
 import type { CouncilSeat } from '@/lib/council-types'
+import type { ReviewPhase } from '@/lib/council-review-phase'
+import { loadCouncilSession } from '@/lib/services/council-session-service'
 import { useSessionStream } from './use-session-stream'
 
-export type ReviewPhase = 'idle' | 'ingesting' | 'running' | 'concluded' | 'error'
+export type { ReviewPhase } from '@/lib/council-review-phase'
 
 function makeEmptySession(title = '', abstract = '', agents: Agent[] = DEFAULT_AGENTS): DiscussionSession {
   return {
@@ -35,10 +38,28 @@ function appendAlert(existing: SessionAlert[] | undefined, next: Omit<SessionAle
   return [...alerts, { id: `${next.level}-${alerts.length + 1}-${Date.now()}`, ...next }]
 }
 
+function appendSanitizedDelta(content: string, delta: string): string {
+  return sanitizeToolTextForDisplay(`${content}${delta}`)
+}
+
+function finalizeTurnBlocks(
+  blocks: ContentBlock[],
+  finalContent: string,
+): ContentBlock[] {
+  const nonTextBlocks = blocks.filter((block) => block.type !== 'text')
+  const trimmed = finalContent.trim()
+  if (!trimmed) {
+    return nonTextBlocks
+  }
+  return [...nonTextBlocks, { type: 'text', content: trimmed, isStreaming: false }]
+}
+
 export function useCouncilReview(arxivIdParam?: string | null) {
   const [phase, setPhase] = useState<ReviewPhase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [session, setSession] = useState<DiscussionSession>(makeEmptySession())
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [canResume, setCanResume] = useState(false)
 
   const { run: runStream } = useSessionStream()
 
@@ -100,6 +121,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
 
     if (type === 'session_done') {
       setPhase('concluded')
+      setCanResume(false)
       setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
       return
     }
@@ -139,9 +161,9 @@ export function useCouncilReview(arxivIdParam?: string | null) {
         const textIdx = blocks.findLastIndex((b) => b.type === 'text')
         if (textIdx >= 0) {
           const tb = blocks[textIdx] as { type: 'text'; content: string; isStreaming?: boolean }
-          blocks[textIdx] = { ...tb, content: tb.content + delta, isStreaming: true }
+          blocks[textIdx] = { ...tb, content: appendSanitizedDelta(tb.content, delta), isStreaming: true }
         } else {
-          blocks.push({ type: 'text', content: delta, isStreaming: true })
+          blocks.push({ type: 'text', content: sanitizeToolTextForDisplay(delta), isStreaming: true })
         }
 
         messages[idx] = { ...msg, blocks }
@@ -201,6 +223,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
             label: r.label,
             uri: r.uri ?? null,
             snippet: r.snippet ?? null,
+            round: Number(event.round ?? 1),
             agentId: agent.id,
             agentColor: agent.color,
             agentAvatar: agent.avatar,
@@ -213,7 +236,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     }
 
     if (type === 'turn_done') {
-      const turn = event.turn as { role: string }
+      const turn = event.turn as { role: string; content?: string }
       if (!turn?.role) return
       const agent = findAgentByRole(agents, turn.role)
       if (!agent) return
@@ -224,10 +247,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
         if (idx == null) return s
 
         const msg = { ...messages[idx] }
-        const blocks = msg.blocks.map((b) => {
-          if (b.type === 'text') return { ...b, isStreaming: false }
-          return b
-        })
+        const blocks = finalizeTurnBlocks(msg.blocks, typeof turn.content === 'string' ? turn.content : '')
         messages[idx] = { ...msg, blocks, isComplete: true }
         return { ...s, messages }
       })
@@ -263,9 +283,9 @@ export function useCouncilReview(arxivIdParam?: string | null) {
         const textIdx = blocks.findLastIndex((b) => b.type === 'text')
         if (textIdx >= 0) {
           const tb = blocks[textIdx] as { type: 'text'; content: string; isStreaming?: boolean }
-          blocks[textIdx] = { ...tb, content: tb.content + delta, isStreaming: true }
+          blocks[textIdx] = { ...tb, content: appendSanitizedDelta(tb.content, delta), isStreaming: true }
         } else {
-          blocks.push({ type: 'text', content: delta, isStreaming: true })
+          blocks.push({ type: 'text', content: sanitizeToolTextForDisplay(delta), isStreaming: true })
         }
         messages[idx] = { ...msg, blocks }
         return { ...s, messages }
@@ -290,6 +310,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     if (type === 'error') {
       setError(event.message as string)
       setPhase('error')
+      setCanResume(false)
     }
   }
 
@@ -353,20 +374,86 @@ export function useCouncilReview(arxivIdParam?: string | null) {
 
     setSession(makeEmptySession(paperTitle, paperAbstract, discussionAgents))
     setPhase('running')
+    setCanResume(false)
 
     await runStream(
       sessionId,
       (event) => handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents),
       () => {
         setPhase('concluded')
+        setCanResume(false)
         setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
       },
       (message) => {
         setError(message)
         setPhase('error')
       },
+      {},
     )
   }, [arxivIdParam, runStream])
 
-  return { session, phase, error, start }
+  const loadSession = useCallback(async (sessionId: string) => {
+    setError(null)
+    setIsRestoring(true)
+
+    try {
+      const loaded = await loadCouncilSession(sessionId)
+      setSession(loaded.discussionSession)
+      setPhase(loaded.phase)
+      setCanResume(loaded.isResumable)
+      return true
+    } catch (err) {
+      setSession(makeEmptySession())
+      setError(err instanceof Error ? err.message : 'Failed to load saved review')
+      setPhase('error')
+      setCanResume(false)
+      return false
+    } finally {
+      setIsRestoring(false)
+    }
+  }, [])
+
+  const resumeSession = useCallback(async (sessionId: string) => {
+    setError(null)
+    setIsRestoring(true)
+
+    try {
+      const loaded = await loadCouncilSession(sessionId)
+      setSession(loaded.discussionSession)
+      setPhase(loaded.phase)
+      setCanResume(loaded.isResumable)
+      if (!loaded.isResumable) return true
+
+      const paperTitle = loaded.discussionSession.paperTitle
+      const paperAbstract = loaded.discussionSession.paperAbstract ?? ''
+      const discussionAgents = loaded.discussionSession.agents
+      setPhase('running')
+      setCanResume(false)
+
+      await runStream(
+        sessionId,
+        (event) => handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents),
+        () => {
+          setPhase('concluded')
+          setCanResume(false)
+          setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
+        },
+        (message) => {
+          setError(message)
+          setPhase('error')
+        },
+        { resume: true },
+      )
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resume saved review')
+      setPhase('error')
+      setCanResume(false)
+      return false
+    } finally {
+      setIsRestoring(false)
+    }
+  }, [runStream])
+
+  return { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession }
 }

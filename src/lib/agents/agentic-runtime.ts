@@ -9,6 +9,7 @@ import { ANTHROPIC_PLATFORM_TOOL_SCHEMAS } from "../tools/schema";
 import { handlers as webHandlers } from "../tools/handlers/web";
 import { handlers as ragHandlers } from "../tools/handlers/rag";
 import { parseToolCalls } from "../tools/parser";
+import { sanitizeToolTextForDisplay } from "../tools/display";
 import { compressToolResult } from "../tool-compressor";
 import { DEFAULT_GEMMA_MODEL } from "../llm/gemma-models";
 
@@ -133,17 +134,6 @@ function normalizeToolRefs(tools?: string[]): string[] {
 export function getAgenticRuntimeClass(model?: string): AgenticRuntimeClass {
   void model;
   return "strict_runtime";
-}
-
-function stripToolCallsForDisplay(text: string): string {
-  let cleaned = text.replace(/\[TOOL_CALL\][\s\S]*?\[\/TOOL_CALL\]/g, "");
-
-  const danglingToolCall = cleaned.lastIndexOf("[TOOL_CALL]");
-  if (danglingToolCall !== -1) {
-    cleaned = cleaned.slice(0, danglingToolCall);
-  }
-
-  return cleaned;
 }
 
 function formatToolGuideLine(tool: string): string {
@@ -530,7 +520,11 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
 
       for await (const delta of generator) {
         rawRoundText += delta;
-        const visible = stripToolCallsForDisplay(rawRoundText);
+        const visible = sanitizeToolTextForDisplay(rawRoundText);
+        if (!visible.startsWith(emittedVisibleText)) {
+          emittedVisibleText = visible;
+          continue;
+        }
         const deltaVisible = visible.slice(emittedVisibleText.length);
         if (deltaVisible) {
           emittedVisibleText = visible;
@@ -538,7 +532,7 @@ export async function runAgenticRuntime(input: AgenticRuntimeInput): Promise<Age
         }
       }
 
-      const roundText = stripToolCallsForDisplay(rawRoundText).trim();
+      const roundText = sanitizeToolTextForDisplay(rawRoundText).trim();
       const parsedToolCalls = parseToolCalls(rawRoundText);
       if (parsedToolCalls.status === "truncated" || parsedToolCalls.status === "malformed") {
         const issue = parsedToolCalls.status === "truncated"

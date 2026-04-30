@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { CouncilEvidenceSource } from '@/lib/council-types'
+import { MarkdownContent } from './markdown-content'
 
 interface ChatMessage {
   id: string
@@ -132,9 +133,7 @@ export function ChatWithPaper({ sessionId }: { sessionId: string | null }) {
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 7 }}>
                 {message.role === 'user' ? 'You' : 'Council Paper Chat'}
               </div>
-              <div style={{ fontSize: 13, color: '#27272a', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                {message.content}
-              </div>
+              <MarkdownContent content={message.content} color="#27272a" fontSize={13} />
               {message.answerMode && message.role === 'assistant' && (
                 <div style={{ marginTop: 8, fontSize: 11, color: '#a1a1aa' }}>
                   mode: {message.answerMode}

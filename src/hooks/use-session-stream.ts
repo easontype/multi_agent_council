@@ -16,13 +16,14 @@ export function useSessionStream() {
     onEvent: (event: Record<string, unknown>) => void,
     onDone: () => void,
     onError: (message: string) => void,
+    requestBody: Record<string, unknown> = {},
   ): Promise<void> => {
     let res: Response
     try {
       res = await fetch(`/api/sessions/${sessionId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(requestBody),
       })
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Network error')

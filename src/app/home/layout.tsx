@@ -108,7 +108,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
 
         {/* New Review button */}
         <div style={{ padding: collapsed ? "12px 10px" : "12px 10px", flexShrink: 0 }}>
-          <button onClick={() => router.push("/analyze")} style={{
+          <button onClick={() => router.push("/analyze?new=1")} style={{
             width: "100%", height: 34,
             display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start",
             gap: 7, background: "#111", color: "#fff",

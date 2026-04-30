@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { DiscussionSession, AgentMessage, Agent, SourceRef } from '@/types/council'
 import { AgentAvatar } from './agent-avatar'
+import { MarkdownContent } from './markdown-content'
 
 const ROUND1_DIMS = ['Position', 'Key Assumptions', 'Main Risks', 'Strongest Counterargument', 'Evidence']
 const ROUND2_DIMS = ['Rebuttal', 'Response to Round 2', 'Position Update', 'Remaining Disagreement', 'Evidence']
@@ -213,15 +214,7 @@ function DimensionRow({
                     <span style={{ fontSize: 12, color: '#a1a1aa' }}>No data</span>
                   )
                 ) : cellText ? (
-                  <p style={{
-                    margin: 0,
-                    fontSize: 13,
-                    color: '#3f3f46',
-                    lineHeight: 1.65,
-                    whiteSpace: 'pre-wrap',
-                  }}>
-                    {cellText}
-                  </p>
+                  <MarkdownContent content={cellText} fontSize={13} />
                 ) : (
                   <span style={{ fontSize: 12, color: '#a1a1aa' }}>No data</span>
                 )}
@@ -256,7 +249,7 @@ export function CompareView({ session, onSourceClick }: CompareViewProps) {
 
   const agentSourceRefs = new Map<string, SourceRef[]>()
   for (const agent of nonModeratorAgents) {
-    agentSourceRefs.set(agent.id, session.sourceRefs.filter((ref) => ref.agentId === agent.id))
+    agentSourceRefs.set(agent.id, session.sourceRefs.filter((ref) => ref.agentId === agent.id && ref.round === activeRound))
   }
 
   const hasMessages = session.messages.some((message) => message.round === activeRound && message.isComplete)

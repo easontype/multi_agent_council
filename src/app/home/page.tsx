@@ -156,7 +156,7 @@ export default function DashboardPage() {
           <RecentReviews
             sessions={sessions}
             loadingSessions={loadingSessions}
-            onSessionClick={() => router.push("/analyze")}
+            onSessionClick={(session) => router.push(`/analyze?session=${encodeURIComponent(session.id)}`)}
           />
         </>
       )}

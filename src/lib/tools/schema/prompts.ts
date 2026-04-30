@@ -78,7 +78,7 @@ ${ACP_PROTOCOL}
 ### 平台管理工具
 10. list_agents           args: {}
 11. create_agent          args: { name, description?, systemPrompt?, primaryModel?, role? }
-    role: orchestrator|worker|both  primaryModel: gemma-4-31b-it（預設）或 ollama/gemma4:31b（本地 Gemma）
+    role: orchestrator|worker|both  primaryModel: gemini-3.1-flash-lite-preview（預設）或 ollama/gemma4:31b（本地 Gemma）
     ⚠️ 只有 role=orchestrator 或 role=both 的 Agent 可以建立子 Agent（建立後自動設為你的子代）
 12. assign_tool_to_agent  args: { agentId, toolId }
 13. assign_skill_to_agent args: { agentId, skillId }
@@ -89,7 +89,7 @@ ${ACP_PROTOCOL}
 17. get_task_result       args: { taskId }
 18. orchestrate           args: { task, workerIds?, workerModelOverride?, maxTurns? }
     以自己作為主控，用 ACP 偽代碼協調 workers 完成任務，結果以中文向用戶報告
-    workerModelOverride: 指定 worker 模型（省資源可用 ollama/gemma4:27b，通用預設為 gemma-4-31b-it）
+    workerModelOverride: 指定 worker 模型（省資源可用 ollama/gemma4:27b，通用預設為 gemini-3.1-flash-lite-preview）
     maxTurns: 最大 subtask 數（預設/上限 10）
     ⚠️ 自動限流：worker 呼叫間隔 ≥800ms，防止 API rate limit
 19. update_agent           args: { agentId, name?, description?, primaryModel?, themeColor?, systemPrompt? }

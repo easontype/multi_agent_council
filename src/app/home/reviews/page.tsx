@@ -168,7 +168,7 @@ export default function ReviewsPage() {
             const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.pending;
             return (
               <div key={s.id}
-                onClick={() => router.push("/analyze")}
+                onClick={() => router.push(`/analyze?session=${encodeURIComponent(s.id)}`)}
                 style={{
                   display: "grid", gridTemplateColumns: "1fr 100px 80px 28px",
                   alignItems: "center", padding: "11px 16px",

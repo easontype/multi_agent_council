@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import type { DiscussionSession, Agent, AgentMessage, TextBlock } from '@/types/council'
+import { MarkdownContent } from './markdown-content'
 
 // ── Text parsing ─────────────────────────────────────────────────────────────
 
@@ -180,9 +181,7 @@ function DetailPaneNode({ node, onClose }: { node: NodeData; onClose: () => void
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
                 Challenge
               </div>
-              <p style={{ fontSize: 13, color: '#3f3f46', lineHeight: 1.7, margin: 0 }}>
-                {node.challengeText}
-              </p>
+              <MarkdownContent content={node.challengeText} fontSize={13} />
             </div>
           )}
           {node.stanceText && (
@@ -190,9 +189,7 @@ function DetailPaneNode({ node, onClose }: { node: NodeData; onClose: () => void
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
                 Stance
               </div>
-              <p style={{ fontSize: 13, color: '#3f3f46', lineHeight: 1.7, margin: 0 }}>
-                {node.stanceText}
-              </p>
+              <MarkdownContent content={node.stanceText} fontSize={13} />
             </div>
           )}
           <button
@@ -213,11 +210,10 @@ function DetailPaneNode({ node, onClose }: { node: NodeData; onClose: () => void
               style={{
                 marginTop: 12, padding: '12px 14px',
                 background: '#fafafa', border: '1px solid #ececf1',
-                borderRadius: 8, fontSize: 13, color: '#3f3f46',
-                lineHeight: 1.75, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                borderRadius: 8,
               }}
             >
-              {node.fullText}
+              <MarkdownContent content={node.fullText} fontSize={13} />
             </div>
           )}
         </>
@@ -287,18 +283,14 @@ function DetailPaneEdge({ edge, nodes, onClose }: { edge: EdgeData; nodes: NodeD
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
               The challenge
             </div>
-            <p style={{ fontSize: 13, color: '#3f3f46', lineHeight: 1.7, margin: 0 }}>
-              {edge.challengeText}
-            </p>
+            <MarkdownContent content={edge.challengeText} fontSize={13} />
           </div>
           {toNode?.stanceText && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
                 {toNode.agent.name}&rsquo;s stance
               </div>
-              <p style={{ fontSize: 13, color: '#3f3f46', lineHeight: 1.7, margin: 0 }}>
-                {toNode.stanceText}
-              </p>
+              <MarkdownContent content={toNode.stanceText} fontSize={13} />
             </div>
           )}
           <button
@@ -319,13 +311,13 @@ function DetailPaneEdge({ edge, nodes, onClose }: { edge: EdgeData; nodes: NodeD
               style={{
                 marginTop: 12, padding: '12px 14px',
                 background: '#fafafa', border: '1px solid #ececf1',
-                borderRadius: 8, fontSize: 13, color: '#3f3f46',
-                lineHeight: 1.75, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                borderRadius: 8,
               }}
             >
-              {edge.fromAgent.name}&rsquo;s full Round 2 statement:
-              {'\n\n'}
-              {nodes.find((n) => n.agent.seatRole === edge.from)?.fullText ?? ''}
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#71717a', marginBottom: 10 }}>
+                {edge.fromAgent.name}&rsquo;s full Round 2 statement
+              </div>
+              <MarkdownContent content={nodes.find((n) => n.agent.seatRole === edge.from)?.fullText ?? ''} fontSize={13} />
             </div>
           )}
         </>

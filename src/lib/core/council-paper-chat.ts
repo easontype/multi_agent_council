@@ -101,9 +101,14 @@ function buildExtractiveAnswer(question: string, rows: SearchRow[]) {
   })
 
   return [
-    `I could not run the answer model for "${question}", so here are the most relevant paper excerpts:`,
+    `**Answer**`,
+    `I could not run the answer model for "${question}", so this response falls back to the most relevant excerpts.`,
     '',
-    ...snippets,
+    `**Evidence from Paper**`,
+    ...snippets.map((snippet) => `- ${snippet}`),
+    '',
+    `**Caveat**`,
+    `This fallback is extractive only and should not be treated as a full synthesis.`,
   ].join('\n')
 }
 
@@ -128,7 +133,9 @@ export async function answerCouncilPaperQuestion(sessionId: string, question: st
   const systemPrompt = [
     'You answer questions about a single academic paper.',
     'Use only the supplied paper excerpts.',
-    'Be concise, directly answer the question, and cite sources as [1], [2], etc.',
+    'Respond in concise academic Markdown.',
+    'Use exactly these sections: **Answer**, **Evidence from Paper**, **Caveat**.',
+    'Under **Evidence from Paper**, use bullets with citations as [1], [2], etc.',
     'If the evidence is incomplete, say so clearly.',
   ].join('\n')
 
@@ -138,7 +145,7 @@ export async function answerCouncilPaperQuestion(sessionId: string, question: st
     'Paper excerpts:',
     buildContext(rows),
     '',
-    'Answer in plain text.',
+    'Answer in Markdown only.',
   ].join('\n')
 
   try {

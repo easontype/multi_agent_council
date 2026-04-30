@@ -1,6 +1,7 @@
 import { expect, Page, test } from "@playwright/test";
 
 const reviewSessionId = "session-ui-1";
+const runningSessionId = "session-ui-2";
 
 const sessionList = [
   {
@@ -10,7 +11,7 @@ const sessionList = [
     created_at: "2026-04-17T10:00:00.000Z",
   },
   {
-    id: "session-ui-2",
+    id: runningSessionId,
     title: "Review: Improving Language Understanding by Generative Pre-Training",
     status: "running",
     created_at: "2026-04-18T00:15:00.000Z",
@@ -46,6 +47,9 @@ function installErrorCollector(page: Page) {
     if (/favicon|Failed to load resource: the server responded with a status of 404/i.test(text)) {
       return;
     }
+    if (/Failed to load resource: the server responded with a status of 401 \(Unauthorized\)/i.test(text)) {
+      return;
+    }
     consoleErrors.push(text);
   });
 
@@ -58,6 +62,17 @@ async function expectNoClientErrors(collected: ReturnType<typeof installErrorCol
 }
 
 async function mockDashboardApis(page: Page) {
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(sessionList),
+    });
+  });
   await page.route("**/api/council", async (route) => {
     if (route.request().method() !== "GET") {
       await route.continue();
@@ -80,7 +95,7 @@ async function mockDashboardApis(page: Page) {
 }
 
 async function mockAnalyzeApis(page: Page) {
-  await page.route("**/api/analyze/web", async (route) => {
+  await page.route("**/api/papers/upload", async (route) => {
     await route.fulfill({
       status: 201,
       contentType: "application/json",
@@ -93,17 +108,202 @@ async function mockAnalyzeApis(page: Page) {
     });
   });
 
-  await page.route(`**/api/council/${reviewSessionId}/run`, async (route) => {
+  await page.route(`**/api/sessions/${reviewSessionId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session: {
+          id: reviewSessionId,
+          is_public: false,
+        },
+      }),
+    });
+  });
+
+  await page.route(`**/api/sessions/${reviewSessionId}/run`, async (route) => {
     const sse = [
       'data: {"type":"session_start"}',
       'data: {"type":"turn_start","role":"Methods Critic","round":1}',
       'data: {"type":"turn_delta","role":"Methods Critic","delta":"The empirical case is strong, but ablation coverage is too thin."}',
       'data: {"type":"tool_call","role":"Methods Critic","tool":"fetch_paper","args":{"id":"1706.03762"}}',
       'data: {"type":"tool_result","role":"Methods Critic","tool":"fetch_paper","result":"Retrieved paper metadata and abstract.","sourceRefs":[{"label":"Attention Is All You Need","uri":"https://arxiv.org/abs/1706.03762","snippet":"Sequence transduction with pure attention."}]}',
-      'data: {"type":"turn_done","turn":{"role":"Methods Critic"}}',
+      'data: {"type":"turn_done","turn":{"role":"Methods Critic","content":"**Position**\\nThe empirical case is strong, but ablation coverage is too thin."}}',
       'data: {"type":"turn_start","role":"Moderator","round":99}',
       'data: {"type":"turn_delta","role":"Moderator","delta":"Verdict: promising paper, but reviewers want stronger ablations before acceptance."}',
-      'data: {"type":"turn_done","turn":{"role":"Moderator"}}',
+      'data: {"type":"turn_done","turn":{"role":"Moderator","content":"Verdict: promising paper, but reviewers want stronger ablations before acceptance."}}',
+      'data: {"type":"conclusion","conclusion":{"summary":"Verdict: promising paper, but reviewers want stronger ablations before acceptance."}}',
+      'data: {"type":"session_done"}',
+      "",
+    ].join("\n");
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+      body: sse,
+    });
+  });
+}
+
+async function mockSavedSessionApis(page: Page) {
+  await page.route(`**/api/sessions/${reviewSessionId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session: {
+          id: reviewSessionId,
+          title: "Review: Attention Is All You Need",
+          topic: "Attention Is All You Need",
+          context: "A canonical Transformer paper.",
+          goal: null,
+          status: "concluded",
+          rounds: 1,
+          moderator_model: "gemini-3.1-flash-lite-preview",
+          seats: [
+            { role: "Methods Critic", model: "gemini-3.1-flash-lite-preview", systemPrompt: "Critique methods." },
+            { role: "Literature Auditor", model: "gemini-3.1-flash-lite-preview", systemPrompt: "Check related work." },
+          ],
+          workspace_id: "ws-1",
+          created_by_user_id: "user-1",
+          owner_agent_id: null,
+          owner_api_key_id: null,
+          created_at: "2026-04-17T10:00:00.000Z",
+          started_at: "2026-04-17T10:01:00.000Z",
+          heartbeat_at: "2026-04-17T10:03:00.000Z",
+          concluded_at: "2026-04-17T10:05:00.000Z",
+          last_error: null,
+          run_attempts: 1,
+          updated_at: "2026-04-17T10:05:00.000Z",
+          divergence_level: "moderate",
+          is_public: false,
+        },
+        turns: [
+          {
+            id: "turn-c-1",
+            session_id: reviewSessionId,
+            round: 1,
+            role: "Methods Critic",
+            model: "gemini-3.1-flash-lite-preview",
+            content: "**Position**\nThe ablation coverage is too thin for a top-tier methods claim.",
+            input_tokens: 120,
+            output_tokens: 88,
+            created_at: "2026-04-17T10:02:00.000Z",
+          },
+          {
+            id: "turn-c-2",
+            session_id: reviewSessionId,
+            round: 99,
+            role: "Moderator",
+            model: "gemini-3.1-flash-lite-preview",
+            content: "{\"summary\":\"Strong core idea, but the review panel wants clearer ablation support.\"}",
+            input_tokens: 100,
+            output_tokens: 60,
+            created_at: "2026-04-17T10:04:00.000Z",
+          },
+        ],
+        conclusion: {
+          id: "conclusion-c-1",
+          session_id: reviewSessionId,
+          summary: "Strong core idea, but the review panel wants clearer ablation support.",
+          consensus: null,
+          dissent: null,
+          action_items: [],
+          veto: null,
+          confidence: "medium",
+          confidence_reason: null,
+          created_at: "2026-04-17T10:05:00.000Z",
+        },
+        evidence: [
+          {
+            id: "evidence-c-1",
+            session_id: reviewSessionId,
+            round: 1,
+            role: "Methods Critic",
+            model: "gemini-3.1-flash-lite-preview",
+            tool: "rag_query",
+            runtime_class: "strict_runtime",
+            status: "completed",
+            args: { query: "ablation coverage" },
+            result: "Retrieved relevant sections from the paper.",
+            source_refs: [
+              {
+                label: "Attention Is All You Need",
+                uri: "https://arxiv.org/abs/1706.03762",
+                snippet: "Transformer ablations cover major architectural choices.",
+              },
+            ],
+            created_at: "2026-04-17T10:01:20.000Z",
+            updated_at: "2026-04-17T10:01:40.000Z",
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route(`**/api/sessions/${runningSessionId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session: {
+          id: runningSessionId,
+          title: "Review: Improving Language Understanding by Generative Pre-Training",
+          topic: "Improving Language Understanding by Generative Pre-Training",
+          context: "GPT-style pretraining paper.",
+          goal: null,
+          status: "running",
+          rounds: 1,
+          moderator_model: "gemini-3.1-flash-lite-preview",
+          seats: [
+            { role: "Methods Critic", model: "gemini-3.1-flash-lite-preview", systemPrompt: "Critique methods." },
+          ],
+          workspace_id: "ws-1",
+          created_by_user_id: "user-1",
+          owner_agent_id: null,
+          owner_api_key_id: null,
+          created_at: "2026-04-18T00:15:00.000Z",
+          started_at: "2026-04-18T00:16:00.000Z",
+          heartbeat_at: "2026-04-18T00:17:00.000Z",
+          concluded_at: null,
+          last_error: null,
+          run_attempts: 1,
+          updated_at: "2026-04-18T00:17:00.000Z",
+          divergence_level: null,
+          is_public: false,
+        },
+        turns: [
+          {
+            id: "turn-r-1",
+            session_id: runningSessionId,
+            round: 1,
+            role: "Methods Critic",
+            model: "gemini-3.1-flash-lite-preview",
+            content: "**Position**\nThe framing is strong, but the replication details are still incomplete.",
+            input_tokens: 90,
+            output_tokens: 70,
+            created_at: "2026-04-18T00:16:30.000Z",
+          },
+        ],
+        conclusion: null,
+        evidence: [],
+      }),
+    });
+  });
+
+  await page.route(`**/api/sessions/${runningSessionId}/run`, async (route) => {
+    const body = route.request().postDataJSON();
+    expect(body).toMatchObject({ resume: true });
+
+    const sse = [
+      'data: {"type":"turn_start","role":"Moderator","round":99}',
+      'data: {"type":"moderator_delta","delta":"Saved run resumed and reached a final synthesis."}',
+      'data: {"type":"conclusion","conclusion":{"summary":"Saved run resumed and reached a final synthesis."}}',
+      'data: {"type":"session_done"}',
       "",
     ].join("\n");
 
@@ -188,11 +388,12 @@ test("landing page can start a mocked review run and render streamed debate outp
   await expectNoClientErrors(errors);
 });
 
-test("saved review navigation currently drops session context instead of reopening the selected review", async ({
+test("saved review navigation restores the selected review session", async ({
   page,
 }) => {
   const errors = installErrorCollector(page);
   await mockDashboardApis(page);
+  await mockSavedSessionApis(page);
 
   await page.goto("/login");
   await loginAsDevAdmin(page);
@@ -203,9 +404,33 @@ test("saved review navigation currently drops session context instead of reopeni
   await expect(page.getByText("Attention Is All You Need")).toBeVisible();
 
   await page.getByText("Attention Is All You Need").click();
-  await expect(page).toHaveURL(/\/analyze$/);
-  await expect(page.getByText("Ready to begin")).toBeVisible();
-  await expect(page.getByText("Attention Is All You Need")).not.toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/analyze\\?session=${reviewSessionId}$`));
+  await expect(page.getByText("Restored from the saved review link.")).toBeVisible();
+  await expect(page.getByText("The ablation coverage is too thin for a top-tier methods claim.")).toBeVisible();
+  await expect(page.getByText("Strong core idea, but the review panel wants clearer ablation support.")).toBeVisible();
+  await expect(page.getByText("Divergence level recorded as moderate.")).toBeVisible();
+
+  await expectNoClientErrors(errors);
+});
+
+test("running saved review offers resume and reconnects the live stream", async ({
+  page,
+}) => {
+  const errors = installErrorCollector(page);
+  await mockDashboardApis(page);
+  await mockSavedSessionApis(page);
+
+  await page.goto("/login");
+  await loginAsDevAdmin(page);
+
+  await page.goto(`/analyze?session=${runningSessionId}`);
+  await expect(page.getByText("Restored from the saved review link.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /resume live stream/i })).toBeVisible();
+  await expect(page.getByText("The framing is strong, but the replication details are still incomplete.")).toBeVisible();
+
+  await page.getByRole("button", { name: /resume live stream/i }).click();
+  await expect(page.getByText("Saved run resumed and reached a final synthesis.")).toBeVisible();
+  await expect(page.getByText("Review concluded")).toBeVisible();
 
   await expectNoClientErrors(errors);
 });

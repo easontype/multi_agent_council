@@ -338,7 +338,7 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
                     {messages.map((message) => {
                       const agent = agentMap.get(message.agentId)
                       if (!agent) return null
-                      const agentRefs = session.sourceRefs.filter((ref) => ref.agentId === agent.id)
+                      const agentRefs = session.sourceRefs.filter((ref) => ref.agentId === agent.id && ref.round === message.round)
                       return (
                         <AgentMessage
                           key={message.id}

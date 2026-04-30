@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { getCouncilSessionBundle } from '@/lib/council'
 import { db } from '@/lib/db'
 import type { CouncilConclusion, CouncilTurn } from '@/lib/council-types'
+import { MarkdownContent } from '@/components/council/markdown-content'
 
 async function getPublicBundle(id: string) {
   const { rows } = await db.query(
@@ -69,7 +70,7 @@ function Section({ title, text, color = '#3f3f46' }: { title: string; text: stri
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
         {title}
       </div>
-      <p style={{ fontSize: 14, color, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{text}</p>
+      <MarkdownContent content={text} color={color} />
     </div>
   )
 }
@@ -104,10 +105,10 @@ function ConclusionSection({ conclusion }: { conclusion: CouncilConclusion }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
-            Moderator Verdict
+            Editorial Synthesis
           </div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: '#18181b', margin: 0, fontFamily: "'Georgia', 'Times New Roman', serif", letterSpacing: '-0.02em' }}>
-            Synthesis and final assessment
+            Synthesis and academic assessment
           </h2>
         </div>
         <ConfidenceBadge level={conclusion.confidence} />
@@ -119,13 +120,13 @@ function ConclusionSection({ conclusion }: { conclusion: CouncilConclusion }) {
         </p>
       )}
 
-      <Section title="Summary" text={conclusion.summary} />
-      {conclusion.consensus && <Section title="Consensus" text={conclusion.consensus} />}
+      <Section title="Summary Judgment" text={conclusion.summary} />
+      {conclusion.consensus && <Section title="Consensus View" text={conclusion.consensus} />}
 
       {conclusion.dissent?.length ? (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#8b6b35', textTransform: 'uppercase', marginBottom: 8 }}>
-            Dissent
+            Unresolved Disagreements
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {conclusion.dissent.map((dissent, index) => (
@@ -142,12 +143,12 @@ function ConclusionSection({ conclusion }: { conclusion: CouncilConclusion }) {
         </div>
       ) : null}
 
-      {conclusion.veto && <Section title="Veto" text={conclusion.veto} color="#8a4545" />}
+      {conclusion.veto && <Section title="Blocking Concern" text={conclusion.veto} color="#8a4545" />}
 
       {conclusion.action_items.length > 0 && (
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 8 }}>
-            Action Items
+            Revision Checklist
           </div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {conclusion.action_items.map((item, index) => (
@@ -202,9 +203,7 @@ function TurnCard({ turn }: { turn: CouncilTurn }) {
         </span>
       </div>
 
-      <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {turn.content}
-      </div>
+      <MarkdownContent content={turn.content} />
     </div>
   )
 }

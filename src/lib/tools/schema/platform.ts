@@ -104,7 +104,7 @@ export const PLATFORM_TOOL_SCHEMAS: AnthropicTool[] = [
         name: { type: "string", description: "Agent 名稱" },
         description: { type: "string", description: "Agent 描述" },
         systemPrompt: { type: "string", description: "Agent 的 system prompt" },
-        primaryModel: { type: "string", description: "使用的 LLM 模型（預設 gemma-4-31b-it；需要本地路由時可改用 ollama/gemma4:*）" },
+        primaryModel: { type: "string", description: "使用的 LLM 模型（預設 gemini-3.1-flash-lite-preview；需要本地路由時可改用 ollama/gemma4:*）" },
         role: { type: "string", enum: ["orchestrator", "worker", "both"] },
       },
       required: ["name"],
@@ -201,7 +201,7 @@ export const PLATFORM_TOOL_SCHEMAS: AnthropicTool[] = [
       properties: {
         task: { type: "string", description: "要協調完成的任務描述（orchestrator 內部用，最終向用戶回報需用中文）" },
         workerIds: { type: "array", items: { type: "string" }, description: "指定 worker agent UUID 列表（可選，不填則使用所有 worker）" },
-        workerModelOverride: { type: "string", description: "覆蓋所有 worker 使用的模型，例如 gemma-4-31b-it 或 ollama/gemma4:31b（可選）" },
+        workerModelOverride: { type: "string", description: "覆蓋所有 worker 使用的模型，例如 gemini-3.1-flash-lite-preview 或 ollama/gemma4:31b（可選）" },
         maxTurns: { type: "number", description: `最大 subtask 數量（預設 ${ORCHESTRATE_MAX_TURNS}，上限 ${ORCHESTRATE_MAX_TURNS}）` },
       },
       required: ["task"],

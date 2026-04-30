@@ -1,10 +1,17 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { PaperPreview } from '@/components/council/paper-preview'
+import { SessionRestoreBanner } from '@/components/council/session-restore-banner'
 import { useCouncilReview } from '@/hooks/use-council-review'
-import { peekPendingUpload } from '@/lib/pending-upload'
+import {
+  clearLastOpenedCouncilSessionId,
+  loadLastOpenedCouncilSessionId,
+  saveLastOpenedCouncilSessionId,
+} from '@/lib/last-opened-session'
+import { peekPendingUpload, setPendingUpload } from '@/lib/pending-upload'
+import { resolveCouncilSessionRestore } from '@/lib/services/council-session-restore'
 import {
   buildDiscussionAgents,
   buildEditableTeam,
@@ -20,6 +27,7 @@ import {
   type SavedTeamTemplate,
 } from '@/lib/team-template-store'
 import { estimateHostedReviewCost } from '@/lib/review-cost'
+import { PaperSourcePicker } from './_components/paper-source-picker'
 import { SessionHeader } from './_components/session-header'
 import { SetupSidebar } from './_components/setup-sidebar'
 import { ReviewResults } from './_components/review-results'
@@ -44,12 +52,17 @@ function createTemplateId() {
 }
 
 function AnalyzeContent() {
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const arxivId = searchParams.get('arxiv')
-  const [pendingFile] = useState<File | null>(() => peekPendingUpload())
+  const persistedSessionId = searchParams.get('session')
+  const isNewIntent = searchParams.get('new') === '1'
+  const [pendingFile, setLocalPendingFile] = useState<File | null>(() => peekPendingUpload())
+  const [arxivDraft, setArxivDraft] = useState(arxivId ?? '')
   const isUpload = Boolean(pendingFile)
 
-  const { session, phase, error, start } = useCouncilReview(arxivId)
+  const { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession } = useCouncilReview(arxivId)
   const [mode, setMode] = useState<ReviewMode>('critique')
   const [rounds, setRounds] = useState<1 | 2>(1)
   const [teamAgents, setTeamAgents] = useState<EditableReviewAgent[]>(() => buildEditableTeam('critique'))
@@ -61,6 +74,9 @@ function AnalyzeContent() {
   const [setupSidebarOpen, setSetupSidebarOpen] = useState(true)
   const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
   const [sidebarTab, setSidebarTab] = useState<'sources' | 'chat'>('sources')
+  const [restoreSource, setRestoreSource] = useState<'url' | 'local' | null>(null)
+  const [queuedRestoreSessionId, setQueuedRestoreSessionId] = useState<string | null>(null)
+  const lastRestoreRequestIdRef = useRef<string | null>(null)
 
   const handleSourceClick = useCallback((label: string) => {
     setActiveSourceLabel(label)
@@ -74,6 +90,10 @@ function AnalyzeContent() {
     }).catch(() => {})
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    setArxivDraft(arxivId ?? '')
+  }, [arxivId])
 
   useEffect(() => {
     if (pendingFile) {
@@ -100,6 +120,41 @@ function AnalyzeContent() {
       .catch(() => {})
   }, [session.id])
 
+  useEffect(() => {
+    const resolution = resolveCouncilSessionRestore({
+      sessionIdFromUrl: persistedSessionId,
+      lastOpenedSessionId: loadLastOpenedCouncilSessionId(),
+      hasArxivParam: Boolean(arxivId) || isNewIntent,
+      hasPendingUpload: Boolean(pendingFile),
+      currentSessionId: session.id,
+      lastRequestedSessionId: lastRestoreRequestIdRef.current,
+    })
+    setQueuedRestoreSessionId(resolution.sessionId)
+    setRestoreSource(resolution.source)
+  }, [arxivId, isNewIntent, pendingFile, persistedSessionId, session.id])
+
+  useEffect(() => {
+    if (!queuedRestoreSessionId) return
+    lastRestoreRequestIdRef.current = queuedRestoreSessionId
+    loadSession(queuedRestoreSessionId).then((ok) => {
+      if (!ok && restoreSource === 'local') {
+        clearLastOpenedCouncilSessionId()
+      }
+    })
+  }, [loadSession, queuedRestoreSessionId, restoreSource])
+
+  useEffect(() => {
+    if (!session.id || session.id === 'demo-session') return
+    saveLastOpenedCouncilSessionId(session.id)
+    if (searchParams.get('session') === session.id) return
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('arxiv')
+    next.delete('tab')
+    next.delete('new')
+    next.set('session', session.id)
+    router.replace(`${pathname}?${next.toString()}`)
+  }, [pathname, router, searchParams, session.id])
+
   // ── Derived values ──────────────────────────────────────────────────────────
   const paperTitle = session.paperTitle || (
     pendingFile ? fileNameToTitle(pendingFile.name) : arxivId ? `arXiv:${arxivId}` : 'Paper Preview'
@@ -118,7 +173,7 @@ function AnalyzeContent() {
   const activeCount = teamAgents.filter((a) => a.enabled).length
   const canStart = Boolean(arxivId || pendingFile)
   const isPreparing = phase === 'ingesting'
-  const showSetup = phase === 'idle' || phase === 'error' || phase === 'ingesting'
+  const showSetup = !isRestoring && !session.id && (phase === 'idle' || phase === 'error' || phase === 'ingesting')
   const costEstimate = estimateHostedReviewCost(activeCount, rounds)
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -128,6 +183,7 @@ function AnalyzeContent() {
   }
 
   const handleStart = () => {
+    setRestoreSource(null)
     start({
       mode,
       rounds,
@@ -184,6 +240,39 @@ function AnalyzeContent() {
 
   const handleDeleteTemplate = async (id: string) => { setSavedTemplates(await deleteSavedTeamTemplate(id)) }
 
+  const handleArxivSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    const normalized = arxivDraft.trim()
+    if (!normalized) return
+    setPendingUpload(null)
+    setLocalPendingFile(null)
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('session')
+    next.delete('tab')
+    next.delete('new')
+    next.set('arxiv', normalized)
+    router.replace(`${pathname}?${next.toString()}`)
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPendingUpload(file)
+    setLocalPendingFile(file)
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('session')
+    next.delete('arxiv')
+    next.delete('new')
+    next.set('tab', 'upload')
+    router.replace(`${pathname}?${next.toString()}`)
+    event.target.value = ''
+  }
+
+  const handleResumeSavedSession = () => {
+    if (!session.id) return
+    resumeSession(session.id)
+  }
+
   const handleRenameTemplate = async (template: SavedTeamTemplate) => {
     const name = window.prompt('Rename template', template.name)
     if (!name?.trim()) return
@@ -220,10 +309,37 @@ function AnalyzeContent() {
         onCopyShareLink={handleCopyShareLink}
       />
 
+      <SessionRestoreBanner
+        isVisible={!showSetup && Boolean(session.id) && restoreSource !== null}
+        isResuming={isRestoring && canResume}
+        canResume={canResume}
+        restoredFrom={restoreSource}
+        onResume={handleResumeSavedSession}
+      />
+
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {showSetup ? (
+        {isRestoring ? (
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#6b7280',
+            fontSize: 14,
+          }}>
+            Restoring saved review...
+          </div>
+        ) : showSetup ? (
           <>
-            <div style={{ flex: 3, minWidth: 0, borderRight: '1px solid #ececf1' }}>
+            <div style={{ flex: 3, minWidth: 0, borderRight: '1px solid #ececf1', display: 'flex', flexDirection: 'column' }}>
+              {!canStart && (
+                <PaperSourcePicker
+                  sourceDraft={arxivDraft}
+                  onSourceDraftChange={setArxivDraft}
+                  onSourceSubmit={handleArxivSubmit}
+                  onFileChange={handleFileSelect}
+                />
+              )}
               <PaperPreview
                 title={paperTitle}
                 sourceLabel={sourceLabel}
