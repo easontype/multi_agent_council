@@ -1,9 +1,48 @@
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const GEMINI_MAX_ATTEMPTS = 4;
+const GEMINI_BASE_BACKOFF_MS = 1_000;
 
 function apiKey() {
   const k = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!k) throw new Error("GEMINI_API_KEY is not configured");
   return k;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableGeminiStatus(status: number): boolean {
+  return status === 429 || status === 503;
+}
+
+async function fetchGeminiWithRetry(url: string, init: RequestInit): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok) return res;
+
+      const errText = await res.text();
+      const error = new Error(`Gemini error ${res.status}: ${errText}`);
+      if (!isRetryableGeminiStatus(res.status) || attempt === GEMINI_MAX_ATTEMPTS) {
+        throw error;
+      }
+      lastError = error;
+    } catch (error) {
+      const normalized = error instanceof Error ? error : new Error(String(error));
+      const retryable = /429|503|RESOURCE_EXHAUSTED|UNAVAILABLE|rate limit|quota/i.test(normalized.message);
+      if (!retryable || attempt === GEMINI_MAX_ATTEMPTS) {
+        throw normalized;
+      }
+      lastError = normalized;
+    }
+
+    await sleep(GEMINI_BASE_BACKOFF_MS * 2 ** (attempt - 1));
+  }
+
+  throw lastError ?? new Error("Gemini request failed");
 }
 
 export function isGeminiModel(model?: string): boolean {
@@ -55,16 +94,11 @@ export async function runGemini(
   const url = `${GEMINI_BASE}/models/${m}:generateContent?key=${apiKey()}`;
   const body = buildContents(prompt, systemPrompt);
 
-  const res = await fetch(url, {
+  const res = await fetchGeminiWithRetry(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...body, generationConfig: { maxOutputTokens: maxTokens ?? 8192 } }),
   });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini error ${res.status}: ${err}`);
-  }
 
   const data = await res.json();
   if (onUsage && data.usageMetadata) {
@@ -88,16 +122,11 @@ export async function* streamGeminiText(
   const url = `${GEMINI_BASE}/models/${m}:streamGenerateContent?alt=sse&key=${apiKey()}`;
   const body = buildContents(prompt, systemPrompt, history);
 
-  const res = await fetch(url, {
+  const res = await fetchGeminiWithRetry(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...body, generationConfig: { maxOutputTokens: maxTokens ?? 8192 } }),
   });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini error ${res.status}: ${err}`);
-  }
 
   if (!res.body) throw new Error("Gemini: no response body");
 

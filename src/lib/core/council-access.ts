@@ -17,6 +17,30 @@ function normalizeEmail(value: string | null | undefined): string | null {
   return trimmed || null;
 }
 
+function resolveCookieSecureFlag(): boolean {
+  if (process.env.NODE_ENV !== "production") return false;
+
+  const configuredAppUrl =
+    process.env.APP_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXTAUTH_URL;
+
+  if (!configuredAppUrl) {
+    return false;
+  }
+
+  try {
+    const hostname = new URL(configuredAppUrl).hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
 export function buildCouncilSessionCookieName(sessionId: string): string {
   return `${COOKIE_PREFIX}${sessionId}`;
 }
@@ -43,7 +67,7 @@ export function attachCouncilSessionCookie(
     value: plaintextToken,
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: resolveCookieSecureFlag(),
     path: "/",
     maxAge: COOKIE_MAX_AGE_SECONDS,
   });
@@ -55,7 +79,7 @@ export function clearCouncilSessionCookie(response: NextResponse, sessionId: str
     value: "",
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: resolveCookieSecureFlag(),
     path: "/",
     maxAge: 0,
   });

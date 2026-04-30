@@ -278,6 +278,7 @@ export function mapEvidenceSource(raw: unknown): CouncilEvidenceSource | null {
     label,
     uri: sanitizeText(value.uri) || null,
     snippet: sanitizeText(value.snippet) || null,
+    marker: sanitizeText(value.marker) || null,
   };
 }
 

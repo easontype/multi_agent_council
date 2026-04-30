@@ -149,6 +149,65 @@ async function mockAnalyzeApis(page: Page) {
   });
 }
 
+async function mockRound2CitationApis(page: Page) {
+  await page.route("**/api/papers/upload", async (route) => {
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        sessionId: reviewSessionId,
+        paperTitle: "Attention Is All You Need",
+        paperAbstract:
+          "The Transformer replaces recurrence with attention and enables efficient sequence modeling.",
+      }),
+    });
+  });
+
+  await page.route(`**/api/sessions/${reviewSessionId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session: {
+          id: reviewSessionId,
+          is_public: false,
+        },
+      }),
+    });
+  });
+
+  await page.route(`**/api/sessions/${reviewSessionId}/run`, async (route) => {
+    const sse = [
+      'data: {"type":"session_start"}',
+      'data: {"type":"round_start","round":1}',
+      'data: {"type":"turn_start","role":"Methods Critic","round":1}',
+      'data: {"type":"turn_delta","role":"Methods Critic","delta":"Initial critique."}',
+      'data: {"type":"turn_done","turn":{"role":"Methods Critic","content":"**Position**\\nInitial critique.\\n\\n**Key Assumptions**\\n- The reported gains are stable.\\n\\n**Main Risks**\\n- Ablations remain thin.\\n\\n**Strongest Counterargument**\\nThe architecture is still materially novel."}}',
+      'data: {"type":"round_start","round":2}',
+      'data: {"type":"turn_start","role":"Methods Critic","round":2}',
+      'data: {"type":"tool_call","role":"Methods Critic","tool":"rag_query","args":{"question":"Which paper is being discussed?"}}',
+      'data: {"type":"tool_result","role":"Methods Critic","tool":"rag_query","result":"Evidence:\\n[1] Attention Is All You Need | https://arxiv.org/abs/1706.03762","sourceRefs":[{"marker":"[1]","label":"Attention Is All You Need","uri":"https://arxiv.org/abs/1706.03762","snippet":null}]}',
+      'data: {"type":"turn_delta","role":"Methods Critic","delta":"Round 2 critique."}',
+      'data: {"type":"turn_done","turn":{"role":"Methods Critic","content":"**Challenge**\\nThe paper still lacks convincing ablation depth.\\n\\n**Stance**\\nMy Round 1 position is unchanged pending stronger controlled comparisons.\\n\\n**Evidence**\\n[1] Attention Is All You Need"}}',
+      'data: {"type":"turn_start","role":"Moderator","round":99}',
+      'data: {"type":"turn_done","turn":{"role":"Moderator","content":"Synthesis complete."}}',
+      'data: {"type":"conclusion","conclusion":{"summary":"Synthesis complete."}}',
+      'data: {"type":"session_done"}',
+      "",
+    ].join("\n");
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+      body: sse,
+    });
+  });
+}
+
 async function mockSavedSessionApis(page: Page) {
   await page.route(`**/api/sessions/${reviewSessionId}`, async (route) => {
     await route.fulfill({
@@ -408,6 +467,35 @@ test("landing page can hand off a PDF upload to analyze setup", async ({
   await page.getByRole("button", { name: /^Start Review$/i }).click();
   await expect(page.getByText("The empirical case is strong, but ablation coverage is too thin.")).toBeVisible();
   await expect(page.getByText("Review concluded")).toBeVisible();
+
+  await expectNoClientErrors(errors);
+});
+
+test("round 2 compare view and source panel render citations without snippets", async ({
+  page,
+}) => {
+  const errors = installErrorCollector(page);
+  await mockRound2CitationApis(page);
+
+  await page.goto("/");
+  const landingInput = page.getByPlaceholder(/arXiv ID e\.g\./i);
+  await landingInput.fill("1706.03762");
+  await page.getByRole("button", { name: /critique/i }).click();
+
+  await expect(page).toHaveURL(/\/analyze\?arxiv=1706\.03762$/);
+  await page.getByRole("button", { name: /^Start Review$/i }).click();
+
+  await expect(page.getByText("The paper still lacks convincing ablation depth.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /\[1\] Attention Is All You Need/i })).toBeVisible();
+  await expect(page.locator("span").filter({ hasText: "[1] Attention Is All You Need" }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Compare" }).click();
+  await page.getByRole("button", { name: "Round 2" }).click();
+  await expect(page.getByText("The paper still lacks convincing ablation depth.")).toBeVisible();
+  await page.getByRole("button", { name: "Stance" }).click();
+  await expect(page.getByText("My Round 1 position is unchanged pending stronger controlled comparisons.")).toBeVisible();
+  await page.getByRole("button", { name: "Evidence" }).click();
+  await expect(page.getByRole("button", { name: /\[1\] Attention Is All You Need/i })).toBeVisible();
 
   await expectNoClientErrors(errors);
 });

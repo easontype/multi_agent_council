@@ -52,9 +52,8 @@ export async function POST(
 
       try {
         await runCouncilSession(id, send, options);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        send({ type: "error", message });
+      } catch {
+        // runCouncilSession already emits a typed error event before rethrowing.
       } finally {
         controller.close();
       }

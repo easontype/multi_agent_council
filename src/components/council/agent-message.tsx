@@ -37,6 +37,14 @@ function parseEvidenceItems(text: string): string[] {
 
 function findRef(refs: SourceRef[], item: string): SourceRef | null {
   const lower = item.toLowerCase()
+  const markerMatch = item.match(/^\[(\d+)\]/)
+  if (markerMatch) {
+    const marker = `[${markerMatch[1]}]`
+    const byMarker = refs.find((ref) => ref.marker === marker)
+    if (byMarker) return byMarker
+    const byIndex = refs[Number(markerMatch[1]) - 1]
+    if (byIndex) return byIndex
+  }
   return refs.find((ref) =>
     ref.label.toLowerCase() === lower ||
     ref.uri?.toLowerCase() === lower ||

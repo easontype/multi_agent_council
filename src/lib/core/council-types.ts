@@ -90,6 +90,7 @@ export interface CouncilEvidenceSource {
   label: string;
   uri: string | null;
   snippet: string | null;
+  marker?: string | null;
 }
 
 export interface CouncilEvidence {

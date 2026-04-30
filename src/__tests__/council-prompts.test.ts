@@ -11,6 +11,7 @@ import {
   normalizeConclusion,
   cleanSnippet,
   extractLineSnippet,
+  extractEvidenceSources,
   buildSeat,
   buildSeatRuntimePrompt,
 } from "../lib/prompts/council-prompts";
@@ -227,6 +228,41 @@ describe("cleanSnippet", () => {
 
   it("returns full text when under max", () => {
     expect(cleanSnippet("short text")).toBe("short text");
+  });
+});
+
+describe("extractEvidenceSources", () => {
+  it("parses numbered RAG evidence into cite markers, labels, URLs, and snippets", () => {
+    const refs = extractEvidenceSources(
+      "rag_query",
+      { question: "ablation coverage" },
+      [
+        "## RAG Answer",
+        "Answer:",
+        "The paper reports a BLEU result [1].",
+        "",
+        "Evidence:",
+        "- [1] Attention Is All You Need | https://arxiv.org/abs/1706.03762",
+        "  The base Transformer model achieves 27.3 BLEU on English-to-German.",
+        "- [2] Appendix",
+        "  Ablations cover major architectural choices.",
+      ].join("\n"),
+    );
+
+    expect(refs).toEqual([
+      {
+        marker: "[1]",
+        label: "Attention Is All You Need",
+        uri: "https://arxiv.org/abs/1706.03762",
+        snippet: "The base Transformer model achieves 27.3 BLEU on English-to-German.",
+      },
+      {
+        marker: "[2]",
+        label: "Appendix",
+        uri: null,
+        snippet: "Ablations cover major architectural choices.",
+      },
+    ]);
   });
 });
 

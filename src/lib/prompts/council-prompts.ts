@@ -368,17 +368,69 @@ export function extractEvidenceSources(
   const refs: CouncilEvidenceSource[] = [];
   const seen = new Set<string>();
 
-  const addRef = (label: string, uri?: string | null, snippet?: string | null) => {
+  const addRef = (label: string, uri?: string | null, snippet?: string | null, marker?: string | null) => {
     const cleanLabel = sanitizeText(label);
     const cleanUri = sanitizeText(uri) || null;
     const cleanSnippetValue = cleanSnippet(snippet ?? "");
+    const cleanMarker = sanitizeText(marker) || null;
     if (!cleanLabel) return;
     const dedupeKey = `${cleanLabel}|${cleanUri ?? ""}`;
     if (seen.has(dedupeKey)) return;
     if (cleanUri && seen.has(`uri|${cleanUri}`)) return;
     seen.add(dedupeKey);
     if (cleanUri) seen.add(`uri|${cleanUri}`);
-    refs.push({ label: cleanLabel, uri: cleanUri, snippet: cleanSnippetValue });
+    refs.push({ label: cleanLabel, uri: cleanUri, snippet: cleanSnippetValue, marker: cleanMarker });
+  };
+
+  const parseNumberedSourceBlock = (block: string) => {
+    let current: { marker: string; label: string; uri: string | null; snippet: string[] } | null = null;
+
+    const flush = () => {
+      if (!current) return;
+      addRef(current.label, current.uri, current.snippet.join(" "), current.marker);
+      current = null;
+    };
+
+    for (const rawLine of block.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const match = line.match(/^(?:[-*]\s*)?\[(\d+)\]\s+(.+?)(?:\s+\|\s+(https?:\/\/\S+))?$/);
+      if (match) {
+        flush();
+        current = {
+          marker: `[${match[1]}]`,
+          label: match[2].trim(),
+          uri: match[3] ?? null,
+          snippet: [],
+        };
+        continue;
+      }
+      if (current) current.snippet.push(line);
+    }
+
+    flush();
+  };
+
+  const parseSection = (heading: "Sources" | "Evidence") => {
+    const lines = result.split(/\r?\n/);
+    const start = lines.findIndex((line) => line.trim().toLowerCase() === `${heading.toLowerCase()}:`);
+    if (start === -1) return false;
+
+    const blockLines: string[] = [];
+    for (let index = start + 1; index < lines.length; index += 1) {
+      const trimmed = lines[index].trim();
+      if (
+        blockLines.length > 0 &&
+        (/^##\s+/.test(trimmed) || /^[A-Z][A-Za-z ]+:\s*$/.test(trimmed))
+      ) {
+        break;
+      }
+      blockLines.push(lines[index]);
+    }
+
+    const before = refs.length;
+    parseNumberedSourceBlock(blockLines.join("\n"));
+    return refs.length > before;
   };
 
   if (tool === "fetch_url" && typeof args.url === "string") {
@@ -397,14 +449,7 @@ export function extractEvidenceSources(
   // Parse individual papers from the "Sources:" section in RAG output
   let ragSourcesParsed = false;
   if (tool === "rag_query" && typeof args.question === "string") {
-    const sourcesBlock = result.match(/^Sources:\s*\n([\s\S]+)$/m);
-    if (sourcesBlock) {
-      for (const line of sourcesBlock[1].split(/\r?\n/).filter(Boolean)) {
-        const m = line.match(/^\[\d+\]\s+(.+?)(?:\s+\|\s+(https?:\/\/\S+))?$/);
-        if (m) addRef(m[1].trim(), m[2] ?? null, null);
-      }
-      ragSourcesParsed = refs.length > 0;
-    }
+    ragSourcesParsed = parseSection("Sources") || parseSection("Evidence");
     if (!ragSourcesParsed) addRef(`rag:${args.question}`, null, result);
   }
 

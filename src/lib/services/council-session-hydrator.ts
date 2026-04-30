@@ -131,6 +131,7 @@ function buildSourceRefs(evidence: CouncilEvidence[], agents: Agent[]): SourceRe
       label: ref.label,
       uri: ref.uri,
       snippet: ref.snippet,
+      marker: ref.marker ?? null,
       round: item.round,
       agentId: agent.id,
       agentColor: agent.color,

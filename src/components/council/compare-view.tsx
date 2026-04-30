@@ -5,8 +5,24 @@ import { DiscussionSession, AgentMessage, Agent, SourceRef } from '@/types/counc
 import { AgentAvatar } from './agent-avatar'
 import { MarkdownContent } from './markdown-content'
 
-const ROUND1_DIMS = ['Position', 'Key Assumptions', 'Main Risks', 'Strongest Counterargument', 'Evidence']
-const ROUND2_DIMS = ['Rebuttal', 'Response to Round 2', 'Position Update', 'Remaining Disagreement', 'Evidence']
+interface DimensionConfig {
+  label: string
+  aliases: string[]
+}
+
+const ROUND1_DIMS: DimensionConfig[] = [
+  { label: 'Position', aliases: ['Position'] },
+  { label: 'Key Assumptions', aliases: ['Key Assumptions'] },
+  { label: 'Main Risks', aliases: ['Main Risks'] },
+  { label: 'Strongest Counterargument', aliases: ['Strongest Counterargument'] },
+  { label: 'Evidence', aliases: ['Evidence'] },
+]
+
+const ROUND2_DIMS: DimensionConfig[] = [
+  { label: 'Challenge', aliases: ['Challenge', 'Rebuttal', 'Response to Round 2'] },
+  { label: 'Stance', aliases: ['Stance', 'Position Update', 'Remaining Disagreement'] },
+  { label: 'Evidence', aliases: ['Evidence'] },
+]
 
 function parseSections(text: string): Map<string, string> {
   const sections = new Map<string, string>()
@@ -29,8 +45,25 @@ function parseEvidenceItems(text: string): string[] {
   return text.split(/[,\n]+/).map((value) => value.trim()).filter((value) => value.length > 2)
 }
 
+function getSectionContent(sections: Map<string, string> | undefined, aliases: string[]): string {
+  if (!sections) return ''
+  for (const alias of aliases) {
+    const value = sections.get(alias)
+    if (value) return value
+  }
+  return ''
+}
+
 function findRef(sourceRefs: SourceRef[], item: string): SourceRef | null {
   const lower = item.toLowerCase()
+  const markerMatch = item.match(/^\[(\d+)\]/)
+  if (markerMatch) {
+    const marker = `[${markerMatch[1]}]`
+    const byMarker = sourceRefs.find((ref) => ref.marker === marker)
+    if (byMarker) return byMarker
+    const byIndex = sourceRefs[Number(markerMatch[1]) - 1]
+    if (byIndex) return byIndex
+  }
   return sourceRefs.find((ref) =>
     ref.label.toLowerCase() === lower ||
     ref.uri?.toLowerCase() === lower ||
@@ -121,7 +154,7 @@ function DimensionRow({
   onSourceClick,
   defaultOpen,
 }: {
-  dimension: string
+  dimension: DimensionConfig
   agents: Agent[]
   agentMessages: Map<string, Map<string, string>>
   agentSourceRefs: Map<string, SourceRef[]>
@@ -129,11 +162,11 @@ function DimensionRow({
   defaultOpen: boolean
 }) {
   const [open, setOpen] = useState(defaultOpen)
-  const isEvidence = dimension === 'Evidence'
+  const isEvidence = dimension.label === 'Evidence'
 
   const hasContent = agents.some((agent) => {
     const sections = agentMessages.get(agent.id)
-    const text = sections?.get(dimension) ?? ''
+    const text = getSectionContent(sections, dimension.aliases)
     return text.length > 0
   })
 
@@ -169,7 +202,7 @@ function DimensionRow({
           <polyline points="9 18 15 12 9 6" />
         </svg>
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: '#71717a', textTransform: 'uppercase' }}>
-          {dimension}
+          {dimension.label}
         </span>
         {!hasContent && (
           <span style={{ fontSize: 10, color: '#a1a1aa', marginLeft: 4 }}>No data</span>
@@ -184,7 +217,7 @@ function DimensionRow({
         }}>
           {agents.map((agent, index) => {
             const sections = agentMessages.get(agent.id)
-            const cellText = sections?.get(dimension) ?? ''
+            const cellText = getSectionContent(sections, dimension.aliases)
             const sourceRefs = agentSourceRefs.get(agent.id) ?? []
             const items = isEvidence && cellText ? parseEvidenceItems(cellText) : []
 
@@ -337,7 +370,7 @@ export function CompareView({ session, onSourceClick }: CompareViewProps) {
         ) : (
           dimensions.map((dimension, index) => (
             <DimensionRow
-              key={dimension}
+              key={dimension.label}
               dimension={dimension}
               agents={nonModeratorAgents}
               agentMessages={agentMessages}

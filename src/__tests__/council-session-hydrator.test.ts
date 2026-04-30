@@ -66,7 +66,7 @@ describe('council-session-hydrator', () => {
           status: 'completed',
           args: { query: 'method details' },
           result: 'Evidence result',
-          source_refs: [{ label: 'Paper §3', uri: null, snippet: 'Method section snippet' }],
+          source_refs: [{ marker: '[1]', label: 'Paper §3', uri: null, snippet: 'Method section snippet' }],
           created_at: '2026-04-22T12:01:30.000Z',
           updated_at: '2026-04-22T12:01:40.000Z',
         },
@@ -84,6 +84,7 @@ describe('council-session-hydrator', () => {
       type: 'text',
     })
     expect(hydrated.discussionSession.sourceRefs).toHaveLength(1)
+    expect(hydrated.discussionSession.sourceRefs[0]?.marker).toBe('[1]')
     expect(hydrated.discussionSession.alerts?.[0]?.message).toContain('moderate')
   })
 

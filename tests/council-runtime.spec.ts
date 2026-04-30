@@ -3,6 +3,7 @@ import { runAgenticRuntime } from "../src/lib/agentic-runtime";
 import { runLLM, streamLLM } from "../src/lib/claude";
 import { runCouncilSession, runModeratorTurn } from "../src/lib/council";
 import { db } from "../src/lib/db";
+import { runGemini } from "../src/lib/gemini";
 import { parseToolCalls } from "../src/lib/tools/parser";
 import { normalizeSeatTurnContent } from "../src/lib/council-turn-normalizer";
 import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../src/lib/council-bounded-prompts";
@@ -268,6 +269,11 @@ test("parseToolCalls distinguishes complete malformed and truncated blocks", asy
     calls: [{ tool: "rag_query", args: { question: "x" } }],
   });
 
+  expect(parseToolCalls('[TOOL_CALL]```json\n{"tool":"rag_query","args":{"question":"x",}}\n```\n[/TOOL_CALL]')).toEqual({
+    status: "complete",
+    calls: [{ tool: "rag_query", args: { question: "x" } }],
+  });
+
   expect(parseToolCalls('[TOOL_CALL]{"tool":"rag_query"[/TOOL_CALL]')).toEqual({
     status: "malformed",
     calls: [],
@@ -277,6 +283,28 @@ test("parseToolCalls distinguishes complete malformed and truncated blocks", asy
     status: "truncated",
     calls: [],
   });
+});
+
+test("runGemini retries retryable rate-limit responses before succeeding", async () => {
+  const restoreEnv = withEnv("GEMINI_API_KEY", "test-gemini-key");
+  const fetchMock = installFetchSequence([
+    new Response(JSON.stringify({ error: { status: "RESOURCE_EXHAUSTED" } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    }),
+    jsonResponse({
+      candidates: [{ content: { parts: [{ text: "Recovered after retry." }] } }],
+      usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 5 },
+    }),
+  ]);
+
+  try {
+    await expect(runGemini("Question", "System", "gemini-2.0-flash")).resolves.toBe("Recovered after retry.");
+    expect(fetchMock.calls).toHaveLength(2);
+  } finally {
+    fetchMock.restore();
+    restoreEnv();
+  }
 });
 
 test("normalizeSeatTurnContent enforces canonical round structure", async () => {

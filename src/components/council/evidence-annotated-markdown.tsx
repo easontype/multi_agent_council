@@ -119,11 +119,13 @@ function EvidenceTooltip({ annotation }: { annotation: EvidenceAnnotation }) {
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
         Evidence Support
       </div>
-      <div style={{ fontSize: 12, lineHeight: 1.55, color: '#18181b', marginBottom: 8 }}>
-        "{annotation.sourceRef.snippet}"
-      </div>
+      {annotation.sourceRef.snippet && (
+        <div style={{ fontSize: 12, lineHeight: 1.55, color: '#18181b', marginBottom: 8 }}>
+          "{annotation.sourceRef.snippet}"
+        </div>
+      )}
       <div style={{ fontSize: 12, fontWeight: 600, color: '#18181b', lineHeight: 1.45 }}>
-        {annotation.sourceRef.label}
+        {annotation.sourceRef.marker ? `${annotation.sourceRef.marker} ` : ''}{annotation.sourceRef.label}
       </div>
       {displayUrl && (
         <div style={{ fontSize: 11, color: '#71717a', marginTop: 4 }}>

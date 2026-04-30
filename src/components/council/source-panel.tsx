@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { DiscussionSession } from '@/types/council'
-import { getSourceRefDisplayUrl, isInspectableSourceRef } from '@/lib/evidence-annotations'
+import { getSourceRefDisplayUrl, isVisibleSourceRef } from '@/lib/evidence-annotations'
 
 interface SourcePanelProps {
   session: DiscussionSession
@@ -41,7 +41,7 @@ function BookOpenIcon() {
 }
 
 export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
-  const sourceRefs = (session.sourceRefs ?? []).filter(isInspectableSourceRef)
+  const sourceRefs = (session.sourceRefs ?? []).filter(isVisibleSourceRef)
   const isActive = session.status !== 'waiting'
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
@@ -234,7 +234,7 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                             lineHeight: 1.45,
                           }}
                         >
-                          {ref.label}
+                          {ref.marker ? `${ref.marker} ` : ''}{ref.label}
                         </span>
                           {ref.uri && (
                             <span style={{ color: '#a1a1aa', display: 'flex' }}>

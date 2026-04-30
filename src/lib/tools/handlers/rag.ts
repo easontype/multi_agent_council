@@ -28,6 +28,17 @@ export interface EmbedDocumentResult {
 const DEFAULT_GEMINI_RAG_MODEL = DEFAULT_GEMMA_RAG_MODEL;
 const DEFAULT_CONTEXT_LIMIT = 9_000;
 const HAS_CJK_RE = /[\u3400-\u9fff]/;
+const EMBEDDING_MAX_ATTEMPTS = 4;
+const EMBEDDING_BASE_BACKOFF_MS = 750;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableProviderError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /429|503|RESOURCE_EXHAUSTED|UNAVAILABLE|rate limit|quota/i.test(message);
+}
 
 function getEmbeddingClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -38,12 +49,26 @@ function getEmbeddingClient() {
 async function embedText(text: string): Promise<number[]> {
   const client = getEmbeddingClient();
   const model = client.getGenerativeModel({ model: "gemini-embedding-001" });
-  const result = await model.embedContent({
-    content: { role: "user", parts: [{ text }] },
-    taskType: "RETRIEVAL_DOCUMENT" as never,
-    outputDimensionality: 768,
-  } as never);
-  return result.embedding.values;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= EMBEDDING_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await model.embedContent({
+        content: { role: "user", parts: [{ text }] },
+        taskType: "RETRIEVAL_DOCUMENT" as never,
+        outputDimensionality: 768,
+      } as never);
+      return result.embedding.values;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableProviderError(error) || attempt === EMBEDDING_MAX_ATTEMPTS) {
+        throw error;
+      }
+      await sleep(EMBEDDING_BASE_BACKOFF_MS * 2 ** (attempt - 1));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 function chunkText(text: string, maxLen = 600, overlap = 80): string[] {
@@ -294,7 +319,8 @@ async function synthesizeRagAnswer(
   question: string,
   rows: SearchRow[],
   retrievalMode: RetrievalResult["retrievalMode"],
-): Promise<{ answer: string; answerMode: "model" | "extractive_fallback"; model: string | null; warnings: string[] }> {
+  forceExtractive = false,
+): Promise<{ answer: string; answerMode: "model" | "extractive" | "extractive_fallback"; model: string | null; warnings: string[] }> {
   const context = buildChunkContext(rows);
   const sourceDigest = buildSourceDigest(rows);
   const systemPrompt = [
@@ -311,6 +337,24 @@ async function synthesizeRagAnswer(
   ].join("\n");
 
   const warnings: string[] = [];
+  if (forceExtractive) {
+    return {
+      answer: [
+        `Extractive evidence digest for: ${question}`,
+        `retrieval_mode=${retrievalMode}`,
+        "",
+        "Sources:",
+        sourceDigest,
+        "",
+        "Key snippets:",
+        buildCompactEvidence(rows),
+      ].join("\n"),
+      answerMode: "extractive",
+      model: null,
+      warnings,
+    };
+  }
+
   for (const model of resolveRagModelCandidates()) {
     try {
       const answer = model.startsWith("gemini")
@@ -498,6 +542,12 @@ export const handlers: Record<string, Handler> = {
     const question = typeof args.question === "string" ? args.question.trim() : "";
     const limit = clampLimit(args.limit, 5, 8);
     const tag = sanitizeTag(args.tag);
+    const answerMode = typeof args.answer_mode === "string"
+      ? args.answer_mode.trim().toLowerCase()
+      : typeof args.answerMode === "string"
+        ? args.answerMode.trim().toLowerCase()
+        : "";
+    const forceExtractive = answerMode === "extractive";
 
     if (!question) {
       return "question is required";
@@ -508,7 +558,7 @@ export const handlers: Record<string, Handler> = {
       return "No relevant knowledge chunks were found. The council can continue, but this RAG query has no supporting material yet.";
     }
 
-    const answer = await synthesizeRagAnswer(question, retrieval.rows, retrieval.retrievalMode);
+    const answer = await synthesizeRagAnswer(question, retrieval.rows, retrieval.retrievalMode, forceExtractive);
     const notes = [...retrieval.warnings, ...answer.warnings];
 
     return [

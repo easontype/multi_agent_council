@@ -1,4 +1,4 @@
-import { buildEvidenceAnnotations, isInspectableSourceRef } from '../lib/evidence-annotations'
+import { buildEvidenceAnnotations, isInspectableSourceRef, isVisibleSourceRef } from '../lib/evidence-annotations'
 import type { SourceRef } from '../types/council'
 
 function makeSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
@@ -21,6 +21,19 @@ describe('evidence-annotations', () => {
     expect(isInspectableSourceRef(makeSourceRef())).toBe(true)
   })
 
+  it('keeps real citation refs visible even when they only have a marker and URL', () => {
+    expect(isVisibleSourceRef(makeSourceRef({
+      marker: '[1]',
+      snippet: null,
+    }))).toBe(true)
+    expect(isVisibleSourceRef(makeSourceRef({
+      label: 'rag:ablation query',
+      marker: '[1]',
+      snippet: null,
+      uri: null,
+    }))).toBe(false)
+  })
+
   it('creates sentence-level annotations when a sentence overlaps with retrieved evidence', () => {
     const text = [
       'The base Transformer reaches 27.3 BLEU on English-to-German, which supports the core empirical claim.',
@@ -31,6 +44,28 @@ describe('evidence-annotations', () => {
 
     expect(annotations).toHaveLength(1)
     expect(annotations[0]?.text).toContain('27.3 BLEU')
+    expect(annotations[0]?.sourceRef.label).toBe('Attention Is All You Need')
+  })
+
+  it('maps explicit citation markers directly to matching source refs', () => {
+    const refs = [
+      makeSourceRef({
+        marker: '[1]',
+        label: 'Attention Is All You Need',
+        snippet: 'The base Transformer model achieves 27.3 BLEU on the English-to-German translation task.',
+      }),
+      makeSourceRef({
+        marker: '[2]',
+        label: 'Appendix',
+        uri: null,
+        snippet: 'Ablations cover major architectural choices.',
+      }),
+    ]
+
+    const annotations = buildEvidenceAnnotations('The BLEU claim is grounded in the paper [1].', refs)
+
+    expect(annotations).toHaveLength(1)
+    expect(annotations[0]?.text).toBe('[1]')
     expect(annotations[0]?.sourceRef.label).toBe('Attention Is All You Need')
   })
 

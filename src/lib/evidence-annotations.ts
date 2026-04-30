@@ -151,10 +151,26 @@ function splitSentenceRanges(text: string): Array<{ start: number; end: number; 
   return ranges
 }
 
-export function isInspectableSourceRef(sourceRef: SourceRef): boolean {
+function isGenericSourceRef(sourceRef: SourceRef): boolean {
   const label = sourceRef.label.trim().toLowerCase()
+  return GENERIC_SOURCE_PREFIXES.some((prefix) => label.startsWith(prefix))
+}
+
+function isCitationSourceRef(sourceRef: SourceRef): boolean {
+  return !isGenericSourceRef(sourceRef) && Boolean(sourceRef.snippet?.trim() || sourceRef.uri)
+}
+
+export function isInspectableSourceRef(sourceRef: SourceRef): boolean {
   if (!sourceRef.snippet || sourceRef.snippet.trim().length < 24) return false
-  return !GENERIC_SOURCE_PREFIXES.some((prefix) => label.startsWith(prefix))
+  return !isGenericSourceRef(sourceRef)
+}
+
+export function isVisibleSourceRef(sourceRef: SourceRef): boolean {
+  if (isGenericSourceRef(sourceRef)) return false
+  return Boolean(
+    sourceRef.label.trim() &&
+    (sourceRef.uri || sourceRef.snippet?.trim() || sourceRef.marker)
+  )
 }
 
 export function getSourceRefDisplayUrl(sourceRef: SourceRef): string | null {
@@ -168,13 +184,39 @@ export function getSourceRefDisplayUrl(sourceRef: SourceRef): string | null {
 }
 
 export function buildEvidenceAnnotations(text: string, sourceRefs: SourceRef[]): EvidenceAnnotation[] {
+  const citationRefs = sourceRefs.filter(isCitationSourceRef)
   const inspectableRefs = sourceRefs.filter(isInspectableSourceRef)
-  if (!text.trim() || !inspectableRefs.length) return []
+  if (!text.trim() || (!citationRefs.length && !inspectableRefs.length)) return []
 
   const annotations: EvidenceAnnotation[] = []
+  const findCitationRef = (marker: string, number: number) =>
+    citationRefs.find((ref) => ref.marker === marker) ?? citationRefs[number - 1] ?? null
+
+  for (const match of text.matchAll(/\[(\d+)\]/g)) {
+    const raw = match[0]
+    const number = Number(match[1])
+    const start = match.index ?? -1
+    if (start < 0 || !Number.isFinite(number) || number < 1) continue
+
+    const sourceRef = findCitationRef(raw, number)
+    if (!sourceRef) continue
+
+    annotations.push({
+      id: `${start}-${start + raw.length}-${raw}`,
+      start,
+      end: start + raw.length,
+      text: raw,
+      sourceRef,
+      score: 100,
+    })
+  }
+
   const sentenceRanges = splitSentenceRanges(text)
 
   for (const range of sentenceRanges) {
+    if (annotations.some((annotation) => annotation.start < range.end && range.start < annotation.end)) {
+      continue
+    }
     const cleanSentence = normalizeWhitespace(range.text)
     if (cleanSentence.length < 40) continue
 
@@ -201,5 +243,5 @@ export function buildEvidenceAnnotations(text: string, sourceRefs: SourceRef[]):
     })
   }
 
-  return annotations
+  return annotations.sort((a, b) => a.start - b.start)
 }

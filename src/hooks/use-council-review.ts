@@ -199,7 +199,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     if (type === 'tool_result') {
       const role = event.role as string
       const result = event.result as string
-      const sourceRefs = (event.sourceRefs as Array<{ label: string; uri: string | null; snippet: string | null }>) ?? []
+      const sourceRefs = (event.sourceRefs as Array<{ label: string; uri: string | null; snippet: string | null; marker?: string | null }>) ?? []
       const agent = findAgentByRole(agents, role)
       if (!agent) return
 
@@ -223,6 +223,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
             label: r.label,
             uri: r.uri ?? null,
             snippet: r.snippet ?? null,
+            marker: r.marker ?? null,
             round: Number(event.round ?? 1),
             agentId: agent.id,
             agentColor: agent.color,
