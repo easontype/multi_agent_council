@@ -62,8 +62,6 @@ import { MODERATOR_ROUND } from "./council-types";
 
 import {
   ensureCouncilSchema,
-  sanitizeText,
-  clamp,
   normalizeSeats,
   mapSessionRow,
   mapConclusionRow,
@@ -79,6 +77,7 @@ import {
   saveConclusion,
   isSessionStale,
 } from "../db/council-db";
+import { sanitizeText, clamp } from "../utils/text";
 
 import {
   buildRound1Prompt,
@@ -93,7 +92,7 @@ import {
   classifyPlanWithLLM,
 } from "../prompts/council-prompts";
 import { normalizeSeatTurnContent } from "../prompts/council-turn-normalizer";
-import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../prompts/council-bounded-prompts";
+import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../prompts/council-prompts";
 import { DEFAULT_GEMMA_MODEL } from "../llm/gemma-models";
 
 // ─── Module-level constants ────────────────────────────────────────────────────

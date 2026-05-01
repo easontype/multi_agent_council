@@ -124,9 +124,8 @@ export async function ensureCouncilSchema() {
 
 // ─── Text/data utilities ───────────────────────────────────────────────────────
 
-export function sanitizeText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
+import { sanitizeText, clamp } from "../utils/text";
+export { sanitizeText, clamp };
 
 export function normalizeToolRefs(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -136,10 +135,6 @@ export function normalizeToolRefs(value: unknown): string[] {
 export function normalizeJsonRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
-}
-
-export function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
 }
 
 export function normalizeSeat(raw: unknown, fallbackModel: string): CouncilSeat | null {

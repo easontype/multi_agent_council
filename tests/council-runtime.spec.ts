@@ -6,7 +6,7 @@ import { db } from "../src/lib/db/db";
 import { runGemini } from "../src/lib/llm/gemini";
 import { parseToolCalls } from "../src/lib/tools/parser";
 import { normalizeSeatTurnContent } from "../src/lib/prompts/council-turn-normalizer";
-import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../src/lib/prompts/council-bounded-prompts";
+import { buildBoundedModeratorPrompt, buildBoundedRound2Prompt } from "../src/lib/prompts/council-prompts";
 import type { CouncilConclusion, CouncilEvent, CouncilSession, CouncilTurn } from "../src/lib/core/council-types";
 
 type MockFetchCall = {
