@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { Agent, DiscussionSession } from '@/types/council'
 import { AgentMessage } from './agent-message'
 import { CompareView } from './compare-view'
@@ -38,8 +38,31 @@ function RosterAvatar({ agent, active }: { agent: Agent; active: boolean }) {
   )
 }
 
+const ROSTER_ROLE_PHRASES: Record<string, string[]> = {
+  'Methods Critic': ['scrutinising methodology', 'reviewing statistical approach', 'examining experimental design'],
+  'Literature Auditor': ['cross-referencing literature', 'verifying citations', 'tracing research lineage'],
+  'Replication Skeptic': ['assessing reproducibility', 'questioning sample characteristics', 'probing confounds'],
+  'Contribution Evaluator': ['gauging novelty', 'comparing with prior work', 'assessing impact'],
+  'Constructive Advocate': ['building case for acceptance', 'identifying strengths', 'recognising impact'],
+  'Moderator': ['synthesising positions', 'drafting verdict', 'weighing arguments'],
+}
+
+function getRosterPhrase(agentName: string, tick: number): string {
+  const key = Object.keys(ROSTER_ROLE_PHRASES).find((k) => agentName.toLowerCase().includes(k.toLowerCase()))
+  const phrases = key ? ROSTER_ROLE_PHRASES[key] : ['formulating response', 'reviewing evidence', 'preparing critique']
+  return phrases[tick % phrases.length]
+}
+
 function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId?: string }) {
   const activeAgent = agents.find((agent) => agent.id === activeAgentId)
+  const [phraseTick, setPhraseTick] = useState(0)
+
+  useEffect(() => {
+    if (!activeAgent) return
+    setPhraseTick(0)
+    const timer = setInterval(() => setPhraseTick((t) => t + 1), 2800)
+    return () => clearInterval(timer)
+  }, [activeAgent?.id])
 
   return (
     <div
@@ -66,16 +89,7 @@ function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId
           ))}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#18181b',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#18181b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {agents.map((agent) => agent.name).join(' · ')}
           </div>
           <div style={{ fontSize: 11, color: '#71717a' }}>
@@ -85,32 +99,44 @@ function AgentRoster({ agents, activeAgentId }: { agents: Agent[]; activeAgentId
       </div>
 
       {activeAgent && (
-        <span
-          style={{
-            flexShrink: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 10px',
-            borderRadius: '999px',
-            border: `1px solid ${activeAgent.color}33`,
-            background: `${activeAgent.color}08`,
-            color: activeAgent.color,
-            fontSize: 11,
-            fontWeight: 600,
-          }}
-        >
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
           <span
             style={{
-              width: 6,
-              height: 6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 10px',
               borderRadius: '999px',
-              background: '#16a34a',
-              animation: 'timeline-pulse 1.2s ease-in-out infinite',
+              border: `1px solid ${activeAgent.color}33`,
+              background: `${activeAgent.color}08`,
+              color: activeAgent.color,
+              fontSize: 11,
+              fontWeight: 600,
             }}
-          />
-          {activeAgent.name} live
-        </span>
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '999px',
+                background: '#16a34a',
+                animation: 'timeline-pulse 1.2s ease-in-out infinite',
+              }}
+            />
+            {activeAgent.name}
+          </span>
+          <span
+            key={phraseTick}
+            style={{
+              fontSize: 10,
+              color: '#a1a1aa',
+              fontStyle: 'italic',
+              animation: 'roster-phrase-in 350ms ease both',
+            }}
+          >
+            {getRosterPhrase(activeAgent.name, phraseTick)}…
+          </span>
+        </div>
       )}
     </div>
   )
@@ -153,6 +179,51 @@ function groupByRound(messages: import('@/types/council').AgentMessage[]) {
   return Array.from(map.entries())
     .sort(([a], [b]) => a - b)
     .map(([round, roundMessages]) => ({ round, messages: roundMessages }))
+}
+
+function BetweenTurnStatus({ agents, messages }: { agents: Agent[]; messages: import('@/types/council').AgentMessage[] }) {
+  const [dotTick, setDotTick] = useState(0)
+
+  useEffect(() => {
+    const t = setInterval(() => setDotTick((d) => d + 1), 500)
+    return () => clearInterval(t)
+  }, [])
+
+  const lastSpeaker = messages.length > 0 ? agents.find((a) => a.id === messages[messages.length - 1].agentId) : null
+  const completedIds = new Set(messages.filter((m) => m.isComplete).map((m) => m.agentId))
+  const nextAgent = agents.find((a) => !completedIds.has(a.id))
+  const dots = '•'.repeat((dotTick % 3) + 1)
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '16px 4px 8px',
+        animation: 'between-turn-in 500ms ease both',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 4 }}>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: nextAgent?.color ?? lastSpeaker?.color ?? '#a1a1aa',
+              opacity: (dotTick % 3) === i ? 0.9 : 0.2,
+              transition: 'opacity 200ms ease',
+            }}
+          />
+        ))}
+      </div>
+      <span style={{ fontSize: 12, color: '#a1a1aa', fontStyle: 'italic' }}>
+        {nextAgent ? `${nextAgent.name} is preparing their response${dots}` : `Preparing next stage${dots}`}
+      </span>
+    </div>
+  )
 }
 
 function WaitingState() {
@@ -352,6 +423,9 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
                   </div>
                 </div>
               ))}
+              {session.status === 'discussing' && !activeMessage && session.messages.length > 0 && (
+                <BetweenTurnStatus agents={visibleAgents} messages={session.messages} />
+              )}
               {session.status === 'concluded' && <ConclusionBanner />}
             </>
           )}
@@ -362,6 +436,14 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
         @keyframes timeline-pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.35; }
+        }
+        @keyframes roster-phrase-in {
+          from { opacity: 0; transform: translateY(3px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes between-turn-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
       `}</style>
     </div>

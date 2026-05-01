@@ -1,13 +1,105 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Agent, AgentMessage as AgentMessageType, SourceRef } from '@/types/council'
 import { AgentAvatar } from './agent-avatar'
 import { ThinkingBlock } from './thinking-block'
 import { ToolCard } from './tool-card'
 import { EvidenceAnnotatedMarkdown } from './evidence-annotated-markdown'
+import { ModeratorConclusion } from './moderator-conclusion'
 
 const TEXT_COLLAPSE_THRESHOLD = 900
+
+const ROLE_PHRASES: Record<string, string[]> = {
+  'Methods Critic': [
+    'scrutinising the experimental design',
+    'examining the statistical approach',
+    'reviewing the control conditions',
+    'evaluating the measurement validity',
+  ],
+  'Literature Auditor': [
+    'cross-referencing prior literature',
+    'verifying citation accuracy',
+    'scanning for missing references',
+    'tracing the research lineage',
+  ],
+  'Replication Skeptic': [
+    'assessing reproducibility claims',
+    'questioning the sample characteristics',
+    'reviewing data availability statements',
+    'evaluating potential confounds',
+  ],
+  'Contribution Evaluator': [
+    'gauging novelty against prior work',
+    'assessing theoretical contribution',
+    'comparing with existing approaches',
+    'weighing incremental vs. breakthrough impact',
+  ],
+  'Constructive Advocate': [
+    'identifying the strongest claims',
+    'building the case for acceptance',
+    'recognising potential impact',
+    'weighing practical contributions',
+  ],
+  'Moderator': [
+    'synthesising reviewer positions',
+    'drafting consensus summary',
+    'weighing competing arguments',
+    'formulating the final verdict',
+  ],
+}
+
+function getThinkingPhrase(agentName: string, tick: number): string {
+  const key = Object.keys(ROLE_PHRASES).find((k) => agentName.toLowerCase().includes(k.toLowerCase()))
+  const phrases = key ? ROLE_PHRASES[key] : ['formulating critique', 'reviewing evidence', 'weighing the arguments', 'preparing response']
+  return phrases[tick % phrases.length]
+}
+
+function ThinkingDots({ agentName, agentColor }: { agentName: string; agentColor: string }) {
+  const [tick, setTick] = useState(0)
+  const [dotTick, setDotTick] = useState(0)
+
+  useEffect(() => {
+    const phraseTimer = setInterval(() => setTick((t) => t + 1), 3500)
+    const dotTimer = setInterval(() => setDotTick((t) => t + 1), 450)
+    return () => { clearInterval(phraseTimer); clearInterval(dotTimer) }
+  }, [])
+
+  const dots = '•'.repeat((dotTick % 3) + 1)
+  const phrase = getThinkingPhrase(agentName, tick)
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: agentColor,
+              opacity: (dotTick % 3) === i ? 1 : 0.25,
+              transition: 'opacity 200ms ease',
+            }}
+          />
+        ))}
+      </div>
+      <span
+        style={{
+          fontSize: 12.5,
+          color: '#71717a',
+          fontStyle: 'italic',
+          transition: 'opacity 300ms ease',
+          animation: 'thinking-phrase-in 400ms ease both',
+        }}
+        key={tick}
+      >
+        {phrase}{dots.length < 3 ? ' '.repeat(3 - dots.length) : ''}
+      </span>
+    </div>
+  )
+}
 
 interface AgentMessageProps {
   message: AgentMessageType
@@ -151,11 +243,13 @@ function CollapsibleText({
   agentColor,
   isStreaming,
   sourceRefs,
+  onSourceClick,
 }: {
   content: string
   agentColor: string
   isStreaming: boolean
   sourceRefs: SourceRef[]
+  onSourceClick?: (label: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const isLong = content.length > TEXT_COLLAPSE_THRESHOLD
@@ -169,7 +263,7 @@ function CollapsibleText({
     <div>
       <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75 }}>
         {isLong && !expanded ? preview : (
-          <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} />
+          <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} onSourceClick={onSourceClick} />
         )}
         {isLong && !expanded && '...'}
         {isStreaming && !isLong && (
@@ -269,6 +363,17 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }:
               return <ToolCard key={index} tool={block.tool} agentColor={agent.color} />
             }
             if (block.type === 'text') {
+              if (agent.seatRole === 'Moderator') {
+                return (
+                  <ModeratorConclusion
+                    key={index}
+                    conclusion={null}
+                    raw={block.content}
+                    isStreaming={block.isStreaming === true}
+                    agentColor={agent.color}
+                  />
+                )
+              }
               const { main, evidenceText } = splitEvidence(block.content)
               return (
                 <div key={index}>
@@ -277,6 +382,7 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }:
                     agentColor={agent.color}
                     isStreaming={block.isStreaming === true && !evidenceText}
                     sourceRefs={sourceRefs}
+                    onSourceClick={onSourceClick}
                   />
                   {evidenceText && (
                     <EvidenceSection text={evidenceText} agent={agent} sourceRefs={sourceRefs} onSourceClick={onSourceClick} />
@@ -286,15 +392,16 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }:
             }
             return null
           })}
+          {isStreaming && !hasTextBlock && !hasRunningTool && (
+            <ThinkingDots agentName={agent.name} agentColor={agent.color} />
+          )}
+          {!isStreaming && !hasTextBlock && !hasRunningTool && (
+            <div style={{ fontSize: 12, color: '#a1a1aa', fontStyle: 'italic' }}>
+              Response unavailable.
+            </div>
+          )}
           {!hasTextBlock && hasRunningTool && (
-            <div
-              style={{
-                fontSize: 13,
-                color: '#71717a',
-                lineHeight: 1.7,
-                fontStyle: 'italic',
-              }}
-            >
+            <div style={{ fontSize: 13, color: '#71717a', lineHeight: 1.7, fontStyle: 'italic' }}>
               Gathering evidence...
             </div>
           )}
@@ -305,6 +412,10 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick }:
         @keyframes msg-fadein {
           from { opacity: 0; transform: translateY(4px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes thinking-phrase-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
         @keyframes cur-blink {

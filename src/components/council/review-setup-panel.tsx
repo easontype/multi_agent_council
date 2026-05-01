@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import type { EditableReviewAgent, ReviewMode, TeamBuilderResult } from '@/lib/prompts/review-presets'
 import { HoverHint } from '@/components/ui/hover-hint'
 import { AgentCard, AgentDetailModal, TeamBuilderModal, SectionLabel } from './review-setup'
@@ -287,7 +288,7 @@ export function ReviewSetupPanel({
               boxShadow: startDisabled ? 'none' : '0 8px 22px rgba(17,24,39,0.16)',
             }}
           >
-            {busy ? 'Preparing paper library...' : 'Start Review'}
+            {busy ? 'Preparing...' : 'Start Review'}
           </button>
           {costLabel && (
             <div style={{
@@ -315,6 +316,8 @@ export function ReviewSetupPanel({
             </div>
           )}
         </div>
+
+        {busy && <IngestProgress />}
       </div>
 
       {/* Modals */}
@@ -333,5 +336,75 @@ export function ReviewSetupPanel({
         />
       )}
     </>
+  )
+}
+
+const INGEST_STEPS = [
+  { label: 'Fetching paper', detail: 'Downloading PDF and extracting text' },
+  { label: 'Building knowledge index', detail: 'Embedding paper chunks for citation retrieval' },
+  { label: 'Preparing debate', detail: 'Initialising review council and seats' },
+]
+
+function IngestProgress() {
+  const [step, setStep] = useState(0)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const stepTimer = setInterval(() => {
+      setStep((s) => Math.min(s + 1, INGEST_STEPS.length - 1))
+    }, 12000)
+    const dotTimer = setInterval(() => setTick((t) => t + 1), 500)
+    return () => { clearInterval(stepTimer); clearInterval(dotTimer) }
+  }, [])
+
+  const dots = '.'.repeat((tick % 3) + 1).padEnd(3, ' ')
+
+  return (
+    <div style={{
+      marginTop: 14,
+      padding: '14px 16px',
+      background: '#f8f8fa',
+      border: '1px solid #e4e4e7',
+      borderRadius: 12,
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {INGEST_STEPS.map((s, i) => {
+          const done = i < step
+          const active = i === step
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: done ? '#16a34a' : active ? '#111827' : '#e4e4e7',
+                transition: 'background 400ms',
+              }}>
+                {done ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : active ? (
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', animation: 'ingest-pulse 1s ease-in-out infinite' }} />
+                ) : (
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#a1a1aa' }} />
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: done ? '#16a34a' : active ? '#111827' : '#a1a1aa', transition: 'color 400ms' }}>
+                  {s.label}{active ? dots : ''}
+                </div>
+                {active && (
+                  <div style={{ fontSize: 11, color: '#71717a', marginTop: 1 }}>{s.detail}</div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: '#a1a1aa', lineHeight: 1.5 }}>
+        First-time ingest typically takes 30–60 s. Subsequent reviews of the same paper skip this step.
+      </div>
+      <style>{`@keyframes ingest-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }`}</style>
+    </div>
   )
 }

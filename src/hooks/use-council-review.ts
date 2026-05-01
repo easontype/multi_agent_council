@@ -377,17 +377,38 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     setPhase('running')
     setCanResume(false)
 
+    let streamErrored = false
     await runStream(
       sessionId,
-      (event) => handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents),
+      (event) => {
+        if ((event as Record<string, unknown>).type === 'error') streamErrored = true
+        handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents)
+      },
       () => {
+        if (streamErrored) {
+          setSession((s) => ({
+            ...s,
+            messages: s.messages.map((m) => m.isComplete ? m : { ...m, isComplete: true }),
+          }))
+          return
+        }
         setPhase('concluded')
         setCanResume(false)
-        setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
+        setSession((s) => ({
+          ...s,
+          status: 'concluded',
+          concludedAt: new Date(),
+          messages: s.messages.map((m) => m.isComplete ? m : { ...m, isComplete: true }),
+        }))
       },
       (message) => {
+        streamErrored = true
         setError(message)
         setPhase('error')
+        setSession((s) => ({
+          ...s,
+          messages: s.messages.map((m) => m.isComplete ? m : { ...m, isComplete: true }),
+        }))
       },
       {},
     )
@@ -431,17 +452,38 @@ export function useCouncilReview(arxivIdParam?: string | null) {
       setPhase('running')
       setCanResume(false)
 
+      let streamErrored = false
       await runStream(
         sessionId,
-        (event) => handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents),
+        (event) => {
+          if ((event as Record<string, unknown>).type === 'error') streamErrored = true
+          handleEvent(event, sessionId, paperTitle, paperAbstract, discussionAgents)
+        },
         () => {
+          if (streamErrored) {
+            setSession((s) => ({
+              ...s,
+              messages: s.messages.map((m) => m.isComplete ? m : { ...m, isComplete: true }),
+            }))
+            return
+          }
           setPhase('concluded')
           setCanResume(false)
-          setSession((s) => ({ ...s, status: 'concluded', concludedAt: new Date() }))
+          setSession((s) => ({
+            ...s,
+            status: 'concluded',
+            concludedAt: new Date(),
+            messages: s.messages.map((m) => m.isComplete ? m : { ...m, isComplete: true }),
+          }))
         },
         (message) => {
+          streamErrored = true
           setError(message)
           setPhase('error')
+          setSession((s) => ({
+            ...s,
+            messages: s.messages.map((m) => m.isComplete ? m : { ...m, isComplete: true }),
+          }))
         },
         { resume: true },
       )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import type { SourceRef } from '@/types/council'
 import {
   buildEvidenceAnnotations,
@@ -11,6 +11,7 @@ import {
 interface EvidenceAnnotatedMarkdownProps {
   content: string
   sourceRefs: SourceRef[]
+  onSourceClick?: (label: string) => void
   color?: string
   fontSize?: number
 }
@@ -141,13 +142,34 @@ function EvidenceTooltip({ annotation }: { annotation: EvidenceAnnotation }) {
   )
 }
 
+const INLINE_MD_RE = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`)/g
+
+function renderInlineMd(text: string, color: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = []
+  let cursor = 0
+  let match: RegExpExecArray | null
+  INLINE_MD_RE.lastIndex = 0
+  while ((match = INLINE_MD_RE.exec(text)) !== null) {
+    if (match.index > cursor) nodes.push(<span key={cursor} style={{ color }}>{text.slice(cursor, match.index)}</span>)
+    if (match[2]) nodes.push(<strong key={match.index} style={{ color, fontWeight: 700 }}><em>{match[2]}</em></strong>)
+    else if (match[3]) nodes.push(<strong key={match.index} style={{ color, fontWeight: 700 }}>{match[3]}</strong>)
+    else if (match[4]) nodes.push(<em key={match.index} style={{ color }}>{match[4]}</em>)
+    else if (match[5]) nodes.push(<code key={match.index} style={{ fontFamily: 'monospace', fontSize: '0.9em', background: '#f4f4f5', borderRadius: 3, padding: '1px 4px', color: '#18181b' }}>{match[5]}</code>)
+    cursor = match.index + match[0].length
+  }
+  if (cursor < text.length) nodes.push(<span key={cursor} style={{ color }}>{text.slice(cursor)}</span>)
+  return nodes
+}
+
 function AnnotatedInlineText({
   text,
   sourceRefs,
+  onSourceClick,
   color,
 }: {
   text: string
   sourceRefs: SourceRef[]
+  onSourceClick?: (label: string) => void
   color: string
 }) {
   const annotations = useMemo(() => buildEvidenceAnnotations(text, sourceRefs), [text, sourceRefs])
@@ -157,11 +179,11 @@ function AnnotatedInlineText({
     <>
       {segments.map((segment, index) => (
         segment.annotation ? (
-          <EvidenceHoverSpan key={`${segment.annotation.id}-${index}`} annotation={segment.annotation}>
+          <EvidenceHoverSpan key={`${segment.annotation.id}-${index}`} annotation={segment.annotation} onSourceClick={onSourceClick}>
             {segment.text}
           </EvidenceHoverSpan>
         ) : (
-          <span key={`plain-${index}`} style={{ color }}>{segment.text}</span>
+          <React.Fragment key={`plain-${index}`}>{renderInlineMd(segment.text, color)}</React.Fragment>
         )
       ))}
     </>
@@ -170,13 +192,31 @@ function AnnotatedInlineText({
 
 function EvidenceHoverSpan({
   annotation,
+  onSourceClick,
   children,
 }: {
   annotation: EvidenceAnnotation
+  onSourceClick?: (label: string) => void
   children: string
 }) {
   const [hovered, setHovered] = useState(false)
-  const clickable = Boolean(annotation.sourceRef.uri)
+  const clickable = Boolean(onSourceClick || annotation.sourceRef.uri)
+
+  const handleClick = () => {
+    if (onSourceClick) {
+      onSourceClick(annotation.sourceRef.label)
+    } else if (annotation.sourceRef.uri) {
+      window.open(annotation.sourceRef.uri, '_blank', 'noopener')
+    }
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (!clickable) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      handleClick()
+    }
+  }
 
   return (
     <span
@@ -190,16 +230,8 @@ function EvidenceHoverSpan({
       <span
         role={clickable ? 'link' : undefined}
         tabIndex={clickable ? 0 : -1}
-        onClick={() => {
-          if (annotation.sourceRef.uri) window.open(annotation.sourceRef.uri, '_blank', 'noopener')
-        }}
-        onKeyDown={(event) => {
-          if (!annotation.sourceRef.uri) return
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            window.open(annotation.sourceRef.uri, '_blank', 'noopener')
-          }
-        }}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
         style={{
           textDecorationLine: 'underline',
           textDecorationStyle: 'solid',
@@ -222,6 +254,7 @@ function EvidenceHoverSpan({
 export function EvidenceAnnotatedMarkdown({
   content,
   sourceRefs,
+  onSourceClick,
   color = '#3f3f46',
   fontSize = 14,
 }: EvidenceAnnotatedMarkdownProps) {
@@ -250,7 +283,7 @@ export function EvidenceAnnotatedMarkdown({
             <ul key={`list-${index}`} style={{ margin: '8px 0 10px', paddingLeft: 20 }}>
               {block.items.map((item, itemIndex) => (
                 <li key={`list-item-${index}-${itemIndex}`} style={{ marginBottom: 4 }}>
-                  <AnnotatedInlineText text={item} sourceRefs={sourceRefs} color={color} />
+                  <AnnotatedInlineText text={item} sourceRefs={sourceRefs} onSourceClick={onSourceClick} color={color} />
                 </li>
               ))}
             </ul>
@@ -259,7 +292,7 @@ export function EvidenceAnnotatedMarkdown({
 
         return (
           <p key={`paragraph-${index}`} style={{ margin: '0 0 10px' }}>
-            <AnnotatedInlineText text={block.text} sourceRefs={sourceRefs} color={color} />
+            <AnnotatedInlineText text={block.text} sourceRefs={sourceRefs} onSourceClick={onSourceClick} color={color} />
           </p>
         )
       })}

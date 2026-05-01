@@ -155,6 +155,10 @@ function installCouncilDbMock(initial: {
   db.query = async (text: string, params?: unknown[]) => {
     queries.push({ text, params });
 
+    if (text.includes("CREATE TABLE IF NOT EXISTS users")) {
+      return { rows: [], command: 'SELECT', rowCount: 0, oid: 0, fields: [] };
+    }
+
     if (text.includes("CREATE TABLE IF NOT EXISTS council_sessions")) {
       return { rows: [], command: 'SELECT', rowCount: 0, oid: 0, fields: [] };
     }
