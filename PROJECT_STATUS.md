@@ -7,7 +7,7 @@ Single source of truth for current project progress. Supersedes all older roadma
 ## Current Branch State
 
 - Branch: `main`
-- Local is ahead of `origin/main` by 11 commits.
+- Local is ahead of `origin/main` by 12 commits.
 - Latest commits:
   - `f272149 Split review routes and add shared app shell`
   - `895a73b feat: user language preference — dynamic agent output language`
@@ -25,6 +25,7 @@ Council is a working Next.js 15 app for AI-assisted academic paper review.
 
 - arXiv ID and PDF upload entry via `/review/new` with legacy `/analyze` redirect compatibility
 - Direct session workspace entry via `/review/[id]`
+- Dedicated `New Review` draft layout with explicit paper/setup/template sections and a right-side summary rail
 - Multi-agent debate (Round 1 + optional Round 2) with SSE streaming
 - Moderator synthesis rendered as structured conclusion card (confidence, consensus, veto, action items, dissent)
 - Agent thinking indicators, activity phrases, between-turn status
@@ -40,6 +41,26 @@ Council is a working Next.js 15 app for AI-assisted academic paper review.
 - User language preference: `en / zh-TW / zh-CN / ja / ko`
 
 ## Recently Completed
+
+### New Review Draft Flow Cleanup
+
+- Reworked `/review/new` so draft mode no longer reuses the old analyze setup workspace layout.
+- Added a dedicated draft header and sectioned create flow for:
+  - paper source
+  - review setup
+  - templates
+- Added a right-side summary rail for:
+  - launch CTA
+  - draft readiness/status
+  - paper/mode/rounds/seats/cost summary
+  - template quick access
+- Moved the primary launch CTA out of the setup panel for this route so `New Review` now has a clearer create-flow hierarchy.
+
+Important files:
+- `src/components/review/new/review-create-header.tsx`
+- `src/components/review/new/review-draft-layout.tsx`
+- `src/components/council/review-setup-panel.tsx`
+- `src/components/review/review-surface.tsx`
 
 ### UI Route Split and Shared App Shell (`f272149`)
 

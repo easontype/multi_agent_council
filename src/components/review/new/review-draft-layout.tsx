@@ -1,0 +1,590 @@
+'use client'
+
+import { PaperPreview } from '@/components/council/paper-preview'
+import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
+import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-presets'
+import type { SavedTeamTemplate } from '@/lib/team-template-store'
+import { ReviewCreateHeader } from './review-create-header'
+
+interface ReviewDraftLayoutProps {
+  paperTitle: string
+  paperSummary: string
+  sourceLabel: string
+  sourceHref: string | null
+  pdfUrl: string | null
+  sourceDraft: string
+  onSourceDraftChange: (value: string) => void
+  onSourceSubmit: (event: React.FormEvent) => void
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  hasSource: boolean
+  mode: ReviewMode
+  rounds: 1 | 2
+  agents: EditableReviewAgent[]
+  busy: boolean
+  canStart: boolean
+  costLabel: string
+  error: string | null
+  activeCount: number
+  savedTemplates: SavedTeamTemplate[]
+  onModeChange: (mode: ReviewMode) => void
+  onRoundsChange: (rounds: 1 | 2) => void
+  onAgentsChange: (agents: EditableReviewAgent[]) => void
+  onAddAgent: () => void
+  onStart: () => void
+  onSaveTemplate: () => void
+  onLoadTemplate: (template: SavedTeamTemplate) => void
+  onDeleteTemplate: (id: string) => void
+  onRenameTemplate: (template: SavedTeamTemplate) => void
+  onDuplicateTemplate: (template: SavedTeamTemplate) => void
+}
+
+function SummaryItem({ label, value, tone = '#18181b' }: { label: string; value: string; tone?: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        color: '#a1a1aa',
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 13, lineHeight: 1.55, color: tone, fontWeight: 600 }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function SectionFrame({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <section style={{
+      background: '#fff',
+      border: '1px solid #ececf1',
+      borderRadius: 18,
+      overflow: 'hidden',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+    }}>
+      <div style={{
+        padding: '18px 20px 16px',
+        borderBottom: '1px solid #f0f0f2',
+        background: '#fcfcfb',
+      }}>
+        <div style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          color: '#a1a1aa',
+          textTransform: 'uppercase',
+          marginBottom: 6,
+        }}>
+          {eyebrow}
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: '#18181b', marginBottom: 5 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.65, color: '#71717a', maxWidth: 720 }}>
+          {description}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function PaperSourceStep({
+  sourceDraft,
+  onSourceDraftChange,
+  onSourceSubmit,
+  onFileChange,
+}: {
+  sourceDraft: string
+  onSourceDraftChange: (value: string) => void
+  onSourceSubmit: (event: React.FormEvent) => void
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+}) {
+  return (
+    <div style={{ padding: '20px' }}>
+      <div style={{
+        border: '1px solid #ececf1',
+        borderRadius: 16,
+        background: '#fff',
+        padding: '18px',
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#18181b', marginBottom: 6 }}>
+          Choose a source
+        </div>
+        <div style={{ fontSize: 12.5, color: '#71717a', lineHeight: 1.6, marginBottom: 14 }}>
+          Paste an arXiv ID or upload a PDF. The file is staged immediately, but ingestion only starts once you launch the review.
+        </div>
+
+        <form onSubmit={onSourceSubmit} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input
+            type="text"
+            value={sourceDraft}
+            onChange={(event) => onSourceDraftChange(event.target.value)}
+            placeholder="arXiv ID e.g. 1706.03762"
+            style={{
+              flex: 1,
+              border: '1px solid #d4d4d8',
+              borderRadius: 10,
+              padding: '10px 12px',
+              fontSize: 13,
+              color: '#18181b',
+              outline: 'none',
+              background: '#fcfcfb',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={!sourceDraft.trim()}
+            style={{
+              border: 'none',
+              borderRadius: 10,
+              padding: '10px 14px',
+              background: sourceDraft.trim() ? '#111827' : '#d4d4d8',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: sourceDraft.trim() ? 'pointer' : 'default',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Use arXiv
+          </button>
+        </form>
+
+        <label style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px dashed #c7c7cf',
+          borderRadius: 10,
+          background: '#fafafa',
+          color: '#3f3f46',
+          padding: '10px 13px',
+          fontSize: 12.5,
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}>
+          Upload PDF
+          <input
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={onFileChange}
+            style={{ display: 'none' }}
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
+function SavedTemplatesPanel({
+  savedTemplates,
+  onSaveTemplate,
+  onLoadTemplate,
+  onDeleteTemplate,
+  onRenameTemplate,
+  onDuplicateTemplate,
+}: {
+  savedTemplates: SavedTeamTemplate[]
+  onSaveTemplate: () => void
+  onLoadTemplate: (template: SavedTeamTemplate) => void
+  onDeleteTemplate: (id: string) => void
+  onRenameTemplate: (template: SavedTeamTemplate) => void
+  onDuplicateTemplate: (template: SavedTeamTemplate) => void
+}) {
+  return (
+    <SectionFrame
+      eyebrow="Step 3"
+      title="Templates"
+      description="Save a panel configuration you expect to reuse across papers, or load an existing one before launch."
+    >
+      <div style={{ padding: '18px 20px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12.5, color: '#71717a' }}>
+            Saved team presets
+          </div>
+          <button
+            type="button"
+            onClick={onSaveTemplate}
+            style={{
+              border: '1px solid #e4e4e7',
+              background: '#fff',
+              color: '#3f3f46',
+              borderRadius: 999,
+              padding: '7px 12px',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Save Current Setup
+          </button>
+        </div>
+
+        {savedTemplates.length === 0 ? (
+          <div style={{
+            border: '1px dashed #e4e4e7',
+            borderRadius: 14,
+            background: '#fafafa',
+            padding: '18px',
+            fontSize: 12.5,
+            color: '#a1a1aa',
+          }}>
+            No saved teams yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {savedTemplates.slice(0, 4).map((template) => (
+              <div
+                key={template.id}
+                style={{
+                  border: '1px solid #ececf1',
+                  borderRadius: 14,
+                  padding: '12px 13px',
+                  background: '#fcfcfb',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#18181b' }}>{template.name}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                    {template.agents.filter((agent) => agent.enabled).length} agents
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#71717a', marginBottom: 10 }}>
+                  {template.mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'} · {template.rounds} round{template.rounds > 1 ? 's' : ''}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {(['Load', 'Duplicate', 'Rename'] as const).map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        if (label === 'Load') onLoadTemplate(template)
+                        else if (label === 'Duplicate') onDuplicateTemplate(template)
+                        else onRenameTemplate(template)
+                      }}
+                      style={{
+                        border: '1px solid #d4d4d8',
+                        background: '#fff',
+                        color: '#3f3f46',
+                        borderRadius: 999,
+                        padding: '6px 10px',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteTemplate(template.id)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#a1a1aa',
+                      borderRadius: 999,
+                      padding: '6px 2px',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </SectionFrame>
+  )
+}
+
+export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
+  const {
+    paperTitle,
+    paperSummary,
+    sourceLabel,
+    sourceHref,
+    pdfUrl,
+    sourceDraft,
+    onSourceDraftChange,
+    onSourceSubmit,
+    onFileChange,
+    hasSource,
+    mode,
+    rounds,
+    agents,
+    busy,
+    canStart,
+    costLabel,
+    error,
+    activeCount,
+    savedTemplates,
+    onModeChange,
+    onRoundsChange,
+    onAgentsChange,
+    onAddAgent,
+    onStart,
+    onSaveTemplate,
+    onLoadTemplate,
+    onDeleteTemplate,
+    onRenameTemplate,
+    onDuplicateTemplate,
+  } = props
+  const enabledCount = agents.filter((agent) => agent.enabled).length
+  const startDisabled = busy || !canStart || enabledCount < 2
+  const modeLabel = mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'
+  const draftStatus = !hasSource
+    ? 'Select a paper source to unlock launch.'
+    : enabledCount < 2
+      ? 'Keep at least two active agents before launch.'
+      : busy
+        ? 'Council is preparing the ingest and runtime.'
+        : 'Draft is ready to launch.'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ReviewCreateHeader hasSource={hasSource} activeCount={activeCount} rounds={rounds} />
+
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '24px 28px 32px',
+        background: '#f8f8fa',
+      }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.06fr) minmax(320px, 0.94fr) minmax(260px, 0.5fr)',
+          gap: 20,
+          alignItems: 'start',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+            <SectionFrame
+              eyebrow="Step 1"
+              title="Paper source"
+              description="Stage the paper before configuring the panel. This is the only paper-selection step in the review flow."
+            >
+              {!hasSource && (
+                <PaperSourceStep
+                  sourceDraft={sourceDraft}
+                  onSourceDraftChange={onSourceDraftChange}
+                  onSourceSubmit={onSourceSubmit}
+                  onFileChange={onFileChange}
+                />
+              )}
+              <div style={{ padding: hasSource ? 20 : '0 20px 20px' }}>
+                <div style={{
+                  border: '1px solid #ececf1',
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  background: '#fff',
+                }}>
+                  <PaperPreview
+                    title={paperTitle}
+                    sourceLabel={sourceLabel}
+                    pdfUrl={pdfUrl}
+                    sourceHref={sourceHref}
+                    helperText="The preview is live now. Council will only parse and index the paper after you launch the review."
+                  />
+                </div>
+              </div>
+            </SectionFrame>
+
+            <SavedTemplatesPanel
+              savedTemplates={savedTemplates}
+              onSaveTemplate={onSaveTemplate}
+              onLoadTemplate={onLoadTemplate}
+              onDeleteTemplate={onDeleteTemplate}
+              onRenameTemplate={onRenameTemplate}
+              onDuplicateTemplate={onDuplicateTemplate}
+            />
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <SectionFrame
+              eyebrow="Step 2"
+              title="Review setup"
+              description="Choose the review mode, define the debate depth, and edit the seats that will participate in the council."
+            >
+              <ReviewSetupPanel
+                paperTitle={paperTitle}
+                paperSummary={paperSummary}
+                sourceLabel={sourceLabel}
+                mode={mode}
+                rounds={rounds}
+                agents={agents}
+                busy={busy}
+                canStart={canStart}
+                costLabel={costLabel}
+                error={error}
+                onModeChange={onModeChange}
+                onRoundsChange={onRoundsChange}
+                onAgentsChange={onAgentsChange}
+                onAddAgent={onAddAgent}
+                onStart={onStart}
+                showLaunchFooter={false}
+              />
+            </SectionFrame>
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <section style={{
+                background: '#111827',
+                color: '#fff',
+                borderRadius: 18,
+                padding: '18px 18px 16px',
+                boxShadow: '0 16px 40px rgba(17,24,39,0.18)',
+              }}>
+                <div style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  color: 'rgba(255,255,255,0.55)',
+                  textTransform: 'uppercase',
+                  marginBottom: 6,
+                }}>
+                  Launch Review
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, marginBottom: 8 }}>
+                  Confirm the draft, then start the council.
+                </div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(255,255,255,0.72)', marginBottom: 16 }}>
+                  {draftStatus}
+                </div>
+                <button
+                  type="button"
+                  disabled={startDisabled}
+                  onClick={onStart}
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    borderRadius: 12,
+                    padding: '13px 14px',
+                    background: startDisabled ? 'rgba(255,255,255,0.22)' : '#fff',
+                    color: startDisabled ? 'rgba(255,255,255,0.7)' : '#111827',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: startDisabled ? 'default' : 'pointer',
+                    marginBottom: 10,
+                  }}
+                >
+                  {busy ? 'Preparing...' : 'Start Review'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onSaveTemplate}
+                  style={{
+                    width: '100%',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    borderRadius: 12,
+                    padding: '11px 14px',
+                    background: 'transparent',
+                    color: '#fff',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Save Current Setup
+                </button>
+              </section>
+
+              <section style={{
+                background: '#fff',
+                border: '1px solid #ececf1',
+                borderRadius: 18,
+                padding: '16px 16px 14px',
+              }}>
+                <div style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  color: '#a1a1aa',
+                  textTransform: 'uppercase',
+                  marginBottom: 14,
+                }}>
+                  Draft Summary
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <SummaryItem label="Paper" value={hasSource ? sourceLabel : 'Not selected'} tone={hasSource ? '#18181b' : '#b45309'} />
+                  <SummaryItem label="Mode" value={modeLabel} />
+                  <SummaryItem label="Rounds" value={`${rounds} round${rounds > 1 ? 's' : ''}`} />
+                  <SummaryItem label="Active Seats" value={`${enabledCount} active`} tone={enabledCount >= 2 ? '#18181b' : '#b91c1c'} />
+                  <SummaryItem label="Estimated Cost" value={costLabel} />
+                </div>
+              </section>
+
+              <section style={{
+                background: '#fff',
+                border: '1px solid #ececf1',
+                borderRadius: 18,
+                padding: '16px 16px 14px',
+              }}>
+                <div style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  color: '#a1a1aa',
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}>
+                  Templates
+                </div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#71717a', marginBottom: 10 }}>
+                  {savedTemplates.length > 0
+                    ? `${savedTemplates.length} saved team template${savedTemplates.length > 1 ? 's' : ''} available in this workspace.`
+                    : 'No saved team templates yet. Save this setup if you expect to reuse it.'}
+                </div>
+                {savedTemplates.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {savedTemplates.slice(0, 3).map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => onLoadTemplate(template)}
+                        style={{
+                          textAlign: 'left',
+                          border: '1px solid #ececf1',
+                          background: '#fcfcfb',
+                          borderRadius: 12,
+                          padding: '10px 11px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#18181b', marginBottom: 3 }}>
+                          {template.name}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: '#71717a' }}>
+                          {template.mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'} · {template.rounds} round{template.rounds > 1 ? 's' : ''}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

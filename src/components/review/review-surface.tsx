@@ -25,10 +25,9 @@ import {
   upsertSavedTeamTemplate,
   type SavedTeamTemplate,
 } from '@/lib/team-template-store'
-import { PaperSourcePicker } from '@/app/analyze/_components/paper-source-picker'
 import { ReviewResults } from '@/app/analyze/_components/review-results'
 import { SessionHeader } from '@/app/analyze/_components/session-header'
-import { SetupSidebar } from '@/app/analyze/_components/setup-sidebar'
+import { ReviewDraftLayout } from './new/review-draft-layout'
 
 export type ReviewSurfaceMode = 'draft' | 'session'
 
@@ -91,7 +90,6 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
   const [isPublic, setIsPublic] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
-  const [setupSidebarOpen, setSetupSidebarOpen] = useState(true)
   const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
   const [sidebarTab, setSidebarTab] = useState<'sources' | 'chat'>('sources')
   const [restoreSource, setRestoreSource] = useState<'url' | 'local' | null>(null)
@@ -332,53 +330,37 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
         {showWorkspaceLoading ? (
           <WorkspaceLoading label="Loading review workspace..." />
         ) : showSetup ? (
-          <>
-            <div style={{ flex: 3, minWidth: 0, borderRight: '1px solid #ececf1', display: 'flex', flexDirection: 'column' }}>
-              {!canStart && (
-                <PaperSourcePicker
-                  sourceDraft={arxivDraft}
-                  onSourceDraftChange={setArxivDraft}
-                  onSourceSubmit={handleArxivSubmit}
-                  onFileChange={handleFileSelect}
-                />
-              )}
-              <PaperPreview
-                title={paperTitle}
-                sourceLabel={sourceLabel}
-                pdfUrl={pdfUrl}
-                sourceHref={sourceHref}
-                helperText="The PDF is visible now, but nothing is parsed or debated until you start the review."
-              />
-            </div>
-            <SetupSidebar
-              isOpen={setupSidebarOpen}
-              onToggle={() => setSetupSidebarOpen((value) => !value)}
-              paperTitle={paperTitle}
-              paperSummary={paperSummary}
-              sourceLabel={sourceLabel}
-              mode={modeSelection}
-              rounds={rounds}
-              agents={teamAgents}
-              isPreparing={isPreparing}
-              canStart={canStart}
-              costLabel={`${formatUsd(costEstimate.minUsd)} - ${formatUsd(costEstimate.maxUsd)}`}
-              error={error}
-              activeCount={activeCount}
-              costEstimateMin={costEstimate.minUsd}
-              costEstimateMax={costEstimate.maxUsd}
-              savedTemplates={savedTemplates}
-              onModeChange={handleModeChange}
-              onRoundsChange={setRounds}
-              onAgentsChange={setTeamAgents}
-              onAddAgent={() => setTeamAgents((current) => [...current, createCustomEditableAgent(current.length)])}
-              onStart={handleStart}
-              onSaveTemplate={handleSaveTemplate}
-              onLoadTemplate={handleLoadTemplate}
-              onDeleteTemplate={handleDeleteTemplate}
-              onRenameTemplate={handleRenameTemplate}
-              onDuplicateTemplate={handleDuplicateTemplate}
-            />
-          </>
+          <ReviewDraftLayout
+            paperTitle={paperTitle}
+            paperSummary={paperSummary}
+            sourceLabel={sourceLabel}
+            sourceHref={sourceHref}
+            pdfUrl={pdfUrl}
+            sourceDraft={arxivDraft}
+            onSourceDraftChange={setArxivDraft}
+            onSourceSubmit={handleArxivSubmit}
+            onFileChange={handleFileSelect}
+            hasSource={canStart}
+            mode={modeSelection}
+            rounds={rounds}
+            agents={teamAgents}
+            busy={isPreparing}
+            canStart={canStart}
+            costLabel={`${formatUsd(costEstimate.minUsd)} - ${formatUsd(costEstimate.maxUsd)}`}
+            error={error}
+            activeCount={activeCount}
+            savedTemplates={savedTemplates}
+            onModeChange={handleModeChange}
+            onRoundsChange={setRounds}
+            onAgentsChange={setTeamAgents}
+            onAddAgent={() => setTeamAgents((current) => [...current, createCustomEditableAgent(current.length)])}
+            onStart={handleStart}
+            onSaveTemplate={handleSaveTemplate}
+            onLoadTemplate={handleLoadTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            onRenameTemplate={handleRenameTemplate}
+            onDuplicateTemplate={handleDuplicateTemplate}
+          />
         ) : session.id ? (
           <ReviewResults
             session={session}

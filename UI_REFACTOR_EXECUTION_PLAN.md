@@ -24,6 +24,8 @@ Completed so far:
 - Phase 1C
 - Phase 2A
 - Phase 2B
+- Phase 3A
+- Phase 3B
 
 Current state:
 
@@ -31,10 +33,12 @@ Current state:
 - `/analyze` now redirects to the new route structure
 - authenticated app pages share one shell/navigation model
 - review pages no longer duplicate app-level navigation inside the page-local header
+- `/review/new` now uses a dedicated draft layout with explicit paper/setup/template sections
+- `/review/new` now uses a right-side summary rail for launch CTA, draft summary, and template quick access
 
 Next planned phase:
 
-- Phase 3A: split `New Review` into clearer page-local sections and move it away from the old mixed analyze layout
+- Phase 4A: convert the session page into a more intentional workspace layout
 
 ## Why This Refactor
 
@@ -526,6 +530,10 @@ Success criteria:
 
 - `New Review` reads like a creation flow, not a workspace
 
+Status:
+
+- Completed
+
 ### Phase 3B: Summary rail and draft UX
 
 Deliverables:
@@ -537,6 +545,10 @@ Deliverables:
 Success criteria:
 
 - user can understand draft state at a glance
+
+Status:
+
+- Completed
 
 ### Phase 4A: Session Workspace shell cleanup
 

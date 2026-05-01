@@ -22,6 +22,7 @@ interface ReviewSetupPanelProps {
   onAgentsChange: (agents: EditableReviewAgent[]) => void
   onAddAgent: () => void
   onStart: () => void
+  showLaunchFooter?: boolean
 }
 
 export function ReviewSetupPanel({
@@ -40,6 +41,7 @@ export function ReviewSetupPanel({
   onAgentsChange,
   onAddAgent,
   onStart,
+  showLaunchFooter = true,
 }: ReviewSetupPanelProps) {
   const enabledCount = agents.filter((agent) => agent.enabled).length
   const startDisabled = busy || !canStart || enabledCount < 2
@@ -263,59 +265,60 @@ export function ReviewSetupPanel({
           </div>
         )}
 
-        {/* Start + cost */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          paddingTop: 2,
-        }}>
-          <button
-            type="button"
-            disabled={startDisabled}
-            onClick={onStart}
-            style={{
-              flex: 1,
-              border: 'none',
-              borderRadius: 12,
-              padding: '13px 16px',
-              background: startDisabled ? '#d4d4d8' : '#111827',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: startDisabled ? 'default' : 'pointer',
-              transition: 'background 150ms',
-              boxShadow: startDisabled ? 'none' : '0 8px 22px rgba(17,24,39,0.16)',
-            }}
-          >
-            {busy ? 'Preparing...' : 'Start Review'}
-          </button>
-          {costLabel && (
-            <div style={{
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 12px',
-              border: '1px solid #ececf1',
-              borderRadius: 12,
-              background: '#fff',
-            }}>
-              <span style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                color: '#a1a1aa',
-                textTransform: 'uppercase',
+        {showLaunchFooter && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            paddingTop: 2,
+          }}>
+            <button
+              type="button"
+              disabled={startDisabled}
+              onClick={onStart}
+              style={{
+                flex: 1,
+                border: 'none',
+                borderRadius: 12,
+                padding: '13px 16px',
+                background: startDisabled ? '#d4d4d8' : '#111827',
+                color: '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: startDisabled ? 'default' : 'pointer',
+                transition: 'background 150ms',
+                boxShadow: startDisabled ? 'none' : '0 8px 22px rgba(17,24,39,0.16)',
+              }}
+            >
+              {busy ? 'Preparing...' : 'Start Review'}
+            </button>
+            {costLabel && (
+              <div style={{
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                border: '1px solid #ececf1',
+                borderRadius: 12,
+                background: '#fff',
               }}>
-                Cost
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#18181b', whiteSpace: 'nowrap' }}>
-                {costLabel}
-              </span>
-            </div>
-          )}
-        </div>
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  color: '#a1a1aa',
+                  textTransform: 'uppercase',
+                }}>
+                  Cost
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#18181b', whiteSpace: 'nowrap' }}>
+                  {costLabel}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {busy && <IngestProgress />}
       </div>
