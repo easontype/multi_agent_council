@@ -7,13 +7,13 @@ Single source of truth for current project progress. Supersedes all older roadma
 ## Current Branch State
 
 - Branch: `main`
-- Local is ahead of `origin/main` by 10 commits.
+- Local is ahead of `origin/main` by 11 commits.
 - Latest commits:
+  - `f272149 Split review routes and add shared app shell`
   - `895a73b feat: user language preference — dynamic agent output language`
   - `dd39fb7 feat: debate UX — thinking indicators, moderator card, markdown rendering, stream error fix`
   - `64e58d3 Reuse paper embeddings by source and content hash`
   - `ca91061 Clean repo structure and converge canonical imports`
-  - `e56f4b9 Restore local review streaming and citations`
 
 ## Product State
 
@@ -23,7 +23,8 @@ Council is a working Next.js 15 app for AI-assisted academic paper review.
 
 **Core features working:**
 
-- arXiv ID and PDF upload entry via `/analyze`
+- arXiv ID and PDF upload entry via `/review/new` with legacy `/analyze` redirect compatibility
+- Direct session workspace entry via `/review/[id]`
 - Multi-agent debate (Round 1 + optional Round 2) with SSE streaming
 - Moderator synthesis rendered as structured conclusion card (confidence, consensus, veto, action items, dissent)
 - Agent thinking indicators, activity phrases, between-turn status
@@ -39,6 +40,27 @@ Council is a working Next.js 15 app for AI-assisted academic paper review.
 - User language preference: `en / zh-TW / zh-CN / ja / ko`
 
 ## Recently Completed
+
+### UI Route Split and Shared App Shell (`f272149`)
+
+- Added explicit review routes:
+  - `/review/new`
+  - `/review/[id]`
+- Converted `/analyze` into a compatibility redirect surface instead of the primary implementation route.
+- Updated major app entrypoints to use the new review routes across landing, dashboard, reviews list, login free path, and pricing/API entry.
+- Extracted a shared authenticated app shell for navigation reuse across `/home`, `/home/reviews`, `/review/new`, and `/review/[id]`.
+- Removed duplicate app-level navigation from the review page-local header so review pages now keep global navigation in the shared shell and review context in the local header.
+- Added `UI_REFACTOR_EXECUTION_PLAN.md` as the active execution plan for this UI restructure.
+
+Important files:
+- `src/app/analyze/page.tsx`
+- `src/app/review/new/page.tsx`
+- `src/app/review/[id]/page.tsx`
+- `src/app/review/layout.tsx`
+- `src/components/review/review-surface.tsx`
+- `src/components/app/app-shell.tsx`
+- `src/app/analyze/_components/session-header.tsx`
+- `UI_REFACTOR_EXECUTION_PLAN.md`
 
 ### User Language Preference (`895a73b`)
 

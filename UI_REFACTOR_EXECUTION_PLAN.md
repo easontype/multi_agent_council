@@ -11,6 +11,31 @@ Restructure Council from a mixed single-page `analyze` experience into a clearer
 
 This refactor is primarily an information architecture and navigation correction. Visual redesign should follow the route and state split, not lead it.
 
+## Current Checkpoint
+
+Last implementation commit:
+
+- `f272149` `Split review routes and add shared app shell`
+
+Completed so far:
+
+- Phase 1A
+- Phase 1B
+- Phase 1C
+- Phase 2A
+- Phase 2B
+
+Current state:
+
+- `/review/new` and `/review/[id]` are active routes
+- `/analyze` now redirects to the new route structure
+- authenticated app pages share one shell/navigation model
+- review pages no longer duplicate app-level navigation inside the page-local header
+
+Next planned phase:
+
+- Phase 3A: split `New Review` into clearer page-local sections and move it away from the old mixed analyze layout
+
 ## Why This Refactor
 
 Current problems:
