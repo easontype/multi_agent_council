@@ -4,8 +4,15 @@ import { PaperPreview } from '@/components/council/paper-preview'
 import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
 import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-presets'
 import type { SavedTeamTemplate } from '@/lib/team-template-store'
+import {
+  ReviewActionButton,
+  ReviewPageBody,
+  ReviewRailCard,
+  ReviewSectionFrame,
+  ReviewSummaryItem,
+} from '../review-primitives'
 import { ReviewCreateHeader } from './review-create-header'
-import { reviewTheme, sectionEyebrowStyle, softCard, subtleButtonStyle } from '../review-theme'
+import { reviewTheme, subtleButtonStyle } from '../review-theme'
 
 interface ReviewDraftLayoutProps {
   paperTitle: string
@@ -38,52 +45,6 @@ interface ReviewDraftLayoutProps {
   onDeleteTemplate: (id: string) => void
   onRenameTemplate: (template: SavedTeamTemplate) => void
   onDuplicateTemplate: (template: SavedTeamTemplate) => void
-}
-
-function SummaryItem({ label, value, tone = '#18181b' }: { label: string; value: string; tone?: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={sectionEyebrowStyle()}>
-        {label}
-      </span>
-      <span style={{ fontSize: 13, lineHeight: 1.55, color: tone, fontWeight: 600 }}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function SectionFrame({
-  eyebrow,
-  title,
-  description,
-  children,
-}: {
-  eyebrow: string
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <section style={{ ...softCard(), overflow: 'hidden' }}>
-      <div style={{
-        padding: '18px 20px 16px',
-        borderBottom: `1px solid ${reviewTheme.colors.border}`,
-        background: `linear-gradient(180deg, rgba(248,242,232,0.7) 0%, rgba(255,255,255,0.92) 100%)`,
-      }}>
-        <div style={sectionEyebrowStyle({ marginBottom: 6 })}>
-          {eyebrow}
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: reviewTheme.colors.ink, marginBottom: 5 }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 13, lineHeight: 1.65, color: reviewTheme.colors.muted, maxWidth: 720 }}>
-          {description}
-        </div>
-      </div>
-      {children}
-    </section>
-  )
 }
 
 function PaperSourceStep({
@@ -191,7 +152,7 @@ function SavedTemplatesPanel({
   onDuplicateTemplate: (template: SavedTeamTemplate) => void
 }) {
   return (
-    <SectionFrame
+    <ReviewSectionFrame
       eyebrow="Step 3"
       title="Templates"
       description="Save a panel configuration you expect to reuse across papers, or load an existing one before launch."
@@ -288,7 +249,7 @@ function SavedTemplatesPanel({
           </div>
         )}
       </div>
-    </SectionFrame>
+    </ReviewSectionFrame>
   )
 }
 
@@ -340,12 +301,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <ReviewCreateHeader hasSource={hasSource} activeCount={activeCount} rounds={rounds} />
 
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '24px 28px 32px',
-        background: `linear-gradient(180deg, ${reviewTheme.colors.pageGlow} 0%, ${reviewTheme.colors.page} 100%)`,
-      }}>
+      <ReviewPageBody>
         <div className="review-draft-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1.06fr) minmax(320px, 0.94fr) minmax(260px, 0.5fr)',
@@ -353,7 +309,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
           alignItems: 'start',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
-            <SectionFrame
+            <ReviewSectionFrame
               eyebrow="Step 1"
               title="Paper source"
               description="Stage the paper before configuring the panel. This is the only paper-selection step in the review flow."
@@ -398,7 +354,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                   />
                 </div>
               </div>
-            </SectionFrame>
+            </ReviewSectionFrame>
 
             <SavedTemplatesPanel
               savedTemplates={savedTemplates}
@@ -411,7 +367,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
           </div>
 
           <div style={{ minWidth: 0 }}>
-            <SectionFrame
+            <ReviewSectionFrame
               eyebrow="Step 2"
               title="Review setup"
               description="Choose the review mode, define the debate depth, and edit the seats that will participate in the council."
@@ -434,48 +390,32 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                 onStart={onStart}
                 showLaunchFooter={false}
               />
-            </SectionFrame>
+            </ReviewSectionFrame>
           </div>
 
           <div style={{ minWidth: 0 }}>
             <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <section style={{
-                background: `linear-gradient(180deg, ${reviewTheme.colors.accent} 0%, #183128 100%)`,
-                color: '#fff',
-                borderRadius: 24,
-                padding: '20px 18px 18px',
-                boxShadow: '0 18px 40px rgba(26, 51, 41, 0.24)',
-              }}>
-                <div style={sectionEyebrowStyle({ color: 'rgba(255,255,255,0.58)', marginBottom: 6 })}>
-                  Launch Review
-                </div>
-                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, marginBottom: 8, fontFamily: "'Iowan Old Style', 'Palatino Linotype', Georgia, serif" }}>
+              <ReviewRailCard eyebrow="Launch Review" accent>
+                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, marginBottom: 8, fontFamily: reviewTheme.fonts.display }}>
                   Confirm the draft, then start the council.
                 </div>
                 <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(255,255,255,0.72)', marginBottom: 16 }}>
                   {draftStatus}
                 </div>
-                <button
-                  type="button"
+                <ReviewActionButton
+                  variant="primary"
                   disabled={startDisabled}
                   onClick={onStart}
                   style={{
                     width: '100%',
-                    border: 'none',
-                    borderRadius: 12,
-                    padding: '13px 14px',
                     background: startDisabled ? 'rgba(255,255,255,0.22)' : '#fff',
                     color: startDisabled ? 'rgba(255,255,255,0.7)' : '#111827',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    cursor: startDisabled ? 'default' : 'pointer',
                     marginBottom: 10,
                   }}
                 >
                   {busy ? 'Preparing...' : 'Start Review'}
-                </button>
-                <button
-                  type="button"
+                </ReviewActionButton>
+                <ReviewActionButton
                   onClick={onSaveTemplate}
                   style={{
                     width: '100%',
@@ -486,30 +426,23 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                     color: '#fff',
                     fontSize: 12.5,
                     fontWeight: 600,
-                    cursor: 'pointer',
                   }}
                 >
                   Save Current Setup
-                </button>
-              </section>
+                </ReviewActionButton>
+              </ReviewRailCard>
 
-              <section style={softCard({ padding: '16px 16px 14px' })}>
-                <div style={sectionEyebrowStyle({ marginBottom: 14 })}>
-                  Draft Summary
-                </div>
+              <ReviewRailCard eyebrow="Draft Summary">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <SummaryItem label="Paper" value={hasSource ? sourceLabel : 'Not selected'} tone={hasSource ? '#18181b' : '#b45309'} />
-                  <SummaryItem label="Mode" value={modeLabel} />
-                  <SummaryItem label="Rounds" value={`${rounds} round${rounds > 1 ? 's' : ''}`} />
-                  <SummaryItem label="Active Seats" value={`${enabledCount} active`} tone={enabledCount >= 2 ? '#18181b' : '#b91c1c'} />
-                  <SummaryItem label="Estimated Cost" value={costLabel} />
+                  <ReviewSummaryItem label="Paper" value={hasSource ? sourceLabel : 'Not selected'} tone={hasSource ? '#18181b' : '#b45309'} />
+                  <ReviewSummaryItem label="Mode" value={modeLabel} />
+                  <ReviewSummaryItem label="Rounds" value={`${rounds} round${rounds > 1 ? 's' : ''}`} />
+                  <ReviewSummaryItem label="Active Seats" value={`${enabledCount} active`} tone={enabledCount >= 2 ? '#18181b' : '#b91c1c'} />
+                  <ReviewSummaryItem label="Estimated Cost" value={costLabel} />
                 </div>
-              </section>
+              </ReviewRailCard>
 
-              <section style={softCard({ padding: '16px 16px 14px' })}>
-                <div style={sectionEyebrowStyle({ marginBottom: 10 })}>
-                  Templates
-                </div>
+              <ReviewRailCard eyebrow="Templates">
                 <div style={{ fontSize: 12.5, lineHeight: 1.65, color: reviewTheme.colors.muted, marginBottom: 10 }}>
                   {savedTemplates.length > 0
                     ? `${savedTemplates.length} saved team template${savedTemplates.length > 1 ? 's' : ''} available in this workspace.`
@@ -541,7 +474,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                     ))}
                   </div>
                 )}
-              </section>
+              </ReviewRailCard>
             </div>
           </div>
         </div>
@@ -564,7 +497,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
             }
           }
         `}</style>
-      </div>
+      </ReviewPageBody>
     </div>
   )
 }

@@ -7,7 +7,7 @@ Single source of truth for current project progress. Supersedes all older roadma
 ## Current Branch State
 
 - Branch: `main`
-- Local is ahead of `origin/main` by 20 commits.
+- Local includes additional unpushed UI refactor work beyond `origin/main`.
 - Latest commits:
   - `fe602bf Complete session workspace refactor and update status docs`
   - `55d1bf9 Restructure new review draft flow`
@@ -45,6 +45,25 @@ Council is a working Next.js app for AI-assisted academic paper review.
 - User language preference: `en / zh-TW / zh-CN / ja / ko`
 
 ## Recently Completed
+
+### Phase 5B - Style Debt Reduction
+
+- Expanded the shared review UI layer beyond color tokens into reusable presentation primitives for:
+  - page bodies
+  - section frames
+  - rail cards
+  - stat pills
+  - action buttons
+- Refactored draft and session review surfaces to consume the shared presentation layer instead of duplicating large inline style objects.
+- Pulled draft-local and session-local review surface state into focused hooks so `review-surface.tsx` now acts more clearly as the orchestration container.
+- Kept route behavior, share/export flows, rerun, duplicate-as-new, and session restore semantics intact while reducing future UI change friction.
+
+Important files:
+- `src/components/review/review-theme.ts`
+- `src/components/review/review-primitives.tsx`
+- `src/components/review/use-review-draft-state.ts`
+- `src/components/review/use-review-session-workspace-state.ts`
+- `src/components/review/review-surface.tsx`
 
 ### Visual System Pass (Phase 5A, first pass)
 
@@ -206,6 +225,10 @@ Last known passing:
 **P0 - quality / reliability:**
 - Async/background embedding pipeline (currently blocks the request path on first ingest)
 - Retry/fallback when Gemini 503s during a debate turn (currently shows error banner)
+
+**UI / architecture follow-up:**
+- Optional deeper split of `ReviewDraft` and `ReviewSession` into dedicated route-level containers if future product changes keep increasing `review-surface.tsx`
+- Replace remaining review-surface inline style pockets where it improves clarity without forcing a design-system rewrite
 
 **P1 - product features:**
 - Semantic Scholar paper search integration

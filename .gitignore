@@ -46,3 +46,4 @@ coverage/
 .tmp-live-*.txt
 .tmp-playwright-dev.log
 *.tsbuildinfo
+.codex-ui-edit/

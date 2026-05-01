@@ -13,9 +13,10 @@ This refactor is primarily an information architecture and navigation correction
 
 ## Current Checkpoint
 
-Last implementation commit:
+Current implementation state:
 
-- `fe602bf` `Complete session workspace refactor and update status docs`
+- Phase 5A visual pass is complete
+- Phase 5B style debt reduction is now complete in the working tree
 
 Completed so far:
 
@@ -29,6 +30,7 @@ Completed so far:
 - Phase 4A
 - Phase 4B
 - Phase 5A (first pass)
+- Phase 5B
 
 Current state:
 
@@ -44,10 +46,12 @@ Current state:
 - duplicate-as-new now restores draft configuration and reopens arXiv-backed sessions as `/review/new?arxiv=...`
 - uploaded-PDF duplicate-as-new now restores configuration and prompts the user to re-upload the PDF
 - draft and session review surfaces now share a first-pass visual system layer for headers, cards, and layout rhythm
+- review surfaces now use shared presentation primitives for page shells, section frames, rail cards, pills, and action buttons
+- `review-surface.tsx` now delegates draft-local and session-local state to focused hooks instead of carrying all local UI state inline
 
 Next planned phase:
 
-- Phase 5B: style debt reduction
+- Validation and targeted cleanup only; no larger IA change is currently planned inside this document
 
 ## Why This Refactor
 
@@ -532,6 +536,10 @@ Deliverables:
 Success criteria:
 
 - future UI changes become cheaper and less fragile
+
+Status:
+
+- Completed
 
 ## Engineering Notes
 

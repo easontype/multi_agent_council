@@ -1,7 +1,8 @@
 'use client'
 
 import type { ReviewPhase } from '@/hooks/use-council-review'
-import { reviewTheme, sectionEyebrowStyle, subtleButtonStyle } from '../review-theme'
+import { ReviewActionButton } from '../review-primitives'
+import { heroGradientStyle, pillStyle, reviewTheme, sectionEyebrowStyle } from '../review-theme'
 
 interface SessionTopBarProps {
   paperTitle: string
@@ -72,7 +73,7 @@ export function SessionTopBar({
         gap: 18,
         padding: '24px 28px 18px',
         borderBottom: `1px solid ${reviewTheme.colors.border}`,
-        background: `radial-gradient(circle at top left, ${reviewTheme.colors.pageGlow} 0%, rgba(255,255,255,0.9) 38%, rgba(243,239,231,0.94) 100%)`,
+        ...heroGradientStyle(),
         flexShrink: 0,
       }}
     >
@@ -130,7 +131,7 @@ export function SessionTopBar({
                 lineHeight: 1.02,
                 fontWeight: 650,
                 color: reviewTheme.colors.ink,
-                fontFamily: "'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif",
+                fontFamily: reviewTheme.fonts.display,
               }}
             >
               {paperTitle}
@@ -158,31 +159,29 @@ export function SessionTopBar({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button
+          <ReviewActionButton
             onClick={onRerun}
             disabled={!canRerun || rerunLoading}
-            style={subtleButtonStyle({
+            style={{
               fontSize: 12,
               fontWeight: 600,
               padding: '8px 12px',
-              color: canRerun ? '#3f3f46' : reviewTheme.colors.softMuted,
-              cursor: !canRerun || rerunLoading ? 'not-allowed' : 'pointer',
-            })}
+            }}
           >
             {rerunLoading ? 'Rerunning...' : 'Rerun Review'}
-          </button>
-          <button
+          </ReviewActionButton>
+          <ReviewActionButton
             onClick={onDuplicateAsNew}
-            style={subtleButtonStyle({ fontSize: 12, fontWeight: 600, padding: '8px 12px' })}
+            style={{ fontSize: 12, fontWeight: 600, padding: '8px 12px' }}
           >
             Duplicate as New
-          </button>
-          <button
+          </ReviewActionButton>
+          <ReviewActionButton
             onClick={onExport}
-            style={subtleButtonStyle({ fontSize: 12, fontWeight: 600, padding: '8px 12px' })}
+            style={{ fontSize: 12, fontWeight: 600, padding: '8px 12px' }}
           >
             Export .md
-          </button>
+          </ReviewActionButton>
           <button
             onClick={() => onSetShareAccess(!isPublic)}
             disabled={shareLoading}
@@ -250,12 +249,8 @@ export function SessionTopBar({
       >
         <div
           style={{
-            display: 'inline-flex',
-            border: `1px solid ${reviewTheme.colors.border}`,
-            borderRadius: 999,
+            ...pillStyle({ padding: 0, gap: 0 }),
             overflow: 'hidden',
-            background: 'rgba(255,255,255,0.84)',
-            boxShadow: '0 4px 14px rgba(63, 43, 24, 0.04)',
           }}
         >
           {VIEW_OPTIONS.map((item) => {
