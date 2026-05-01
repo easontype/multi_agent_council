@@ -1,9 +1,9 @@
 'use client'
 
-import { SpinnerIcon } from './icons'
+import { SpinnerIcon } from '@/app/analyze/_components/icons'
 import type { ReviewPhase } from '@/hooks/use-council-review'
 
-interface SessionHeaderProps {
+interface ReviewDraftHeaderProps {
   surfaceMode: 'draft' | 'session'
   paperTitle: string
   isUpload: boolean
@@ -22,14 +22,14 @@ interface SessionHeaderProps {
 }
 
 const STATUS_CONFIG: Record<ReviewPhase, { dot: string; label: string; pulse: boolean }> = {
-  error:     { dot: '#ef4444', label: 'Error',       pulse: false },
-  ingesting: { dot: '#f59e0b', label: 'Preparing',   pulse: true  },
-  running:   { dot: '#f59e0b', label: 'In Progress', pulse: true  },
-  concluded: { dot: '#16a34a', label: 'Concluded',   pulse: false },
-  idle:      { dot: '#9ca3af', label: 'Staged',      pulse: false },
+  error: { dot: '#ef4444', label: 'Error', pulse: false },
+  ingesting: { dot: '#f59e0b', label: 'Preparing', pulse: true },
+  running: { dot: '#f59e0b', label: 'In Progress', pulse: true },
+  concluded: { dot: '#16a34a', label: 'Concluded', pulse: false },
+  idle: { dot: '#9ca3af', label: 'Staged', pulse: false },
 }
 
-export function SessionHeader({
+export function ReviewDraftHeader({
   surfaceMode,
   paperTitle,
   isUpload,
@@ -45,7 +45,7 @@ export function SessionHeader({
   onExport,
   onSetShareAccess,
   onCopyShareLink,
-}: SessionHeaderProps) {
+}: ReviewDraftHeaderProps) {
   const statusConfig = STATUS_CONFIG[phase]
   const isPreparing = phase === 'ingesting'
   const isRunning = phase === 'running'

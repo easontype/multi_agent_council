@@ -15,7 +15,7 @@ This refactor is primarily an information architecture and navigation correction
 
 Last implementation commit:
 
-- `f272149` `Split review routes and add shared app shell`
+- `55d1bf9` `Restructure new review draft flow`
 
 Completed so far:
 
@@ -26,6 +26,8 @@ Completed so far:
 - Phase 2B
 - Phase 3A
 - Phase 3B
+- Phase 4A
+- Phase 4B
 
 Current state:
 
@@ -35,10 +37,15 @@ Current state:
 - review pages no longer duplicate app-level navigation inside the page-local header
 - `/review/new` now uses a dedicated draft layout with explicit paper/setup/template sections
 - `/review/new` now uses a right-side summary rail for launch CTA, draft summary, and template quick access
+- `/review/[id]` now uses an explicit session workspace shell
+- session workspace now exposes left-side canvas switching for `timeline / compare / map`
+- session actions now live in session context via share / export / rerun / duplicate as new
+- duplicate-as-new now restores draft configuration and reopens arXiv-backed sessions as `/review/new?arxiv=...`
+- uploaded-PDF duplicate-as-new now restores configuration and prompts the user to re-upload the PDF
 
 Next planned phase:
 
-- Phase 4A: convert the session page into a more intentional workspace layout
+- Phase 5A: visual system pass
 
 ## Why This Refactor
 
@@ -84,19 +91,17 @@ Interpretation:
 
 ```text
 Council
-├─ Marketing / Entry
-│  ├─ Landing `/`
-│  ├─ Login `/login`
-│  └─ API / Pricing `/keys`
-│
-├─ Authenticated App
-│  ├─ Home Dashboard `/home`
-│  ├─ Review Library `/home/reviews`
-│  ├─ New Review `/review/new`
-│  └─ Session Workspace `/review/[id]`
-│
-└─ Public Output
-   └─ Shared Review `/share/[id]`
+Marketing / Entry
+  Landing `/`
+  Login `/login`
+  API / Pricing `/keys`
+Authenticated App
+  Home Dashboard `/home`
+  Review Library `/home/reviews`
+  New Review `/review/new`
+  Session Workspace `/review/[id]`
+Public Output
+  Shared Review `/share/[id]`
 ```
 
 ## Navigation Model
@@ -321,8 +326,6 @@ Fields should include:
 - share state
 - resumable state
 
-Current code mixes these two domains in `src/app/analyze/page.tsx`. That split is one of the main goals of the refactor.
-
 ## Route Migration Plan
 
 ### Phase 0: Compatibility
@@ -334,8 +337,6 @@ Rules:
 - `/analyze?arxiv=...` -> `/review/new?arxiv=...`
 - `/analyze?session=...` -> `/review/[id]`
 - `/analyze` with upload/new intent -> `/review/new`
-
-This avoids breaking existing links while removing `/analyze` from active product design.
 
 ### Phase 1: New route creation
 
@@ -376,8 +377,6 @@ Likely changes:
 
 Candidates to reuse directly:
 
-- `src/app/analyze/_components/session-header.tsx`
-- `src/app/analyze/_components/review-results.tsx`
 - `src/components/council/discussion-timeline.tsx`
 - `src/components/council/review-sidebar.tsx`
 - `src/components/council/source-panel.tsx`
@@ -386,26 +385,25 @@ Candidates to reuse directly:
 
 Likely changes:
 
-- `SessionHeader` should become a workspace-specific top bar
-- `ReviewResults` should be renamed closer to its actual role, such as `SessionWorkspaceLayout`
+- workspace shell should live under `src/components/review/session/*`
+- session actions and metadata should stay inside session context, not draft context
 
 ## Current File Hotspots
 
 Primary current hotspot:
 
-- `src/app/analyze/page.tsx`
+- `src/components/review/review-surface.tsx`
 
-This file currently owns:
+This file still owns:
 
 - paper source picking
 - pending upload handoff
 - session restore logic
-- setup sidebar state
+- draft/session mode branching
 - share/export state
-- results layout state
-- sidebar tab state
+- workspace tab state
 
-This is the main page to decompose first.
+This remains the main surface to simplify further after the IA split is stable.
 
 ## Proposed File Targets
 
@@ -423,34 +421,18 @@ This is the main page to decompose first.
 ### New review UI
 
 - `src/components/review/new/review-create-header.tsx`
-- `src/components/review/new/review-step-flow.tsx`
-- `src/components/review/new/review-summary-rail.tsx`
-- `src/components/review/new/paper-source-step.tsx`
-- `src/components/review/new/review-config-step.tsx`
-- `src/components/review/new/confirm-start-step.tsx`
+- `src/components/review/new/review-draft-header.tsx`
+- `src/components/review/new/review-draft-layout.tsx`
 
 ### Session workspace UI
 
 - `src/components/review/session/session-top-bar.tsx`
 - `src/components/review/session/session-workspace-layout.tsx`
 - `src/components/review/session/session-actions.tsx`
-- reuse or wrap existing council components where possible
 
 ## Execution Phases
 
 ### Phase 1A: Route creation and compatibility redirect
-
-Deliverables:
-
-- create `/review/new`
-- create `/review/[id]`
-- convert `/analyze` into compatibility redirect logic
-
-Success criteria:
-
-- setup entry can be reached directly through `/review/new`
-- session workspace can be reached directly through `/review/[id]`
-- old `/analyze` links still land on the correct new route
 
 Status:
 
@@ -458,32 +440,11 @@ Status:
 
 ### Phase 1B: Internal navigation migration
 
-Deliverables:
-
-- update landing CTAs to `/review/new`
-- update dashboard and reviews links to `/review/new` and `/review/[id]`
-- update login and pricing entrypoints to `/review/new`
-
-Success criteria:
-
-- app-owned navigation no longer points primarily at `/analyze`
-
 Status:
 
 - Completed
 
 ### Phase 1C: Smoke verification for route split
-
-Deliverables:
-
-- verify draft entry
-- verify session entry
-- verify legacy `/analyze` redirect
-- verify upload and arXiv entry still hand off correctly
-
-Success criteria:
-
-- no broken primary entrypoints after route split
 
 Status:
 
@@ -491,29 +452,11 @@ Status:
 
 ### Phase 2A: Shared app navigation shell
 
-Deliverables:
-
-- create shared top/app nav
-- normalize nav structure across app pages
-
-Success criteria:
-
-- home, reviews, new review, and session pages share one app-level nav model
-
 Status:
 
 - Completed
 
 ### Phase 2B: Remove page-local nav duplication
-
-Deliverables:
-
-- reduce page-specific duplicated header/nav code
-- move account/language/quota placement toward one consistent shell
-
-Success criteria:
-
-- app pages feel structurally related, not separately assembled
 
 Status:
 
@@ -521,30 +464,11 @@ Status:
 
 ### Phase 3A: New Review layout split
 
-Deliverables:
-
-- separate paper step, setup step, and confirm step
-- reduce dependence on the current setup sidebar pattern
-
-Success criteria:
-
-- `New Review` reads like a creation flow, not a workspace
-
 Status:
 
 - Completed
 
 ### Phase 3B: Summary rail and draft UX
-
-Deliverables:
-
-- build right summary rail
-- add clearer review summary and sticky start CTA
-- define save/load template placement
-
-Success criteria:
-
-- user can understand draft state at a glance
 
 Status:
 
@@ -561,6 +485,10 @@ Success criteria:
 
 - session page reads like a workspace, not a leftover branch of the setup page
 
+Status:
+
+- Completed
+
 ### Phase 4B: Session actions and context controls
 
 Deliverables:
@@ -571,6 +499,10 @@ Deliverables:
 Success criteria:
 
 - session actions appear only in session context and are easy to find
+
+Status:
+
+- Completed
 
 ### Phase 5A: Visual system pass
 
@@ -599,13 +531,13 @@ Success criteria:
 
 ### Hooks and state
 
-Current `useCouncilReview` remains useful for session streaming and hydration, but should be consumed mainly by `/review/[id]`.
+Current `useCouncilReview` remains useful for session streaming and hydration, but it still serves both draft and session surfaces through `ReviewSurface`.
 
-`/review/new` may need a lighter draft-focused state hook or store, separate from live session logic.
+`Duplicate as New` now relies on a draft-prefill handoff layer so session context can reopen draft setup without reusing the old analyze page model.
 
 ### Redirect and restore behavior
 
-Restore logic should live with session pages, not draft creation pages.
+Restore logic now lives with session routes rather than draft creation entry.
 
 Meaning:
 
@@ -614,13 +546,13 @@ Meaning:
 
 ### Duplicate-as-new
 
-This should become a first-class path:
+This is now a first-class path:
 
 - open session
 - click `Duplicate as New`
-- navigate to `/review/new` with prefilled configuration from prior session
-
-This is easier after route separation.
+- navigate to `/review/new` with restored team configuration
+- if the session came from arXiv, reopen the arXiv source directly
+- if the session came from an uploaded PDF, prompt for re-upload while keeping the panel setup
 
 ## Risks
 
@@ -632,8 +564,8 @@ This is easier after route separation.
 ### Technical risks
 
 - session restore behavior may regress during route split
-- upload handoff may break if pending file assumptions are tied to `/analyze`
-- existing Playwright tests likely depend on current `/analyze` flow and will need updates
+- upload handoff still depends on client-side prefill / pending-upload behavior
+- existing Playwright flows likely need updates to reflect the new session workspace structure
 
 ### Scope risks
 
@@ -669,18 +601,6 @@ Do not block the route split on:
 - large council runtime refactors
 - billing/product entitlement redesign
 - share page redesign
-
-Those can follow after the IA correction lands.
-
-## Recommended First Work Ticket Breakdown
-
-1. Add new routes and redirect logic
-2. Extract shared app top nav
-3. Move setup UI into `/review/new`
-4. Move session UI into `/review/[id]`
-5. Fix restore and upload handoff edge cases
-6. Update tests
-7. Run visual and UX cleanup pass
 
 ## Definition of Done
 

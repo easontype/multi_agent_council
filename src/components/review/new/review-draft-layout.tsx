@@ -24,6 +24,7 @@ interface ReviewDraftLayoutProps {
   canStart: boolean
   costLabel: string
   error: string | null
+  notice?: string | null
   activeCount: number
   savedTemplates: SavedTeamTemplate[]
   onModeChange: (mode: ReviewMode) => void
@@ -336,6 +337,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     canStart,
     costLabel,
     error,
+    notice,
     activeCount,
     savedTemplates,
     onModeChange,
@@ -391,6 +393,22 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                 />
               )}
               <div style={{ padding: hasSource ? 20 : '0 20px 20px' }}>
+                {notice && (
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      border: '1px solid #fde68a',
+                      background: '#fffbeb',
+                      color: '#92400e',
+                      borderRadius: 12,
+                      padding: '10px 12px',
+                      fontSize: 12.5,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {notice}
+                  </div>
+                )}
                 <div style={{
                   border: '1px solid #ececf1',
                   borderRadius: 16,

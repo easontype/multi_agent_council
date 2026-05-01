@@ -19,15 +19,23 @@ import {
   type ReviewMode,
 } from '@/lib/prompts/review-presets'
 import { estimateHostedReviewCost } from '@/lib/review-cost'
+import type { CouncilSession } from '@/lib/core/council-types'
+import {
+  buildDraftPrefillFromSession,
+  consumeReviewDraftPrefill,
+  extractArxivIdFromSource,
+  extractSourceUrl,
+  saveReviewDraftPrefill,
+} from '@/lib/review-draft-prefill'
 import {
   deleteSavedTeamTemplate,
   loadSavedTeamTemplates,
   upsertSavedTeamTemplate,
   type SavedTeamTemplate,
 } from '@/lib/team-template-store'
-import { ReviewResults } from '@/app/analyze/_components/review-results'
-import { SessionHeader } from '@/app/analyze/_components/session-header'
+import { ReviewDraftHeader } from './new/review-draft-header'
 import { ReviewDraftLayout } from './new/review-draft-layout'
+import { SessionWorkspaceLayout } from './session/session-workspace-layout'
 
 export type ReviewSurfaceMode = 'draft' | 'session'
 
@@ -81,17 +89,21 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
   const [arxivDraft, setArxivDraft] = useState(routeArxivId ?? '')
   const isUpload = Boolean(pendingFile)
 
-  const { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession } = useCouncilReview(routeArxivId)
+  const { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession, rerunSession } = useCouncilReview(routeArxivId)
   const [modeSelection, setModeSelection] = useState<ReviewMode>('critique')
   const [rounds, setRounds] = useState<1 | 2>(1)
   const [teamAgents, setTeamAgents] = useState<EditableReviewAgent[]>(() => buildEditableTeam('critique'))
   const [savedTemplates, setSavedTemplates] = useState<SavedTeamTemplate[]>([])
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [sessionRecord, setSessionRecord] = useState<CouncilSession | null>(null)
+  const [draftNotice, setDraftNotice] = useState<string | null>(null)
   const [isPublic, setIsPublic] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  const [rerunLoading, setRerunLoading] = useState(false)
   const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
   const [sidebarTab, setSidebarTab] = useState<'sources' | 'chat'>('sources')
+  const [workspaceView, setWorkspaceView] = useState<'timeline' | 'compare' | 'map'>('timeline')
   const [restoreSource, setRestoreSource] = useState<'url' | 'local' | null>(null)
   const requestedSessionIdRef = useRef<string | null>(null)
 
@@ -113,6 +125,19 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
   }, [routeArxivId])
 
   useEffect(() => {
+    if (!isDraftRoute) return
+    const prefill = consumeReviewDraftPrefill()
+    if (!prefill) return
+    setModeSelection(prefill.mode)
+    setRounds(prefill.rounds)
+    setTeamAgents(prefill.agents)
+    setDraftNotice(prefill.notice ?? null)
+    if (prefill.arxivId && !routeArxivId) {
+      router.replace(`/review/new?arxiv=${encodeURIComponent(prefill.arxivId)}`)
+    }
+  }, [isDraftRoute, routeArxivId, router])
+
+  useEffect(() => {
     if (pendingFile) {
       const objectUrl = URL.createObjectURL(pendingFile)
       setPdfUrl(objectUrl)
@@ -131,6 +156,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
       .then((res) => res.json())
       .then((data) => {
         if (data?.session && typeof data.session.is_public === 'boolean') {
+          setSessionRecord(data.session as CouncilSession)
           setIsPublic(Boolean(data.session.is_public))
         }
       })
@@ -169,6 +195,17 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
     : routeArxivId ? `arXiv - ${routeArxivId}` : 'No paper selected'
   const sourceHref = routeArxivId ? `https://arxiv.org/abs/${encodeURIComponent(routeArxivId)}` : null
   const activeCount = teamAgents.filter((agent) => agent.enabled).length
+  const workspaceActiveCount = sessionRecord?.seats.length ?? session.agents.filter((agent) => agent.seatRole !== 'Moderator').length
+  const workspaceRounds = sessionRecord?.rounds === 2 ? 2 : 1
+  const sessionSourceUrl = extractSourceUrl(sessionRecord?.context)
+  const sessionArxivId = extractArxivIdFromSource(sessionSourceUrl)
+  const sourceSummary = sessionArxivId
+    ? `Source: arXiv ${sessionArxivId}`
+    : sessionSourceUrl === 'upload'
+      ? 'Source: uploaded PDF'
+      : sessionSourceUrl
+        ? 'Source: recovered external source'
+        : 'Source: unavailable'
   const canStart = Boolean(routeArxivId || pendingFile)
   const isPreparing = phase === 'ingesting'
   const showSetup = isDraftRoute && !isRestoring && !session.id && (phase === 'idle' || phase === 'error' || phase === 'ingesting')
@@ -254,6 +291,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
     if (!normalized) return
     setPendingUpload(null)
     setLocalPendingFile(null)
+    setDraftNotice(null)
     router.replace(`/review/new?arxiv=${encodeURIComponent(normalized)}`)
   }
 
@@ -262,6 +300,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
     if (!file) return
     setPendingUpload(file)
     setLocalPendingFile(file)
+    setDraftNotice(null)
     router.replace('/review/new')
     event.target.value = ''
   }
@@ -269,6 +308,30 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
   const handleResumeSavedSession = () => {
     if (!session.id) return
     resumeSession(session.id)
+  }
+
+  const handleRerun = async () => {
+    if (!session.id || session.id === 'demo-session' || rerunLoading || phase === 'running' || phase === 'ingesting') return
+    setRestoreSource(null)
+    setActiveSourceLabel(null)
+    setSidebarTab('sources')
+    setWorkspaceView('timeline')
+    setRerunLoading(true)
+    try {
+      await rerunSession(session.id)
+    } finally {
+      setRerunLoading(false)
+    }
+  }
+
+  const handleDuplicateAsNew = () => {
+    if (!sessionRecord) return
+    const prefill = buildDraftPrefillFromSession(sessionRecord)
+    saveReviewDraftPrefill(prefill)
+    const nextUrl = prefill.arxivId
+      ? `/review/new?arxiv=${encodeURIComponent(prefill.arxivId)}`
+      : '/review/new'
+    router.push(nextUrl)
   }
 
   const handleRenameTemplate = async (template: SavedTeamTemplate) => {
@@ -300,23 +363,25 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
       background: '#fff',
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif",
     }}>
-      <SessionHeader
-        surfaceMode={mode}
-        paperTitle={paperTitle}
-        isUpload={isUpload}
-        arxivId={routeArxivId}
-        phase={phase}
-        sessionId={session.id}
-        isPublic={isPublic}
-        shareLoading={shareLoading}
-        shareCopied={shareCopied}
-        activeCount={activeCount}
-        rounds={rounds}
-        showSetup={showSetup}
-        onExport={handleExport}
-        onSetShareAccess={setShareAccess}
-        onCopyShareLink={handleCopyShareLink}
-      />
+      {isDraftRoute && (
+        <ReviewDraftHeader
+          surfaceMode={mode}
+          paperTitle={paperTitle}
+          isUpload={isUpload}
+          arxivId={routeArxivId}
+          phase={phase}
+          sessionId={session.id}
+          isPublic={isPublic}
+          shareLoading={shareLoading}
+          shareCopied={shareCopied}
+          activeCount={activeCount}
+          rounds={rounds}
+          showSetup={showSetup}
+          onExport={handleExport}
+          onSetShareAccess={setShareAccess}
+          onCopyShareLink={handleCopyShareLink}
+        />
+      )}
 
       <SessionRestoreBanner
         isVisible={!showSetup && Boolean(session.id) && restoreSource !== null}
@@ -348,6 +413,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             canStart={canStart}
             costLabel={`${formatUsd(costEstimate.minUsd)} - ${formatUsd(costEstimate.maxUsd)}`}
             error={error}
+            notice={draftNotice}
             activeCount={activeCount}
             savedTemplates={savedTemplates}
             onModeChange={handleModeChange}
@@ -362,12 +428,29 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             onDuplicateTemplate={handleDuplicateTemplate}
           />
         ) : session.id ? (
-          <ReviewResults
+          <SessionWorkspaceLayout
             session={session}
+            phase={phase}
+            error={error}
+            canResume={canResume}
+            sourceSummary={sourceSummary}
             activeSourceLabel={activeSourceLabel}
             sidebarTab={sidebarTab}
+            currentView={workspaceView}
+            isPublic={isPublic}
+            shareLoading={shareLoading}
+            shareCopied={shareCopied}
+            rerunLoading={rerunLoading}
+            activeCount={workspaceActiveCount}
+            rounds={workspaceRounds}
             onSourceClick={handleSourceClick}
             onTabChange={setSidebarTab}
+            onViewChange={setWorkspaceView}
+            onRerun={handleRerun}
+            onDuplicateAsNew={handleDuplicateAsNew}
+            onExport={handleExport}
+            onSetShareAccess={setShareAccess}
+            onCopyShareLink={handleCopyShareLink}
           />
         ) : (
           <WorkspaceLoading label={error ?? 'Unable to load this review session.'} />

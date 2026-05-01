@@ -205,5 +205,42 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     }
   }, [runStream])
 
-  return { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession }
+  const rerunSession = useCallback(async (sessionId: string) => {
+    setError(null)
+    setPhase('running')
+    setCanResume(false)
+    dispatch({
+      type: '@@RESET',
+      title: session.paperTitle,
+      abstract: session.paperAbstract ?? '',
+      agents: session.agents,
+    })
+
+    let streamErrored = false
+    await runStream(
+      sessionId,
+      (event) => {
+        if ((event as Record<string, unknown>).type === 'error') streamErrored = true
+        handleEvent(event as Record<string, unknown>)
+      },
+      () => {
+        if (streamErrored) {
+          dispatch({ type: '@@COMPLETE_MESSAGES' })
+          return
+        }
+        setPhase('concluded')
+        setCanResume(false)
+        dispatch({ type: '@@STREAM_DONE' })
+      },
+      (message) => {
+        streamErrored = true
+        setError(message)
+        setPhase('error')
+        dispatch({ type: '@@COMPLETE_MESSAGES' })
+      },
+      { forceRestart: true },
+    )
+  }, [runStream, session.agents, session.paperAbstract, session.paperTitle])
+
+  return { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession, rerunSession }
 }
