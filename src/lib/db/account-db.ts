@@ -9,12 +9,14 @@ export interface AccountContext {
   role: WorkspaceRole;
   email: string;
   displayName: string | null;
+  preferredLanguage: string;
 }
 
 interface UserRow {
   id: string;
   primary_email: string;
   display_name: string | null;
+  preferred_language: string;
 }
 
 interface WorkspaceRow {
@@ -81,6 +83,9 @@ export async function ensureAccountSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_workspace_memberships_user_id
           ON workspace_memberships(user_id, workspace_id);
       `);
+      await db.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT 'en';
+      `);
     })().catch((error) => {
       accountSchemaReady = null;
       throw error;
@@ -108,7 +113,7 @@ export async function ensureUserAccountByEmail(input: {
 
     let userRow: UserRow | null = null;
     const existingUser = await client.query(
-      `SELECT id, primary_email, display_name
+      `SELECT id, primary_email, display_name, preferred_language
        FROM users
        WHERE primary_email = $1
        FOR UPDATE`,
@@ -125,7 +130,7 @@ export async function ensureUserAccountByEmail(input: {
              updated_at = NOW(),
              last_seen_at = NOW()
          WHERE id = $1
-         RETURNING id, primary_email, display_name`,
+         RETURNING id, primary_email, display_name, preferred_language`,
         [existingUser.rows[0].id, displayName, avatarUrl],
       );
       userRow = rows[0] as UserRow;
@@ -136,7 +141,7 @@ export async function ensureUserAccountByEmail(input: {
       const { rows } = await client.query(
         `INSERT INTO users (id, primary_email, display_name, avatar_url)
          VALUES ($1, $2, $3, $4)
-         RETURNING id, primary_email, display_name`,
+         RETURNING id, primary_email, display_name, preferred_language`,
         [userId, email, displayName, avatarUrl],
       );
       userRow = rows[0] as UserRow;
@@ -192,6 +197,7 @@ export async function ensureUserAccountByEmail(input: {
       role: "owner",
       email: userRow.primary_email,
       displayName: userRow.display_name,
+      preferredLanguage: userRow.preferred_language ?? 'en',
     };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -199,4 +205,21 @@ export async function ensureUserAccountByEmail(input: {
   } finally {
     client.release();
   }
+}
+
+export async function updateUserPreferredLanguage(userId: string, language: string): Promise<void> {
+  await ensureAccountSchema();
+  await db.query(
+    `UPDATE users SET preferred_language = $2, updated_at = NOW() WHERE id = $1`,
+    [userId, language],
+  );
+}
+
+export async function getUserPreferredLanguage(userId: string): Promise<string> {
+  await ensureAccountSchema();
+  const { rows } = await db.query(
+    `SELECT preferred_language FROM users WHERE id = $1`,
+    [userId],
+  );
+  return (rows[0]?.preferred_language as string) ?? 'en';
 }

@@ -28,7 +28,8 @@ export function buildDebateBrief(session: Pick<CouncilSession, "topic" | "contex
   ].filter(Boolean).join("\n");
 }
 
-export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "context" | "goal">): string {
+export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "context" | "goal">, preferredLanguage?: string): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined
   return [
     buildDebateBrief(session),
     "",
@@ -44,13 +45,15 @@ export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "conte
     "If you used tools, end with an **Evidence** section listing the concrete URLs, files, or document titles you relied on.",
     "Do not use tables. Prefer compact bullets and short academic prose.",
     "NEVER reproduce raw tool output, JSON, or paper lists verbatim. Synthesize what you found; cite title + URL only.",
-  ].join("\n");
+    langLabel ? `\nIMPORTANT: Write your entire response in ${langLabel}.` : "",
+  ].filter(s => s !== "").join("\n");
 }
 
 export function buildRound2Prompt(
   session: Pick<CouncilSession, "topic" | "context" | "goal">,
   round1Turns: CouncilTurn[],
-  round2TurnsSoFar: CouncilTurn[] = []
+  round2TurnsSoFar: CouncilTurn[] = [],
+  preferredLanguage?: string
 ): string {
   const round1Section = round1Turns
     .map((turn) => `### ${turn.role}\n${turn.content}`)
@@ -86,6 +89,9 @@ export function buildRound2Prompt(
     "Do not use tables or conversational filler.",
     "NEVER reproduce raw tool output, JSON, or paper lists verbatim.",
   );
+
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined
+  if (langLabel) parts.push(`\nIMPORTANT: Write your entire response in ${langLabel}.`)
 
   return parts.filter(Boolean).join("\n");
 }
@@ -142,7 +148,7 @@ const LEGACY_MODERATOR_SYSTEM_PROMPT = [
   "}",
 ].join("\n");
 
-export const MODERATOR_SYSTEM_PROMPT = [
+const MODERATOR_SYSTEM_PROMPT_BASE = [
   "You are the council moderator. Your job is to synthesize a structured debate transcript into a final, actionable academic conclusion.",
   "",
   "## Evidence weighting",
@@ -192,6 +198,14 @@ export const MODERATOR_SYSTEM_PROMPT = [
   '  "confidence_reason": "one sentence explaining what evidence or uncertainty drives confidence"',
   "}",
 ].join("\n");
+
+export const MODERATOR_SYSTEM_PROMPT = MODERATOR_SYSTEM_PROMPT_BASE;
+
+export function buildModeratorSystemPrompt(preferredLanguage?: string): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined
+  if (!langLabel) return MODERATOR_SYSTEM_PROMPT_BASE
+  return MODERATOR_SYSTEM_PROMPT_BASE + `\n\nIMPORTANT: All string values in the JSON output must be written in ${langLabel}. JSON keys remain in English.`
+}
 
 export function buildModeratorPrompt(
   session: Pick<CouncilSession, "topic" | "context" | "goal">,
@@ -482,7 +496,14 @@ export function extractEvidenceSources(
 
 // ─── Seat helpers ──────────────────────────────────────────────────────────────
 
-export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat[], round?: number): string {
+export const LANGUAGE_LABELS: Record<string, string> = {
+  'zh-TW': 'Traditional Chinese (繁體中文)',
+  'zh-CN': 'Simplified Chinese (简体中文)',
+  'ja': 'Japanese (日本語)',
+  'ko': 'Korean (한국어)',
+}
+
+export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat[], round?: number, preferredLanguage?: string): string {
   const otherRoles = allSeats
     ? allSeats.filter((s) => s.role !== seat.role).map((s) => s.role)
     : [];
@@ -491,6 +512,11 @@ export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat
     ? `You are one of ${otherRoles.length + 1} seats in this council. The other seats are: ${otherRoles.join(", ")}. Stake out a position that is distinct from theirs — do not repeat what they are likely to say. Your unique lens is your value.`
     : "";
 
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined
+  const langInstruction = langLabel
+    ? `IMPORTANT: Write your entire response in ${langLabel}. All prose, headings, and analysis must be in ${langLabel}.`
+    : ""
+
   return [
     seat.systemPrompt,
     seat.bias ? `Bias:\n${seat.bias}` : "",
@@ -498,6 +524,7 @@ export function buildSeatRuntimePrompt(seat: CouncilSeat, allSeats?: CouncilSeat
     "Maintain this point of view unless the evidence clearly disproves it.",
     "Do not act like a neutral moderator. Argue from your seat's perspective, then note where your own view is weak.",
     "When you receive tool results, you MUST cite at least one specific finding (paper title, URL, quoted data point) in your final response. Never silently ignore what you retrieved.",
+    langInstruction,
   ].filter(Boolean).join("\n\n");
 }
 

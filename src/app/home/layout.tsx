@@ -1,8 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+
+const LANGUAGES = [
+  { value: 'en', label: 'English' },
+  { value: 'zh-TW', label: '繁體中文' },
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
+]
+
+function LanguageSelector({ collapsed }: { collapsed: boolean }) {
+  const [lang, setLang] = useState('en')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/me').then(r => r.json()).then(data => {
+      if (data?.preferredLanguage) setLang(data.preferredLanguage)
+    }).catch(() => {})
+  }, [])
+
+  const handleChange = async (next: string) => {
+    setLang(next)
+    setSaving(true)
+    await fetch('/api/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferredLanguage: next }),
+    }).catch(() => {})
+    setSaving(false)
+  }
+
+  if (collapsed) return null
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+      <select
+        value={lang}
+        onChange={e => handleChange(e.target.value)}
+        disabled={saving}
+        style={{
+          flex: 1,
+          fontSize: 11,
+          color: '#888',
+          background: 'transparent',
+          border: 'none',
+          outline: 'none',
+          cursor: 'pointer',
+          appearance: 'none',
+          WebkitAppearance: 'none',
+        }}
+      >
+        {LANGUAGES.map(l => (
+          <option key={l.value} value={l.value}>{l.label}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 function DashboardIcon({ active }: { active: boolean }) {
   return (
@@ -180,6 +242,7 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
           )}
+          <LanguageSelector collapsed={collapsed} />
           <button onClick={() => { void signOut({ redirectTo: "/login" }) }} style={{
             width: "100%", background: "none", border: "1px solid #ebebed",
             borderRadius: 6, padding: collapsed ? "6px 0" : "6px 10px",

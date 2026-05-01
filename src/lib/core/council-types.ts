@@ -151,6 +151,7 @@ export interface CouncilRunOptions {
   resume?: boolean;
   forceRestart?: boolean;
   staleAfterMs?: number;
+  preferredLanguage?: string;
 }
 
 export type CouncilEvent =

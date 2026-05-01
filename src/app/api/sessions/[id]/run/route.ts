@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runCouncilSession, type CouncilEvent } from "@/lib/core/council";
 import { isCouncilSessionOwner } from "@/lib/core/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+import { resolveAuthAccountContext } from "@/lib/auth-account";
 
 export async function POST(
   req: NextRequest,
@@ -28,7 +29,12 @@ export async function POST(
     );
   }
 
-  let options: { resume?: boolean; forceRestart?: boolean; staleAfterMs?: number } = {};
+  const accountCtx = await resolveAuthAccountContext()
+  const preferredLanguage = accountCtx?.preferredLanguage && accountCtx.preferredLanguage !== 'en'
+    ? accountCtx.preferredLanguage
+    : undefined
+
+  let options: { resume?: boolean; forceRestart?: boolean; staleAfterMs?: number; preferredLanguage?: string } = {};
   try {
     const body = await req.json();
     const staleAfterMinutes = typeof body?.staleAfterMinutes === "number"
@@ -38,9 +44,10 @@ export async function POST(
       resume: body?.resume,
       forceRestart: body?.forceRestart,
       staleAfterMs: staleAfterMinutes ? staleAfterMinutes * 60_000 : undefined,
+      preferredLanguage,
     };
   } catch {
-    options = {};
+    options = { preferredLanguage };
   }
 
   const stream = new ReadableStream({

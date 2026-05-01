@@ -1,12 +1,14 @@
 import type { CouncilSession, CouncilTurn } from "../core/council-types";
-import { buildDebateBrief } from "./council-prompts";
+import { buildDebateBrief, LANGUAGE_LABELS } from "./council-prompts";
 import { buildBoundedModeratorTranscript, buildBoundedRound2Context } from "./council-turn-summary";
 
 export function buildBoundedRound2Prompt(
   session: Pick<CouncilSession, "topic" | "context" | "goal">,
   round1Turns: CouncilTurn[],
   round2TurnsSoFar: CouncilTurn[] = [],
+  preferredLanguage?: string,
 ): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined
   return [
     buildDebateBrief(session),
     "",
@@ -21,7 +23,8 @@ export function buildBoundedRound2Prompt(
     "If you used tools, end with an **Evidence** section (title + URL only, no raw output).",
     "Do not use tables or conversational filler.",
     "NEVER reproduce raw tool output, JSON, or paper lists verbatim.",
-  ].join("\n");
+    langLabel ? `\nIMPORTANT: Write your entire response in ${langLabel}.` : "",
+  ].filter(s => s !== "").join("\n");
 }
 
 export function buildBoundedModeratorPrompt(

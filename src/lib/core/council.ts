@@ -82,7 +82,7 @@ import {
 
 import {
   buildRound1Prompt,
-  MODERATOR_SYSTEM_PROMPT,
+  buildModeratorSystemPrompt,
   extractFirstJsonObject,
   normalizeConclusion,
   extractEvidenceSources,
@@ -299,7 +299,8 @@ async function runSeatTurn(
   round: number,
   prompt: string,
   onEvent: CouncilEventHandler,
-  touchHeartbeat: () => Promise<void>
+  touchHeartbeat: () => Promise<void>,
+  preferredLanguage?: string
 ): Promise<CouncilTurn> {
   onEvent({ type: "turn_start", round, role: seat.role, model: seat.model });
   const runtimeClass = getAgenticRuntimeClass(seat.model);
@@ -335,7 +336,7 @@ async function runSeatTurn(
       prompt: preloadedEvidencePrompt
         ? `${prompt}\n\n${preloadedEvidencePrompt.prompt}`
         : prompt,
-      systemPrompt: buildSeatRuntimePrompt(seat, session.seats, round),
+      systemPrompt: buildSeatRuntimePrompt(seat, session.seats, round, preferredLanguage),
       model: seat.model,
       toolAgentId: session.owner_agent_id,
       runtimeId: `council:${session.id}:${seat.role}`,
@@ -423,7 +424,8 @@ export async function runModeratorTurn(
   session: CouncilSession,
   allTurns: CouncilTurn[],
   onEvent: CouncilEventHandler,
-  touchHeartbeat: () => Promise<void>
+  touchHeartbeat: () => Promise<void>,
+  preferredLanguage?: string
 ): Promise<CouncilConclusion> {
   onEvent({ type: "moderator_start" });
 
@@ -454,14 +456,15 @@ export async function runModeratorTurn(
   let inputTokens = 0;
   let outputTokens = 0;
 
+  const moderatorSystemPrompt = buildModeratorSystemPrompt(preferredLanguage)
   const messages: OllamaMessage[] = [
-    { role: "system", content: MODERATOR_SYSTEM_PROMPT },
+    { role: "system", content: moderatorSystemPrompt },
     { role: "user", content: prompt },
   ];
 
   for await (const delta of streamLLM(
     prompt,
-    MODERATOR_SYSTEM_PROMPT,
+    moderatorSystemPrompt,
     session.moderator_model,
     messages,
     (usage) => {
@@ -675,6 +678,7 @@ export async function runCouncilSession(
   const resume = options.resume ?? true;
   const forceRestart = options.forceRestart ?? false;
   const staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+  const preferredLanguage = options.preferredLanguage;
 
   const existingSession = await getSession(sessionId);
   if (!existingSession) throw new Error(`Council session ${sessionId} not found`);
@@ -728,11 +732,11 @@ export async function runCouncilSession(
     if (round1Existing.length < session.seats.length) {
       emitEvent({ type: "round_start", round: 1 });
       const doneRoles = new Set(round1Existing.map((turn) => turn.role));
-      const round1Prompt = buildRound1Prompt(session);
+      const round1Prompt = buildRound1Prompt(session, preferredLanguage);
       const newRound1Turns = await runWithConcurrency(
         session.seats
           .filter((seat) => !doneRoles.has(seat.role))
-          .map((seat) => () => runSeatTurn(session, seat, 1, round1Prompt, emitEvent, touchHeartbeat)),
+          .map((seat) => () => runSeatTurn(session, seat, 1, round1Prompt, emitEvent, touchHeartbeat, preferredLanguage)),
         ROUND1_CONCURRENCY,
       );
       allTurns.push(...newRound1Turns);
@@ -788,8 +792,8 @@ export async function runCouncilSession(
           // enabling genuine cross-argument within the same round.
           for (const seat of session.seats) {
             if (doneRoles.has(seat.role)) continue;
-            const round2Prompt = buildBoundedRound2Prompt(session, round1Turns, round2TurnsSoFar);
-            const turn = await runSeatTurn(session, seat, 2, round2Prompt, emitEvent, touchHeartbeat);
+            const round2Prompt = buildBoundedRound2Prompt(session, round1Turns, round2TurnsSoFar, preferredLanguage);
+            const turn = await runSeatTurn(session, seat, 2, round2Prompt, emitEvent, touchHeartbeat, preferredLanguage);
             round2TurnsSoFar.push(turn);
             allTurns.push(turn);
           }
@@ -806,7 +810,7 @@ export async function runCouncilSession(
     }
 
     if (!existingConclusion) {
-      await runModeratorTurn(session, allTurns, emitEvent, touchHeartbeat);
+      await runModeratorTurn(session, allTurns, emitEvent, touchHeartbeat, preferredLanguage);
     } else {
       emitEvent({ type: "conclusion", conclusion: existingConclusion });
     }
