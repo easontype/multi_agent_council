@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReviewPhase } from '@/hooks/use-council-review'
+import { reviewTheme, sectionEyebrowStyle, subtleButtonStyle } from '../review-theme'
 
 interface SessionTopBarProps {
   paperTitle: string
@@ -64,13 +65,14 @@ export function SessionTopBar({
 
   return (
     <div
+      className="review-session-top-bar"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 14,
-        padding: '18px 24px 16px',
-        borderBottom: '1px solid #ececf1',
-        background: 'linear-gradient(180deg, #ffffff 0%, #fafaf9 100%)',
+        gap: 18,
+        padding: '24px 28px 18px',
+        borderBottom: `1px solid ${reviewTheme.colors.border}`,
+        background: `radial-gradient(circle at top left, ${reviewTheme.colors.pageGlow} 0%, rgba(255,255,255,0.9) 38%, rgba(243,239,231,0.94) 100%)`,
         flexShrink: 0,
       }}
     >
@@ -92,7 +94,7 @@ export function SessionTopBar({
                 fontWeight: 700,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
-                color: '#71717a',
+                color: reviewTheme.colors.muted,
                 textDecoration: 'none',
               }}
             >
@@ -104,11 +106,7 @@ export function SessionTopBar({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: '#71717a',
+                ...sectionEyebrowStyle({ fontSize: 11, color: reviewTheme.colors.muted }),
               }}
             >
               <span
@@ -128,10 +126,11 @@ export function SessionTopBar({
             <h1
               style={{
                 margin: 0,
-                fontSize: 24,
-                lineHeight: 1.15,
+                fontSize: 30,
+                lineHeight: 1.02,
                 fontWeight: 650,
-                color: '#18181b',
+                color: reviewTheme.colors.ink,
+                fontFamily: "'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif",
               }}
             >
               {paperTitle}
@@ -143,8 +142,8 @@ export function SessionTopBar({
                 alignItems: 'center',
                 gap: 12,
                 flexWrap: 'wrap',
-                color: '#71717a',
-                fontSize: 13,
+                color: reviewTheme.colors.muted,
+                fontSize: 13.5,
               }}
             >
               <span>{activeCount} agents</span>
@@ -162,46 +161,25 @@ export function SessionTopBar({
           <button
             onClick={onRerun}
             disabled={!canRerun || rerunLoading}
-            style={{
+            style={subtleButtonStyle({
               fontSize: 12,
               fontWeight: 600,
               padding: '8px 12px',
-              border: '1px solid #e4e4e7',
-              borderRadius: 8,
-              background: '#fff',
-              color: canRerun ? '#3f3f46' : '#a1a1aa',
+              color: canRerun ? '#3f3f46' : reviewTheme.colors.softMuted,
               cursor: !canRerun || rerunLoading ? 'not-allowed' : 'pointer',
-            }}
+            })}
           >
             {rerunLoading ? 'Rerunning...' : 'Rerun Review'}
           </button>
           <button
             onClick={onDuplicateAsNew}
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              padding: '8px 12px',
-              border: '1px solid #e4e4e7',
-              borderRadius: 8,
-              background: '#fff',
-              color: '#3f3f46',
-              cursor: 'pointer',
-            }}
+            style={subtleButtonStyle({ fontSize: 12, fontWeight: 600, padding: '8px 12px' })}
           >
             Duplicate as New
           </button>
           <button
             onClick={onExport}
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              padding: '8px 12px',
-              border: '1px solid #e4e4e7',
-              borderRadius: 8,
-              background: '#fff',
-              color: '#3f3f46',
-              cursor: 'pointer',
-            }}
+            style={subtleButtonStyle({ fontSize: 12, fontWeight: 600, padding: '8px 12px' })}
           >
             Export .md
           </button>
@@ -212,10 +190,10 @@ export function SessionTopBar({
               fontSize: 12,
               fontWeight: 600,
               padding: '8px 12px',
-              border: `1px solid ${isPublic ? '#d4d4d8' : '#e4e4e7'}`,
-              borderRadius: 8,
+              border: `1px solid ${isPublic ? reviewTheme.colors.borderStrong : reviewTheme.colors.border}`,
+              borderRadius: 999,
               background: isPublic ? '#fafaf9' : '#fff',
-              color: isPublic ? '#52525b' : '#3f3f46',
+              color: isPublic ? reviewTheme.colors.muted : '#3f3f46',
               cursor: shareLoading ? 'not-allowed' : 'pointer',
             }}
           >
@@ -228,9 +206,9 @@ export function SessionTopBar({
               fontSize: 12,
               fontWeight: 600,
               padding: '8px 12px',
-              border: `1px solid ${isPublic ? '#111827' : '#e4e4e7'}`,
-              borderRadius: 8,
-              background: isPublic ? '#111827' : '#fff',
+              border: `1px solid ${isPublic ? reviewTheme.colors.accent : reviewTheme.colors.border}`,
+              borderRadius: 999,
+              background: isPublic ? reviewTheme.colors.accent : '#fff',
               color: isPublic ? '#fff' : '#3f3f46',
               cursor: shareLoading ? 'not-allowed' : 'pointer',
             }}
@@ -248,8 +226,8 @@ export function SessionTopBar({
                 fontSize: 12,
                 fontWeight: 600,
                 padding: '8px 12px',
-                border: '1px solid #e4e4e7',
-                borderRadius: 8,
+                border: `1px solid ${reviewTheme.colors.border}`,
+                borderRadius: 999,
                 background: '#fff',
                 color: '#3f3f46',
                 textDecoration: 'none',
@@ -273,10 +251,11 @@ export function SessionTopBar({
         <div
           style={{
             display: 'inline-flex',
-            border: '1px solid #e4e4e7',
+            border: `1px solid ${reviewTheme.colors.border}`,
             borderRadius: 999,
             overflow: 'hidden',
-            background: '#fff',
+            background: 'rgba(255,255,255,0.84)',
+            boxShadow: '0 4px 14px rgba(63, 43, 24, 0.04)',
           }}
         >
           {VIEW_OPTIONS.map((item) => {
@@ -288,9 +267,9 @@ export function SessionTopBar({
                 onClick={() => onViewChange(item.key)}
                 style={{
                   border: 'none',
-                  background: active ? '#111827' : 'transparent',
+                  background: active ? reviewTheme.colors.accent : 'transparent',
                   color: active ? '#fff' : '#71717a',
-                  padding: '7px 14px',
+                  padding: '8px 16px',
                   fontSize: 12,
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -305,12 +284,19 @@ export function SessionTopBar({
         <div
           style={{
             fontSize: 12,
-            color: '#71717a',
+            color: reviewTheme.colors.muted,
           }}
         >
           Left canvas: debate workspace. Right rail: sources, metadata, and paper chat.
         </div>
       </div>
+      <style>{`
+        @media (max-width: 900px) {
+          .review-session-top-bar {
+            padding: 20px 18px 14px !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

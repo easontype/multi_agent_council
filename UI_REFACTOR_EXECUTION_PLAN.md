@@ -15,7 +15,7 @@ This refactor is primarily an information architecture and navigation correction
 
 Last implementation commit:
 
-- `55d1bf9` `Restructure new review draft flow`
+- `fe602bf` `Complete session workspace refactor and update status docs`
 
 Completed so far:
 
@@ -28,6 +28,7 @@ Completed so far:
 - Phase 3B
 - Phase 4A
 - Phase 4B
+- Phase 5A (first pass)
 
 Current state:
 
@@ -42,10 +43,11 @@ Current state:
 - session actions now live in session context via share / export / rerun / duplicate as new
 - duplicate-as-new now restores draft configuration and reopens arXiv-backed sessions as `/review/new?arxiv=...`
 - uploaded-PDF duplicate-as-new now restores configuration and prompts the user to re-upload the PDF
+- draft and session review surfaces now share a first-pass visual system layer for headers, cards, and layout rhythm
 
 Next planned phase:
 
-- Phase 5A: visual system pass
+- Phase 5B: style debt reduction
 
 ## Why This Refactor
 
@@ -515,6 +517,10 @@ Deliverables:
 Success criteria:
 
 - product surfaces feel visually coherent
+
+Status:
+
+- Completed (first pass)
 
 ### Phase 5B: Style debt reduction
 

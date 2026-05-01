@@ -7,13 +7,13 @@ Single source of truth for current project progress. Supersedes all older roadma
 ## Current Branch State
 
 - Branch: `main`
-- Local is ahead of `origin/main` by 19 commits.
+- Local is ahead of `origin/main` by 20 commits.
 - Latest commits:
+  - `fe602bf Complete session workspace refactor and update status docs`
   - `55d1bf9 Restructure new review draft flow`
   - `d6c2ade Update UI refactor progress docs`
   - `f272149 Split review routes and add shared app shell`
   - `9035c0d refactor(phase-4/5): SourceRef merge, pure event reducer, fix test fixtures`
-  - `59640e3 refactor(phase-3): split council.ts (904 lines) into 5 focused modules`
 
 ## Product State
 
@@ -28,6 +28,7 @@ Council is a working Next.js app for AI-assisted academic paper review.
 - Dedicated `New Review` draft layout with explicit paper/setup/template sections and a right-side summary rail
 - Dedicated `Session Workspace` shell with a left debate canvas and right workspace rail
 - Session canvas view switch: `timeline / compare / map`
+- Shared review-surface visual theme across draft and session pages
 - Multi-agent debate (Round 1 + optional Round 2) with SSE streaming
 - Moderator synthesis rendered as structured conclusion card (confidence, consensus, veto, action items, dissent)
 - Agent thinking indicators, activity phrases, between-turn status
@@ -44,6 +45,25 @@ Council is a working Next.js app for AI-assisted academic paper review.
 - User language preference: `en / zh-TW / zh-CN / ja / ko`
 
 ## Recently Completed
+
+### Visual System Pass (Phase 5A, first pass)
+
+- Introduced a shared review-surface visual theme so draft and session pages now use one warmer, more intentional visual language.
+- Refined typography and header treatment for:
+  - `New Review`
+  - `Session Workspace`
+- Normalized card chrome, panel layering, and workspace rail presentation across review surfaces.
+- Added responsive layout fallback for:
+  - session workspace grid
+  - draft creation grid
+- Kept the route/state architecture unchanged while tightening visual consistency ahead of style-debt cleanup.
+
+Important files:
+- `src/components/review/review-theme.ts`
+- `src/components/review/new/review-create-header.tsx`
+- `src/components/review/new/review-draft-layout.tsx`
+- `src/components/review/session/session-top-bar.tsx`
+- `src/components/review/session/session-workspace-layout.tsx`
 
 ### Session Workspace Shell and Context Controls (Phase 4A / 4B)
 

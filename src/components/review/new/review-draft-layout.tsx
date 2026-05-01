@@ -5,6 +5,7 @@ import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
 import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-presets'
 import type { SavedTeamTemplate } from '@/lib/team-template-store'
 import { ReviewCreateHeader } from './review-create-header'
+import { reviewTheme, sectionEyebrowStyle, softCard, subtleButtonStyle } from '../review-theme'
 
 interface ReviewDraftLayoutProps {
   paperTitle: string
@@ -42,13 +43,7 @@ interface ReviewDraftLayoutProps {
 function SummaryItem({ label, value, tone = '#18181b' }: { label: string; value: string; tone?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.08em',
-        color: '#a1a1aa',
-        textTransform: 'uppercase',
-      }}>
+      <span style={sectionEyebrowStyle()}>
         {label}
       </span>
       <span style={{ fontSize: 13, lineHeight: 1.55, color: tone, fontWeight: 600 }}>
@@ -70,32 +65,19 @@ function SectionFrame({
   children: React.ReactNode
 }) {
   return (
-    <section style={{
-      background: '#fff',
-      border: '1px solid #ececf1',
-      borderRadius: 18,
-      overflow: 'hidden',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
-    }}>
+    <section style={{ ...softCard(), overflow: 'hidden' }}>
       <div style={{
         padding: '18px 20px 16px',
-        borderBottom: '1px solid #f0f0f2',
-        background: '#fcfcfb',
+        borderBottom: `1px solid ${reviewTheme.colors.border}`,
+        background: `linear-gradient(180deg, rgba(248,242,232,0.7) 0%, rgba(255,255,255,0.92) 100%)`,
       }}>
-        <div style={{
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          color: '#a1a1aa',
-          textTransform: 'uppercase',
-          marginBottom: 6,
-        }}>
+        <div style={sectionEyebrowStyle({ marginBottom: 6 })}>
           {eyebrow}
         </div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: '#18181b', marginBottom: 5 }}>
+        <div style={{ fontSize: 18, fontWeight: 600, color: reviewTheme.colors.ink, marginBottom: 5 }}>
           {title}
         </div>
-        <div style={{ fontSize: 13, lineHeight: 1.65, color: '#71717a', maxWidth: 720 }}>
+        <div style={{ fontSize: 13, lineHeight: 1.65, color: reviewTheme.colors.muted, maxWidth: 720 }}>
           {description}
         </div>
       </div>
@@ -118,15 +100,15 @@ function PaperSourceStep({
   return (
     <div style={{ padding: '20px' }}>
       <div style={{
-        border: '1px solid #ececf1',
+        border: `1px solid ${reviewTheme.colors.border}`,
         borderRadius: 16,
         background: '#fff',
         padding: '18px',
       }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#18181b', marginBottom: 6 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: reviewTheme.colors.ink, marginBottom: 6 }}>
           Choose a source
         </div>
-        <div style={{ fontSize: 12.5, color: '#71717a', lineHeight: 1.6, marginBottom: 14 }}>
+        <div style={{ fontSize: 12.5, color: reviewTheme.colors.muted, lineHeight: 1.6, marginBottom: 14 }}>
           Paste an arXiv ID or upload a PDF. The file is staged immediately, but ingestion only starts once you launch the review.
         </div>
 
@@ -138,13 +120,13 @@ function PaperSourceStep({
             placeholder="arXiv ID e.g. 1706.03762"
             style={{
               flex: 1,
-              border: '1px solid #d4d4d8',
+              border: `1px solid ${reviewTheme.colors.borderStrong}`,
               borderRadius: 10,
               padding: '10px 12px',
               fontSize: 13,
-              color: '#18181b',
+              color: reviewTheme.colors.ink,
               outline: 'none',
-              background: '#fcfcfb',
+              background: '#fffdfa',
             }}
           />
           <button
@@ -154,7 +136,7 @@ function PaperSourceStep({
               border: 'none',
               borderRadius: 10,
               padding: '10px 14px',
-              background: sourceDraft.trim() ? '#111827' : '#d4d4d8',
+              background: sourceDraft.trim() ? reviewTheme.colors.accent : reviewTheme.colors.borderStrong,
               color: '#fff',
               fontSize: 12,
               fontWeight: 600,
@@ -167,17 +149,18 @@ function PaperSourceStep({
         </form>
 
         <label style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px dashed #c7c7cf',
-          borderRadius: 10,
-          background: '#fafafa',
-          color: '#3f3f46',
-          padding: '10px 13px',
-          fontSize: 12.5,
-          fontWeight: 600,
-          cursor: 'pointer',
+          ...subtleButtonStyle({
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: `1px dashed ${reviewTheme.colors.borderStrong}`,
+            borderRadius: 10,
+            background: 'rgba(248,242,232,0.42)',
+            color: '#3f3f46',
+            padding: '10px 13px',
+            fontSize: 12.5,
+            fontWeight: 600,
+          }),
         }}>
           Upload PDF
           <input
@@ -215,22 +198,13 @@ function SavedTemplatesPanel({
     >
       <div style={{ padding: '18px 20px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 12.5, color: '#71717a' }}>
+          <div style={{ fontSize: 12.5, color: reviewTheme.colors.muted }}>
             Saved team presets
           </div>
           <button
             type="button"
             onClick={onSaveTemplate}
-            style={{
-              border: '1px solid #e4e4e7',
-              background: '#fff',
-              color: '#3f3f46',
-              borderRadius: 999,
-              padding: '7px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={subtleButtonStyle({ padding: '7px 12px', fontSize: 12, fontWeight: 600 })}
           >
             Save Current Setup
           </button>
@@ -238,12 +212,12 @@ function SavedTemplatesPanel({
 
         {savedTemplates.length === 0 ? (
           <div style={{
-            border: '1px dashed #e4e4e7',
+            border: `1px dashed ${reviewTheme.colors.border}`,
             borderRadius: 14,
-            background: '#fafafa',
+            background: 'rgba(248,242,232,0.46)',
             padding: '18px',
             fontSize: 12.5,
-            color: '#a1a1aa',
+            color: reviewTheme.colors.softMuted,
           }}>
             No saved teams yet.
           </div>
@@ -370,9 +344,9 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
         flex: 1,
         overflow: 'auto',
         padding: '24px 28px 32px',
-        background: '#f8f8fa',
+        background: `linear-gradient(180deg, ${reviewTheme.colors.pageGlow} 0%, ${reviewTheme.colors.page} 100%)`,
       }}>
-        <div style={{
+        <div className="review-draft-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1.06fr) minmax(320px, 0.94fr) minmax(260px, 0.5fr)',
           gap: 20,
@@ -397,9 +371,9 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                   <div
                     style={{
                       marginBottom: 12,
-                      border: '1px solid #fde68a',
-                      background: '#fffbeb',
-                      color: '#92400e',
+                      border: `1px solid ${reviewTheme.colors.warningBorder}`,
+                      background: reviewTheme.colors.warningBg,
+                      color: reviewTheme.colors.warningText,
                       borderRadius: 12,
                       padding: '10px 12px',
                       fontSize: 12.5,
@@ -466,23 +440,16 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
           <div style={{ minWidth: 0 }}>
             <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <section style={{
-                background: '#111827',
+                background: `linear-gradient(180deg, ${reviewTheme.colors.accent} 0%, #183128 100%)`,
                 color: '#fff',
-                borderRadius: 18,
-                padding: '18px 18px 16px',
-                boxShadow: '0 16px 40px rgba(17,24,39,0.18)',
+                borderRadius: 24,
+                padding: '20px 18px 18px',
+                boxShadow: '0 18px 40px rgba(26, 51, 41, 0.24)',
               }}>
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  color: 'rgba(255,255,255,0.55)',
-                  textTransform: 'uppercase',
-                  marginBottom: 6,
-                }}>
+                <div style={sectionEyebrowStyle({ color: 'rgba(255,255,255,0.58)', marginBottom: 6 })}>
                   Launch Review
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, marginBottom: 8 }}>
+                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, marginBottom: 8, fontFamily: "'Iowan Old Style', 'Palatino Linotype', Georgia, serif" }}>
                   Confirm the draft, then start the council.
                 </div>
                 <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(255,255,255,0.72)', marginBottom: 16 }}>
@@ -526,20 +493,8 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                 </button>
               </section>
 
-              <section style={{
-                background: '#fff',
-                border: '1px solid #ececf1',
-                borderRadius: 18,
-                padding: '16px 16px 14px',
-              }}>
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  color: '#a1a1aa',
-                  textTransform: 'uppercase',
-                  marginBottom: 14,
-                }}>
+              <section style={softCard({ padding: '16px 16px 14px' })}>
+                <div style={sectionEyebrowStyle({ marginBottom: 14 })}>
                   Draft Summary
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -551,23 +506,11 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                 </div>
               </section>
 
-              <section style={{
-                background: '#fff',
-                border: '1px solid #ececf1',
-                borderRadius: 18,
-                padding: '16px 16px 14px',
-              }}>
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  color: '#a1a1aa',
-                  textTransform: 'uppercase',
-                  marginBottom: 10,
-                }}>
+              <section style={softCard({ padding: '16px 16px 14px' })}>
+                <div style={sectionEyebrowStyle({ marginBottom: 10 })}>
                   Templates
                 </div>
-                <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#71717a', marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, lineHeight: 1.65, color: reviewTheme.colors.muted, marginBottom: 10 }}>
                   {savedTemplates.length > 0
                     ? `${savedTemplates.length} saved team template${savedTemplates.length > 1 ? 's' : ''} available in this workspace.`
                     : 'No saved team templates yet. Save this setup if you expect to reuse it.'}
@@ -602,6 +545,25 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
             </div>
           </div>
         </div>
+        <style>{`
+          @media (max-width: 1200px) {
+            .review-draft-grid {
+              grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr) !important;
+            }
+            .review-draft-grid > :nth-child(3) {
+              grid-column: 1 / -1;
+            }
+          }
+          @media (max-width: 900px) {
+            .review-draft-grid {
+              grid-template-columns: 1fr !important;
+              gap: 14px !important;
+            }
+            .review-draft-grid > :nth-child(3) {
+              grid-column: auto;
+            }
+          }
+        `}</style>
       </div>
     </div>
   )
