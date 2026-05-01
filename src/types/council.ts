@@ -4,6 +4,7 @@
 // continue to compile without changes.
 
 import type { AgentUI } from "./agent";
+import type { CouncilEvidenceSource } from "@/lib/core/council-types";
 
 export type { AgentUI } from "./agent";
 
@@ -58,11 +59,7 @@ export interface AgentMessage {
   isComplete: boolean
 }
 
-export interface SourceRef {
-  label: string
-  uri: string | null
-  snippet: string | null
-  marker?: string | null
+export interface SourceRef extends CouncilEvidenceSource {
   round: number
   agentId: string
   agentColor: string

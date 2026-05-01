@@ -39,6 +39,7 @@ describe("team template ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedListTeamTemplatesForWorkspace.mockResolvedValue([
       {
@@ -69,6 +70,7 @@ describe("team template ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedUpsertTeamTemplate.mockResolvedValue({
       id: "tmpl-1",
@@ -114,6 +116,7 @@ describe("team template ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedDeleteTeamTemplate.mockResolvedValue(true);
     mockedListTeamTemplatesForWorkspace.mockResolvedValue([]);

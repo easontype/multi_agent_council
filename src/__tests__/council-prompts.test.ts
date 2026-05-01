@@ -74,8 +74,8 @@ describe("buildRound1Prompt", () => {
 describe("buildRound2Prompt", () => {
   const session = { topic: "AI adoption", context: "", goal: "" };
   const round1Turns = [
-    { role: "Architect", content: "We should adopt AI", round: 1, id: "1", session_id: "s1", created_at: "" },
-    { role: "Skeptic", content: "Risk is too high", round: 1, id: "2", session_id: "s1", created_at: "" },
+    { role: "Architect", content: "We should adopt AI", round: 1, id: "1", session_id: "s1", created_at: "", model: "test-model", input_tokens: 0, output_tokens: 0 },
+    { role: "Skeptic", content: "Risk is too high", round: 1, id: "2", session_id: "s1", created_at: "", model: "test-model", input_tokens: 0, output_tokens: 0 },
   ];
 
   it("includes round 1 positions", () => {
@@ -96,7 +96,7 @@ describe("buildRound2Prompt", () => {
 
   it("includes round 2 turns already made when provided", () => {
     const round2TurnsSoFar = [
-      { role: "Architect", content: "I still stand by my view", round: 2, id: "3", session_id: "s1", created_at: "" },
+      { role: "Architect", content: "I still stand by my view", round: 2, id: "3", session_id: "s1", created_at: "", model: "test-model", input_tokens: 0, output_tokens: 0 },
     ];
     const prompt = buildRound2Prompt(session, round1Turns, round2TurnsSoFar);
     expect(prompt).toContain("already argued");

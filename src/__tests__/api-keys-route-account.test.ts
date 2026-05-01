@@ -39,6 +39,7 @@ describe("API key account ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedGenerateApiKey.mockResolvedValue({
       id: "key-1",
@@ -69,6 +70,7 @@ describe("API key account ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedListApiKeysForWorkspace.mockResolvedValue([
       {
@@ -100,6 +102,7 @@ describe("API key account ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedRevokeApiKeyForWorkspace.mockResolvedValue(true);
 
@@ -120,6 +123,7 @@ describe("API key account ownership routes", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedRevokeApiKeyForWorkspace.mockResolvedValue(false);
 

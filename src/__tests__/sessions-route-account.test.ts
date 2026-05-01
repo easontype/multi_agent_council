@@ -50,6 +50,7 @@ describe("/api/sessions account ownership wiring", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedListSessions.mockResolvedValue([]);
 
@@ -76,6 +77,7 @@ describe("/api/sessions account ownership wiring", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User",
+      preferredLanguage: "en",
     });
     mockedCreateCouncilSession.mockResolvedValue({ id: "session-1" } as never);
 

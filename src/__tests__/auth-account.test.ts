@@ -34,6 +34,7 @@ describe("auth account resolution", () => {
       role: "owner",
       email: "user@example.com",
       displayName: "User Name",
+      preferredLanguage: "en",
     });
 
     const result = await ensureAccountContextForAuthUser({
@@ -64,6 +65,7 @@ describe("auth account resolution", () => {
       role: "owner",
       email: "person@example.com",
       displayName: "Person",
+      preferredLanguage: "en",
     });
 
     const result = await resolveAuthAccountContext();
