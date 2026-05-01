@@ -220,7 +220,7 @@ export default function ReviewsPage() {
 
             return (
               <div key={s.id}
-                onClick={() => router.push(`/analyze?session=${encodeURIComponent(s.id)}`)}
+                onClick={() => router.push(`/review/${encodeURIComponent(s.id)}`)}
                 onMouseEnter={() => setHoveredId(s.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 style={{

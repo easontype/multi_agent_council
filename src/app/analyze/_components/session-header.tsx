@@ -1,9 +1,10 @@
 'use client'
 
-import { BackIcon, SpinnerIcon } from './icons'
+import { SpinnerIcon } from './icons'
 import type { ReviewPhase } from '@/hooks/use-council-review'
 
 interface SessionHeaderProps {
+  surfaceMode: 'draft' | 'session'
   paperTitle: string
   isUpload: boolean
   arxivId: string | null
@@ -29,6 +30,7 @@ const STATUS_CONFIG: Record<ReviewPhase, { dot: string; label: string; pulse: bo
 }
 
 export function SessionHeader({
+  surfaceMode,
   paperTitle,
   isUpload,
   arxivId,
@@ -49,6 +51,12 @@ export function SessionHeader({
   const isRunning = phase === 'running'
   const isConcluded = phase === 'concluded'
   const hasSession = Boolean(sessionId && sessionId !== 'demo-session')
+  const contextLabel = surfaceMode === 'draft' ? 'New Review' : 'Review Session'
+  const contextDetail = surfaceMode === 'draft'
+    ? 'Configure the paper and panel before launch'
+    : hasSession
+      ? `Session ${sessionId.slice(0, 8)}`
+      : 'Loading saved session'
 
   return (
     <header style={{
@@ -61,30 +69,16 @@ export function SessionHeader({
       boxShadow: '0 1px 2px rgba(15,23,42,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-        <a href="/home" style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          color: '#71717a', textDecoration: 'none',
-          fontSize: 13, fontWeight: 500, padding: '5px 8px', borderRadius: 6,
-          transition: 'color 150ms, background 150ms',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#18181b'; e.currentTarget.style.background = '#f5f5f7' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#71717a'; e.currentTarget.style.background = 'transparent' }}
-        >
-          <BackIcon /> Back
-        </a>
-
-        <div style={{ width: 1, height: 16, background: '#ebebed' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#6366f1', letterSpacing: '-0.02em' }}>Council</span>
-          <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
-            background: '#eef2ff', color: '#6366f1', borderRadius: 3,
-            padding: '1px 5px', textTransform: 'uppercase',
-          }}>Beta</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 2 }}>
+            {contextLabel}
+          </div>
+          <div style={{ fontSize: 12, color: '#71717a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>
+            {contextDetail}
+          </div>
         </div>
 
-        <div style={{ width: 1, height: 16, background: '#ebebed' }} />
+        <div style={{ width: 1, height: 28, background: '#ebebed' }} />
 
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 1 }}>

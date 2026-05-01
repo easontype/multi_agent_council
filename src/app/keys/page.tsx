@@ -114,7 +114,7 @@ export default function KeysPage() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <a href="/home" style={{ fontWeight: 700, fontSize: 18, color: "var(--accent)", textDecoration: "none" }}>Council</a>
-        <a href="/analyze" style={{
+        <a href="/review/new" style={{
           background: "var(--accent)", color: "#fff",
           padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: "none",
         }}>Start Review</a>

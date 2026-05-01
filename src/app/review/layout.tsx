@@ -1,5 +1,5 @@
 import { AppShell } from '@/components/app/app-shell'
 
-export default function HomeLayout({ children }: { children: React.ReactNode }) {
+export default function ReviewLayout({ children }: { children: React.ReactNode }) {
   return <AppShell>{children}</AppShell>
 }

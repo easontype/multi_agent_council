@@ -78,9 +78,9 @@ export default function DashboardPage() {
 
   const handleReview = (paper: PaperResult) => {
     if (paper.arxivId) {
-      router.push(`/analyze?arxiv=${encodeURIComponent(paper.arxivId)}`);
+      router.push(`/review/new?arxiv=${encodeURIComponent(paper.arxivId)}`);
     } else {
-      router.push("/analyze");
+      router.push("/review/new");
     }
   };
 
@@ -88,7 +88,7 @@ export default function DashboardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPendingUpload(file);
-    router.push("/analyze?tab=upload");
+    router.push("/review/new");
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -97,7 +97,7 @@ export default function DashboardPage() {
     const file = e.dataTransfer.files[0];
     if (file?.type === "application/pdf") {
       setPendingUpload(file);
-      router.push("/analyze?tab=upload");
+      router.push("/review/new");
     }
   };
 
@@ -156,7 +156,7 @@ export default function DashboardPage() {
           <RecentReviews
             sessions={sessions}
             loadingSessions={loadingSessions}
-            onSessionClick={(session) => router.push(`/analyze?session=${encodeURIComponent(session.id)}`)}
+            onSessionClick={(session) => router.push(`/review/${encodeURIComponent(session.id)}`)}
           />
         </>
       )}
