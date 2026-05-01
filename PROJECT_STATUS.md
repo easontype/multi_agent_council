@@ -2,224 +2,130 @@
 
 Updated: 2026-05-01
 
-This is the single current progress file for the project. Older roadmap, audit, and planning files were removed because they mixed outdated assumptions with completed work.
+Single source of truth for current project progress. Supersedes all older roadmap and planning files.
 
 ## Current Branch State
 
 - Branch: `main`
-- Remote state before this document cleanup: local branch was ahead of `origin/main` by 4 commits.
-- Latest committed work:
-  - `6ae0f8f Polish latest UI flow`
-  - `5333b87 pre-layrr snapshot`
-  - `9111c3f pre-layrr snapshot`
-  - `7cc68a7 Add saved session restore and evidence display`
+- Local is ahead of `origin/main` by 10 commits.
+- Latest commits:
+  - `895a73b feat: user language preference — dynamic agent output language`
+  - `dd39fb7 feat: debate UX — thinking indicators, moderator card, markdown rendering, stream error fix`
+  - `64e58d3 Reuse paper embeddings by source and content hash`
+  - `ca91061 Clean repo structure and converge canonical imports`
+  - `e56f4b9 Restore local review streaming and citations`
 
 ## Product State
 
-Council is currently a working Next.js app for AI-assisted academic paper review.
+Council is a working Next.js 15 app for AI-assisted academic paper review.
 
-The app supports:
+**Tech stack:** Next.js 15 App Router, React 18, PostgreSQL (Docker `cap_postgres` port 5433), SSE streaming, Tailwind v4, shadcn/ui.
 
-- landing page review entry by arXiv ID
-- landing page PDF upload handoff into `/analyze`
-- authenticated dashboard and reviews list
-- saved review navigation through `/analyze?session=<id>`
-- restored saved review display from PostgreSQL
-- initial running-session resume path
-- reviewer debate timeline
-- comparison/map views
-- evidence/tool cards
-- right-side paper/source panel
-- chat with paper for saved sessions that have an attached paper library
-- API key and Stripe-related routes
-- workspace-aware sessions, API keys, team templates, and upload metadata
+**Core features working:**
 
-## Recently Completed
-
-### Repository Structure Cleanup and Namespace Convergence
-
-Completed in the 2026-05-01 work:
-
-- Moved static architecture artifacts under `docs/architecture/`.
-- Moved design-system and sidecar project material under `references/`.
-- Removed committed local build/debug artifacts from the repo root and tightened `.gitignore`.
-- Removed top-level `src/lib` compatibility wrapper files after migrating imports to canonical module paths:
-  - `src/lib/core/*`
-  - `src/lib/db/*`
-  - `src/lib/llm/*`
-  - `src/lib/prompts/*`
-  - `src/lib/agents/*`
-- Removed legacy redirect-only API namespaces:
-  - `src/app/api/council/*`
-  - `src/app/api/v1/*`
-- Kept canonical API namespaces:
-  - internal app/runtime routes under `src/app/api/sessions/*`
-  - public API routes under `src/app/api/public/v1/*`
-- Updated Playwright and runtime tests to target the canonical namespaces.
-- Updated `tsconfig.json` so `references/` and `docs/` stay outside TypeScript compilation.
-
-Important files:
-
-- `tsconfig.json`
-- `.gitignore`
-- `PROJECT_TREE.md`
-- `src/app/api/sessions/`
-- `src/app/api/public/v1/`
-- `src/lib/core/`
-- `src/lib/db/`
-- `src/lib/llm/`
-- `src/lib/prompts/`
-
-Validation run:
-
-- `npm run build` passed after the namespace and wrapper cleanup.
-
-### Saved Review Restore
-
-Completed in the 2026-04-30 work:
-
-- Added explicit restore service and hydrator layers.
-- Saved sessions can be loaded from dashboard/reviews into `/analyze?session=<id>`.
-- Persisted turns, conclusions, and evidence are rebuilt into the frontend discussion session.
-- Running sessions have an initial resume/reconnect path.
-- Last opened session convenience state exists on the client, while PostgreSQL remains the real source of truth.
-
-Important files:
-
-- `src/lib/services/council-session-service.ts`
-- `src/lib/services/council-session-hydrator.ts`
-- `src/lib/services/council-session-restore.ts`
-- `src/hooks/use-council-review.ts`
-- `src/app/analyze/page.tsx`
-- `tests/current-ui-flow.spec.ts`
-
-### Latest UI Flow Polish
-
-Committed as `6ae0f8f`.
-
-Completed:
-
-- Reviews page has search and status filters.
-- Reviews page includes `Failed` filtering.
-- Reviews can be deleted from the list.
-- Delete now checks the backend response before removing the row.
-- Delete failure shows an inline error instead of silently failing.
-- Playwright test now targets the exact `Reviews` navigation link.
-- Playwright test covers landing page PDF upload handoff to `/analyze`.
-
-Important files:
-
-- `src/app/home/reviews/page.tsx`
-- `tests/current-ui-flow.spec.ts`
+- arXiv ID and PDF upload entry via `/analyze`
+- Multi-agent debate (Round 1 + optional Round 2) with SSE streaming
+- Moderator synthesis rendered as structured conclusion card (confidence, consensus, veto, action items, dissent)
+- Agent thinking indicators, activity phrases, between-turn status
+- Honest ingest progress stepper during paper embedding
+- Evidence citations: inline hover tooltips, source panel scroll, clickable chips
+- EvidenceAnnotatedMarkdown with inline `**bold**`, `*italic*`, `` `code` ``
+- Saved session restore and resume via PostgreSQL
+- Dashboard, reviews list with search/filter/delete
+- Right-side source panel + paper chat
+- Share (public/private) and PDF export
+- API keys, Stripe-related routes
+- Workspace-aware sessions, team templates, uploaded file metadata
+- User language preference: `en / zh-TW / zh-CN / ja / ko`
 
 ## Recently Completed
 
-### Anonymous Local Review Streaming Fix
+### User Language Preference (`895a73b`)
 
-Completed in the 2026-05-01 work:
-
-- Fixed anonymous review ownership on local `npm start` / production-mode localhost.
-- Anonymous session cookies are no longer marked `Secure` when the configured app URL is localhost, `127.0.0.1`, or `::1`.
-- This restores the flow where `/api/papers/upload` or `/api/sessions` creates an anonymous session and `/api/sessions/{id}/run` can pass ownership checks on `http://localhost:3001`.
-- Verified a real anonymous `/run` SSE stream emits:
-  - `session_start`
-  - `round_start`
-  - `turn_start`
-  - `turn_delta`
-  - `turn_done`
-  - `moderator_start`
-  - `moderator_delta`
-  - `conclusion`
-  - `session_done`
+- `users.preferred_language` column added via `ALTER TABLE IF NOT EXISTS` (auto-migrates on next boot).
+- `AccountContext` carries `preferredLanguage`; `ensureUserAccountByEmail` reads and returns it.
+- `GET /api/me` returns current user profile including language.
+- `PATCH /api/me` updates language (validates against supported list).
+- `/api/sessions/[id]/run` reads the authenticated user's `preferredLanguage` and passes it into `CouncilRunOptions`.
+- `buildSeatRuntimePrompt`, `buildRound1Prompt`, `buildBoundedRound2Prompt`, `buildModeratorSystemPrompt` all accept and inject the language instruction when non-English.
+- Language selector dropdown in home sidebar footer (collapses when sidebar is collapsed).
 
 Important files:
-
-- `src/lib/core/council-access.ts`
-- `src/app/api/sessions/[id]/run/route.ts`
-- `src/__tests__/council-access.test.ts`
-
-### Citation Marker and RAG Source Reliability
-
-Completed in the 2026-05-01 work:
-
-- `CouncilEvidenceSource` and frontend `SourceRef` now support optional `marker`, such as `[1]`.
-- RAG evidence parsing can read numbered evidence blocks and preserve:
-  - marker
-  - title/label
-  - URL
-  - snippet
-- live `tool_result` events preserve marker data.
-- saved-session hydration preserves marker data.
-- reviewer text containing `[1]` can hover directly to that source, instead of relying only on sentence similarity.
-- source panel displays marker labels such as `[1] Attention Is All You Need`.
-- Reviewer seats with a paper `library_id` now preload a constrained `rag_query` before the model writes its turn, instead of relying on the model to voluntarily call the tool.
-- The preloaded RAG path emits normal `tool_call` and `tool_result` SSE events and persists normal `council_evidence.source_refs`.
-- If the model receives valid source refs but fails to cite them in the final Evidence section, the saved turn now appends citation bullets from the retrieved refs.
-
-Important files:
-
+- `src/lib/db/account-db.ts`
+- `src/lib/core/council-types.ts`
 - `src/lib/core/council.ts`
 - `src/lib/prompts/council-prompts.ts`
-- `src/lib/evidence-annotations.ts`
+- `src/lib/prompts/council-bounded-prompts.ts`
+- `src/app/api/me/route.ts`
+- `src/app/api/sessions/[id]/run/route.ts`
+- `src/app/home/layout.tsx`
+
+### Debate UX — Thinking Indicators, Moderator Card, Markdown, Stream Error Fix (`dd39fb7`)
+
+- `ThinkingDots` component: 3 animated dots + role-specific cycling phrase while agent has no text yet.
+- `AgentRoster`: active agent badge + activity phrase in the timeline header.
+- `BetweenTurnStatus`: "X is preparing their response…" shown between completed turns.
+- `IngestProgress`: honest 3-step stepper animation during paper ingestion (Fetching → Embedding → Preparing).
+- `ModeratorConclusion`: Moderator's JSON output rendered as structured card — confidence badge, summary, consensus (green), veto (red), numbered action items with priority badges, dissent table.
+- `EvidenceAnnotatedMarkdown`: inline `**bold**`, `*italic*`, `***bold-italic***`, `` `code` `` rendering via regex pass before block rendering.
+- `streamErrored` guard in `use-council-review.ts`: prevents `onDone` from overwriting `phase='error'` after a Gemini 503 or other stream error. Applied to both `start()` and `resumeSession()`.
+- All incomplete messages marked `isComplete: true` on stream close so thinking bubbles always clear.
+- Playwright `council-runtime.spec.ts`: fixed 3 failing tests by handling `ensureAccountSchema` CREATE TABLE SQL in mock DB. Now 15/15 passing.
+
+Important files:
+- `src/components/council/agent-message.tsx`
+- `src/components/council/discussion-timeline.tsx`
 - `src/components/council/evidence-annotated-markdown.tsx`
-- `src/components/council/source-panel.tsx`
+- `src/components/council/review-setup-panel.tsx`
+- `src/components/council/moderator-conclusion.tsx` (new)
 - `src/hooks/use-council-review.ts`
-- `src/lib/services/council-session-hydrator.ts`
+- `tests/council-runtime.spec.ts`
 
-Validation run:
+### Paper Ingest Deduplication and Embedding Reuse (`64e58d3`)
 
-- `npm run build` passed.
-- `npx jest src/__tests__/council-access.test.ts --runInBand` passed.
-- `npx jest src/__tests__/council-prompts.test.ts src/__tests__/council-session-hydrator.test.ts --runInBand` passed.
-- Live `next start` verification on localhost with an anonymous session passed.
-- Live citation verification produced `tool_result.sourceRefs`, persisted `council_evidence.source_refs`, and saved final reviewer Evidence text citing `https://arxiv.org/pdf/1706.03762`.
+- `ingestPaper()` computes `content_hash` and checks for an existing paper by `source_url + content_hash` before re-embedding.
+- Existing embeddings are reused; new `libraryId` causes the document to be retagged into the new namespace.
+- Fallback match by `source_url + content` for older rows; hash backfilled.
 
-Known test gap:
+Important files:
+- `src/lib/paper-ingest.ts`
 
-- `npx playwright test tests/council-runtime.spec.ts` still has 3 failures because the test DB mock does not handle the newer account schema bootstrap SQL from `ensureAccountSchema`.
-- The failing runtime tests fail before the citation code path and should be fixed by updating the mock schema handling, not by changing runtime behavior.
+### RAG_ALLOW_GEMINI_FALLBACK
 
-## Known Remaining Product Work
-
-These are still future work, not the latest active task:
-
-- formal paper asset model:
-  - `paper_assets`
-  - `paper_asset_sources`
-  - `libraries`
-  - `library_documents`
-- stronger migration/backfill from legacy email ownership
-- background job/worker execution instead of frontend-owned SSE lifecycle
-- audit, deletion, export, retention, and recovery primitives
-- billing entitlement model
-- Gemini provider context cache and lifecycle cleanup
+- `.env.local` sets `RAG_ALLOW_GEMINI_FALLBACK=0` to prevent Gemini synthesis on non-council RAG paths.
 
 ## Current Verification Baseline
 
-Last known passing checks:
+Last known passing:
+- `npm run build` ✓
+- `npx playwright test tests/council-runtime.spec.ts` — 15/15 ✓
+- `npx jest src/__tests__/paper-ingest.test.ts --runInBand` ✓
+- `npx jest src/__tests__/council-access.test.ts --runInBand` ✓
+- `npx jest src/__tests__/council-prompts.test.ts src/__tests__/council-session-hydrator.test.ts --runInBand` ✓
 
-- `npm run build`
-- `npx jest src/__tests__/council-access.test.ts --runInBand`
-- `npx jest src/__tests__/council-prompts.test.ts src/__tests__/council-session-hydrator.test.ts --runInBand`
+## Known Remaining Work
 
-Last known partial check:
+**P0 — quality / reliability:**
+- Async/background embedding pipeline (currently blocks the request path on first ingest)
+- Retry/fallback when Gemini 503s during a debate turn (currently shows error banner)
 
-- `npx playwright test tests/council-runtime.spec.ts` has 12 passing and 3 failing due to account schema SQL missing from the test DB mock.
+**P1 — product features:**
+- Semantic Scholar paper search integration
+- Multi-paper comparison table
+- Review history / project grouping
 
-## Files Kept Outside This Status File
+**P2 — infrastructure:**
+- Formal paper asset model (`paper_assets`, `libraries`, `library_documents`)
+- Background job execution instead of frontend-owned SSE lifecycle
+- Billing entitlement model
+- Audit, deletion, export, retention primitives
 
-These are not progress logs and should remain:
+**P3 — i18n:**
+- Full UI internationalization (`next-intl` or `react-i18next`)
+- Currently only agent output language is dynamic; all UI labels remain English
 
-- `PRODUCT_SPEC.md` - product shape and original spec
-- `COMMIT_GUIDE.md` - commit workflow notes
-- `CLAUDE.md` - project/agent context notes
+## Files Outside This Status File
 
-## Practical Next Step
-
-Do not start the large paper asset or billing work yet.
-
-The next useful task is to stabilize the broader test baseline after the repository cleanup:
-
-1. Fix the `tests/council-runtime.spec.ts` account-schema DB mock gap.
-2. Run the broader unit and UI checks again against the canonical `src/lib/*` and API namespace layout.
-3. Decide whether the deleted roadmap/planning Markdown files should be permanently removed or restored.
+- `PRODUCT_SPEC.md` — product shape and original spec
+- `COMMIT_GUIDE.md` — commit workflow notes
+- `CLAUDE.md` — project/agent context notes
