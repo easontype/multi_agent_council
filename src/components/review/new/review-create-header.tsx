@@ -1,6 +1,5 @@
 'use client'
 
-import { ReviewStatPill } from '../review-primitives'
 import { heroGradientStyle, reviewTheme, sectionEyebrowStyle } from '../review-theme'
 
 interface ReviewCreateHeaderProps {
@@ -20,12 +19,12 @@ export function ReviewCreateHeader({ hasSource, activeCount, rounds }: ReviewCre
         flexShrink: 0,
       }}
     >
-      <div style={{ marginBottom: 18 }}>
+      <div>
         <div style={sectionEyebrowStyle({ marginBottom: 8 })}>
           New Review
         </div>
         <h1 style={{
-          margin: '0 0 8px',
+          margin: 0,
           fontSize: 34,
           lineHeight: 1,
           letterSpacing: '-0.04em',
@@ -34,21 +33,6 @@ export function ReviewCreateHeader({ hasSource, activeCount, rounds }: ReviewCre
         }}>
           Stage a paper, shape the panel, then launch the debate.
         </h1>
-        <p style={{
-          margin: 0,
-          maxWidth: 780,
-          fontSize: 14.5,
-          lineHeight: 1.7,
-          color: reviewTheme.colors.muted,
-        }}>
-          This page is only for creating the review. Once the session starts, Council moves you into the dedicated workspace for live debate, evidence inspection, and export.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <ReviewStatPill label="Paper" value={hasSource ? 'Staged' : 'Required'} />
-        <ReviewStatPill label="Agents" value={String(activeCount)} />
-        <ReviewStatPill label="Rounds" value={`${rounds}`} />
       </div>
       <style>{`
         @media (max-width: 900px) {
