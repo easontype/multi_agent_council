@@ -57,6 +57,7 @@ export interface AgentMessage {
   timestamp: Date
   blocks: ContentBlock[]
   isComplete: boolean
+  responds_to_turn_id?: string | null
 }
 
 export interface SourceRef extends CouncilEvidenceSource {

@@ -126,6 +126,7 @@ export async function ensureCouncilSchema() {
         ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_completed_at TIMESTAMPTZ;
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS section_heading TEXT;
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS char_offset INTEGER;
+        ALTER TABLE council_turns ADD COLUMN IF NOT EXISTS responds_to_turn_id TEXT REFERENCES council_turns(id) ON DELETE SET NULL;
       `);
     })().catch((error) => {
       councilSchemaReady = null;
@@ -331,6 +332,7 @@ export function mapTurnRow(row: Record<string, unknown>): CouncilTurn {
     input_tokens: Number(row.input_tokens ?? 0),
     output_tokens: Number(row.output_tokens ?? 0),
     created_at: String(row.created_at ?? ""),
+    responds_to_turn_id: row.responds_to_turn_id != null ? String(row.responds_to_turn_id) : null,
   };
 }
 
@@ -447,12 +449,19 @@ export async function finalizeEvidenceEntry(
 export async function saveTurn(turn: Omit<CouncilTurn, "id" | "created_at">): Promise<CouncilTurn> {
   const id = nanoid();
   const { rows } = await db.query(
-    `INSERT INTO council_turns (id, session_id, round, role, model, content, input_tokens, output_tokens)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO council_turns (id, session_id, round, role, model, content, input_tokens, output_tokens, responds_to_turn_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
-    [id, turn.session_id, turn.round, turn.role, turn.model, turn.content, turn.input_tokens, turn.output_tokens]
+    [id, turn.session_id, turn.round, turn.role, turn.model, turn.content, turn.input_tokens, turn.output_tokens, turn.responds_to_turn_id ?? null]
   );
   return mapTurnRow(rows[0] as Record<string, unknown>);
+}
+
+export async function updateTurnRespondsTo(turnId: string, respondsToTurnId: string): Promise<void> {
+  await db.query(
+    `UPDATE council_turns SET responds_to_turn_id = $1 WHERE id = $2`,
+    [respondsToTurnId, turnId]
+  );
 }
 
 export async function saveConclusion(data: Omit<CouncilConclusion, "id" | "created_at">): Promise<CouncilConclusion> {

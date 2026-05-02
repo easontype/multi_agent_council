@@ -344,6 +344,7 @@ export function EvidenceAnnotatedMarkdown({
     annotation: EvidenceAnnotation
     anchorRect: DOMRect
   } | null>(null)
+  const [showUncited, setShowUncited] = useState(false)
 
   const handleCitationClick = useCallback((annotation: EvidenceAnnotation, rect: DOMRect) => {
     setActivePopover((prev) =>
@@ -365,6 +366,29 @@ export function EvidenceAnnotatedMarkdown({
         wordBreak: 'break-word',
       }}
     >
+      {/* Uncited claims toggle — only shown when sourceRefs exist */}
+      {sourceRefs.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+          <button
+            type="button"
+            onClick={() => setShowUncited((v) => !v)}
+            title={showUncited ? 'Hide uncited markers' : 'Show uncited paragraphs'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '2px 7px', borderRadius: 5,
+              border: `1px solid ${showUncited ? '#d4d4d8' : '#e4e4e7'}`,
+              background: showUncited ? '#f4f4f5' : 'transparent',
+              color: showUncited ? '#52525b' : '#a1a1aa',
+              fontSize: 10, fontWeight: 600, cursor: 'pointer',
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+            }}
+          >
+            <span style={{ width: 8, height: 8, borderLeft: `2px solid ${showUncited ? '#71717a' : '#d4d4d8'}`, display: 'inline-block', flexShrink: 0 }} />
+            Uncited
+          </button>
+        </div>
+      )}
+
       {blocks.map((block, index) => {
         if (block.type === 'heading') {
           return (
@@ -391,13 +415,25 @@ export function EvidenceAnnotatedMarkdown({
           )
         }
 
+        const hasAnnotations = showUncited && buildEvidenceAnnotations(block.text, sourceRefs).length === 0
         return (
-          <p key={`paragraph-${index}`} style={{ margin: '0 0 10px' }}>
+          <p
+            key={`paragraph-${index}`}
+            style={{
+              margin: '0 0 10px',
+              ...(hasAnnotations ? {
+                borderLeft: '2px solid #d4d4d8',
+                paddingLeft: 8,
+                marginLeft: -10,
+              } : {}),
+            }}
+            title={hasAnnotations ? 'No citation supporting this paragraph' : undefined}
+          >
             <AnnotatedInlineText
               text={block.text}
               sourceRefs={sourceRefs}
               onCitationClick={handleCitationClick}
-              color={color}
+              color={hasAnnotations ? '#71717a' : color}
             />
           </p>
         )

@@ -375,6 +375,14 @@ export function DebateMap({ session }: DebateMapProps) {
       })
     }
 
+    // Build a map from message id → agent seatRole for responds_to_turn_id lookups
+    const msgIdToRole = new Map<string, string>()
+    for (const msg of session.messages) {
+      if (msg.round !== 1) continue
+      const agent = session.agents.find((a) => a.id === msg.agentId)
+      if (agent) msgIdToRole.set(msg.id, agent.seatRole)
+    }
+
     const edgeList: EdgeData[] = []
 
     for (const msg of round2Messages) {
@@ -385,14 +393,21 @@ export function DebateMap({ session }: DebateMapProps) {
       const challengeText = extractSection(text, 'Challenge')
       const stanceText = extractSection(text, 'Stance')
       const changed = parseStanceChanged(text)
-      const targets = parseChallengeTargets(challengeText, allRoles).filter((r) => r !== agent.seatRole)
+
+      // Prefer DB-backed responds_to_turn_id; fall back to text parsing
+      let targets: string[]
+      if (msg.responds_to_turn_id) {
+        const targetRole = msgIdToRole.get(msg.responds_to_turn_id)
+        targets = targetRole ? [targetRole] : []
+      } else {
+        targets = parseChallengeTargets(challengeText, allRoles).filter((r) => r !== agent.seatRole)
+      }
 
       nodeMap.set(agent.seatRole, {
         agent, changed, stanceText, challengeText, fullText: text, targets,
       })
 
       for (const target of targets) {
-        // Avoid duplicate edges
         if (!edgeList.find((e) => e.from === agent.seatRole && e.to === target)) {
           edgeList.push({ from: agent.seatRole, to: target, challengeText, fromAgent: agent })
         }
@@ -400,7 +415,7 @@ export function DebateMap({ session }: DebateMapProps) {
     }
 
     return { nodes: Array.from(nodeMap.values()), edges: edgeList }
-  }, [round2Messages, nonModAgents, allRoles, session.agents])
+  }, [round2Messages, nonModAgents, allRoles, session.agents, session.messages])
 
   const positions = useMemo(() => {
     const count = Math.min(nodes.length, 5)

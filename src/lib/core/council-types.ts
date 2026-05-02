@@ -61,6 +61,7 @@ export interface CouncilTurn {
   input_tokens: number;
   output_tokens: number;
   created_at: string;
+  responds_to_turn_id?: string | null;
 }
 
 export interface DissentItem {

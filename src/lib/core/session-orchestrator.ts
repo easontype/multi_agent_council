@@ -9,6 +9,7 @@ import {
   setSessionFinished,
   clearSessionArtifacts,
   isSessionStale,
+  updateTurnRespondsTo,
 } from "../db/council-db";
 import { buildRound1Prompt, buildBoundedRound2Prompt } from "../prompts/council-prompts";
 import { DEFAULT_GEMMA_MODEL } from "../llm/gemma-models";
@@ -32,6 +33,17 @@ const createCouncilDiscordReporter = (_opts: unknown) => ({
   handleEvent: (_event: unknown) => {},
   flush: async () => {},
 });
+
+function findChallengeTargetRole(content: string, allRoles: string[], selfRole: string): string | null {
+  const sectionMatch = content.match(/\*\*Challenge\*\*\s*[-–—]?\s*([\s\S]*?)(?=\n\*\*[A-Z]|$)/i);
+  if (!sectionMatch) return null;
+  const lower = sectionMatch[1].toLowerCase();
+  return allRoles.find(
+    (role) =>
+      role !== selfRole &&
+      role.toLowerCase().split(/\s+/).some((word) => word.length > 3 && lower.includes(word)),
+  ) ?? null;
+}
 
 const DEFAULT_STALE_AFTER_MS = 15 * 60 * 1000;
 const HEARTBEAT_WRITE_INTERVAL_MS = 1_500;
@@ -202,6 +214,7 @@ export async function runCouncilSession(
           );
 
           // Sequential: each seat sees all Round 2 turns that came before it.
+          const allRoles = session.seats.map((s) => s.role);
           for (const seat of session.seats) {
             if (doneRoles.has(seat.role)) continue;
             const round2Prompt = buildBoundedRound2Prompt(
@@ -210,6 +223,17 @@ export async function runCouncilSession(
             const turn = await runSeatTurn(
               session, seat, 2, round2Prompt, emitEvent, touchHeartbeat, preferredLanguage,
             );
+
+            // Persist which Round 1 turn this seat primarily responds to.
+            const targetRole = findChallengeTargetRole(turn.content, allRoles, seat.role);
+            if (targetRole) {
+              const r1Turn = round1Turns.find((t) => t.role === targetRole);
+              if (r1Turn) {
+                await updateTurnRespondsTo(turn.id, r1Turn.id).catch(() => {});
+                turn.responds_to_turn_id = r1Turn.id;
+              }
+            }
+
             round2TurnsSoFar.push(turn);
             allTurns.push(turn);
           }
