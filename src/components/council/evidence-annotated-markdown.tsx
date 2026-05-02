@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { FileText, GraduationCap, Globe } from 'lucide-react'
 import type { SourceRef } from '@/types/council'
 import {
@@ -8,11 +8,13 @@ import {
   getSourceRefDisplayUrl,
   type EvidenceAnnotation,
 } from '@/lib/evidence-annotations'
+import { CitationPopover } from './citation-popover'
 
 interface EvidenceAnnotatedMarkdownProps {
   content: string
   sourceRefs: SourceRef[]
   onSourceClick?: (label: string) => void
+  onLocateInDocument?: (docId: string, chunkIndex: number) => void
   color?: string
   fontSize?: number
 }
@@ -236,12 +238,12 @@ function renderInlineMd(text: string, color: string): React.ReactNode[] {
 function AnnotatedInlineText({
   text,
   sourceRefs,
-  onSourceClick,
+  onCitationClick,
   color,
 }: {
   text: string
   sourceRefs: SourceRef[]
-  onSourceClick?: (label: string) => void
+  onCitationClick: (annotation: EvidenceAnnotation, rect: DOMRect) => void
   color: string
 }) {
   const annotations = useMemo(() => buildEvidenceAnnotations(text, sourceRefs), [text, sourceRefs])
@@ -251,7 +253,11 @@ function AnnotatedInlineText({
     <>
       {segments.map((segment, index) => (
         segment.annotation ? (
-          <EvidenceHoverSpan key={`${segment.annotation.id}-${index}`} annotation={segment.annotation} onSourceClick={onSourceClick}>
+          <EvidenceHoverSpan
+            key={`${segment.annotation.id}-${index}`}
+            annotation={segment.annotation}
+            onCitationClick={onCitationClick}
+          >
             {segment.text}
           </EvidenceHoverSpan>
         ) : (
@@ -264,29 +270,26 @@ function AnnotatedInlineText({
 
 function EvidenceHoverSpan({
   annotation,
-  onSourceClick,
+  onCitationClick,
   children,
 }: {
   annotation: EvidenceAnnotation
-  onSourceClick?: (label: string) => void
+  onCitationClick: (annotation: EvidenceAnnotation, rect: DOMRect) => void
   children: string
 }) {
   const [hovered, setHovered] = useState(false)
-  const clickable = Boolean(onSourceClick || annotation.sourceRef.uri)
+  const spanRef = useRef<HTMLSpanElement>(null)
   const config = getSourceConfig(annotation.sourceType)
   const { Icon } = config
   const underlineColor = annotation.isHeuristic ? config.heuristicColor : config.confirmedColor
 
   const handleClick = () => {
-    if (onSourceClick) {
-      onSourceClick(annotation.sourceRef.label)
-    } else if (annotation.sourceRef.uri) {
-      window.open(annotation.sourceRef.uri, '_blank', 'noopener')
+    if (spanRef.current) {
+      onCitationClick(annotation, spanRef.current.getBoundingClientRect())
     }
   }
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (!clickable) return
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       handleClick()
@@ -300,8 +303,9 @@ function EvidenceHoverSpan({
       onMouseLeave={() => setHovered(false)}
     >
       <span
-        role={clickable ? 'link' : undefined}
-        tabIndex={clickable ? 0 : -1}
+        ref={spanRef}
+        role="button"
+        tabIndex={0}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         style={{
@@ -312,7 +316,7 @@ function EvidenceHoverSpan({
           textDecorationColor: underlineColor,
           background: hovered ? config.hoverBg : 'transparent',
           borderRadius: 3,
-          cursor: clickable ? 'pointer' : 'help',
+          cursor: 'pointer',
           transition: 'background 100ms ease',
         }}
       >
@@ -330,11 +334,27 @@ function EvidenceHoverSpan({
 export function EvidenceAnnotatedMarkdown({
   content,
   sourceRefs,
-  onSourceClick,
+  onSourceClick: _onSourceClick,
+  onLocateInDocument,
   color = '#3f3f46',
   fontSize = 14,
 }: EvidenceAnnotatedMarkdownProps) {
   const blocks = useMemo(() => parseBlocks(content), [content])
+  const [activePopover, setActivePopover] = useState<{
+    annotation: EvidenceAnnotation
+    anchorRect: DOMRect
+  } | null>(null)
+
+  const handleCitationClick = useCallback((annotation: EvidenceAnnotation, rect: DOMRect) => {
+    setActivePopover((prev) =>
+      prev?.annotation.id === annotation.id ? null : { annotation, anchorRect: rect }
+    )
+  }, [])
+
+  const handleLocate = useCallback((docId: string, chunkIndex: number) => {
+    setActivePopover(null)
+    onLocateInDocument?.(docId, chunkIndex)
+  }, [onLocateInDocument])
 
   return (
     <div
@@ -359,7 +379,12 @@ export function EvidenceAnnotatedMarkdown({
             <ul key={`list-${index}`} style={{ margin: '8px 0 10px', paddingLeft: 20 }}>
               {block.items.map((item, itemIndex) => (
                 <li key={`list-item-${index}-${itemIndex}`} style={{ marginBottom: 4 }}>
-                  <AnnotatedInlineText text={item} sourceRefs={sourceRefs} onSourceClick={onSourceClick} color={color} />
+                  <AnnotatedInlineText
+                    text={item}
+                    sourceRefs={sourceRefs}
+                    onCitationClick={handleCitationClick}
+                    color={color}
+                  />
                 </li>
               ))}
             </ul>
@@ -368,10 +393,23 @@ export function EvidenceAnnotatedMarkdown({
 
         return (
           <p key={`paragraph-${index}`} style={{ margin: '0 0 10px' }}>
-            <AnnotatedInlineText text={block.text} sourceRefs={sourceRefs} onSourceClick={onSourceClick} color={color} />
+            <AnnotatedInlineText
+              text={block.text}
+              sourceRefs={sourceRefs}
+              onCitationClick={handleCitationClick}
+              color={color}
+            />
           </p>
         )
       })}
+      {activePopover && (
+        <CitationPopover
+          annotation={activePopover.annotation}
+          anchorRect={activePopover.anchorRect}
+          onClose={() => setActivePopover(null)}
+          onLocateInDocument={onLocateInDocument ? handleLocate : undefined}
+        />
+      )}
     </div>
   )
 }

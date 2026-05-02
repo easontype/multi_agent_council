@@ -9,6 +9,7 @@ import { DebateMap } from './debate-map'
 interface DiscussionTimelineProps {
   session: DiscussionSession
   onSourceClick?: (label: string) => void
+  onLocateInDocument?: (docId: string, chunkIndex: number) => void
 }
 
 function RosterAvatar({ agent, active }: { agent: Agent; active: boolean }) {
@@ -303,7 +304,7 @@ function SessionAlerts({ alerts }: { alerts: import('@/types/council').SessionAl
   )
 }
 
-export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelineProps) {
+export function DiscussionTimeline({ session, onSourceClick, onLocateInDocument }: DiscussionTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [viewMode, setViewMode] = useState<'timeline' | 'compare' | 'map'>('timeline')
 
@@ -417,6 +418,7 @@ export function DiscussionTimeline({ session, onSourceClick }: DiscussionTimelin
                           agent={agent}
                           sourceRefs={agentRefs}
                           onSourceClick={onSourceClick}
+                          onLocateInDocument={onLocateInDocument}
                         />
                       )
                     })}
