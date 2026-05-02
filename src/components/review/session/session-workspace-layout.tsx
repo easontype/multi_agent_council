@@ -4,6 +4,7 @@ import { CompareView } from '@/components/council/compare-view'
 import { DebateMap } from '@/components/council/debate-map'
 import { DiscussionTimeline } from '@/components/council/discussion-timeline'
 import { ReviewSidebar } from '@/components/council/review-sidebar'
+import type { SourceReaderTarget } from '@/components/council/source-reader-panel'
 import { SessionTopBar } from './session-top-bar'
 import type { ReviewPhase } from '@/hooks/use-council-review'
 import type { DiscussionSession } from '@/types/council'
@@ -17,7 +18,8 @@ interface SessionWorkspaceLayoutProps {
   canResume: boolean
   sourceSummary: string
   activeSourceLabel: string | null
-  sidebarTab: 'citations' | 'flow' | 'chat'
+  activeDocumentTarget: SourceReaderTarget | null
+  sidebarTab: 'reader' | 'citations' | 'flow' | 'chat'
   currentView: 'timeline' | 'compare' | 'map'
   isPublic: boolean
   shareLoading: boolean
@@ -26,8 +28,9 @@ interface SessionWorkspaceLayoutProps {
   activeCount: number
   rounds: 1 | 2
   onSourceClick: (label: string) => void
-  onTabChange: (tab: 'citations' | 'flow' | 'chat') => void
+  onTabChange: (tab: 'reader' | 'citations' | 'flow' | 'chat') => void
   onViewChange: (view: 'timeline' | 'compare' | 'map') => void
+  onLocateInDocument: (docId: string, chunkIndex: number) => void
   onRerun: () => void
   onDuplicateAsNew: () => void
   onExport: () => void
@@ -39,10 +42,12 @@ function WorkspaceCanvas({
   session,
   currentView,
   onSourceClick,
+  onLocateInDocument,
 }: {
   session: DiscussionSession
   currentView: 'timeline' | 'compare' | 'map'
   onSourceClick: (label: string) => void
+  onLocateInDocument: (docId: string, chunkIndex: number) => void
 }) {
   if (currentView === 'compare') {
     return <CompareView session={session} onSourceClick={onSourceClick} />
@@ -52,7 +57,7 @@ function WorkspaceCanvas({
     return <DebateMap session={session} />
   }
 
-  return <DiscussionTimeline session={session} onSourceClick={onSourceClick} />
+  return <DiscussionTimeline session={session} onSourceClick={onSourceClick} onLocateInDocument={onLocateInDocument} />
 }
 
 export function SessionWorkspaceLayout({
@@ -62,6 +67,7 @@ export function SessionWorkspaceLayout({
   canResume,
   sourceSummary,
   activeSourceLabel,
+  activeDocumentTarget,
   sidebarTab,
   currentView,
   isPublic,
@@ -73,6 +79,7 @@ export function SessionWorkspaceLayout({
   onSourceClick,
   onTabChange,
   onViewChange,
+  onLocateInDocument,
   onRerun,
   onDuplicateAsNew,
   onExport,
@@ -162,6 +169,7 @@ export function SessionWorkspaceLayout({
                 session={session}
                 currentView={currentView}
                 onSourceClick={onSourceClick}
+                onLocateInDocument={onLocateInDocument}
               />
             </div>
           </section>
@@ -262,8 +270,10 @@ export function SessionWorkspaceLayout({
               <ReviewSidebar
                 session={session}
                 activeSourceLabel={activeSourceLabel}
+                activeDocumentTarget={activeDocumentTarget}
                 tab={sidebarTab}
                 onTabChange={onTabChange}
+                onLocateInDocument={onLocateInDocument}
               />
             </div>
           </aside>

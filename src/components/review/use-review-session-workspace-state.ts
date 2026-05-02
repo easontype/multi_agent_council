@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
+import type { SourceReaderTarget } from '@/components/council/source-reader-panel'
 import type { CouncilSession } from '@/lib/core/council-types'
 import { clearLastOpenedCouncilSessionId, saveLastOpenedCouncilSessionId } from '@/lib/last-opened-session'
 import { buildDraftPrefillFromSession, extractArxivIdFromSource, extractSourceUrl, saveReviewDraftPrefill } from '@/lib/review-draft-prefill'
@@ -37,7 +38,8 @@ export function useReviewSessionWorkspaceState({
   const [shareCopied, setShareCopied] = useState(false)
   const [rerunLoading, setRerunLoading] = useState(false)
   const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
-  const [sidebarTab, setSidebarTab] = useState<'citations' | 'flow' | 'chat'>('citations')
+  const [activeDocumentTarget, setActiveDocumentTarget] = useState<SourceReaderTarget | null>(null)
+  const [sidebarTab, setSidebarTab] = useState<'reader' | 'citations' | 'flow' | 'chat'>('citations')
   const [workspaceView, setWorkspaceView] = useState<'timeline' | 'compare' | 'map'>('timeline')
   const [restoreSource, setRestoreSource] = useState<'url' | 'local' | null>(null)
   const requestedSessionIdRef = useRef<string | null>(null)
@@ -45,6 +47,11 @@ export function useReviewSessionWorkspaceState({
   const handleSourceClick = useCallback((label: string) => {
     setActiveSourceLabel(label)
     setSidebarTab('citations')
+  }, [])
+
+  const handleLocateInDocument = useCallback((docId: string, chunkIndex: number) => {
+    setActiveDocumentTarget({ docId, chunkIndex })
+    setSidebarTab('reader')
   }, [])
 
   useEffect(() => {
@@ -119,6 +126,7 @@ export function useReviewSessionWorkspaceState({
     if (!session.id || session.id === 'demo-session' || rerunLoading || phase === 'running' || phase === 'ingesting') return
     setRestoreSource(null)
     setActiveSourceLabel(null)
+    setActiveDocumentTarget(null)
     setSidebarTab('citations')
     setWorkspaceView('timeline')
     setRerunLoading(true)
@@ -154,6 +162,7 @@ export function useReviewSessionWorkspaceState({
 
   return {
     activeSourceLabel,
+    activeDocumentTarget,
     isPublic,
     rerunLoading,
     restoreSource,
@@ -172,9 +181,11 @@ export function useReviewSessionWorkspaceState({
     handleCopyShareLink,
     handleDuplicateAsNew,
     handleExport,
+    handleLocateInDocument,
     handleResumeSavedSession,
     handleRerun,
     handleSourceClick,
+    setActiveDocumentTarget,
     setShareAccess,
   }
 }

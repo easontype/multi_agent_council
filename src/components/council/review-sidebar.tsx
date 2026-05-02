@@ -3,22 +3,27 @@
 import { useState } from 'react'
 import { ChatWithPaper } from './chat-with-paper'
 import { DebateMap } from './debate-map'
+import { SourceReaderPanel, type SourceReaderTarget } from './source-reader-panel'
 import { SourcePanel } from './source-panel'
 import type { DiscussionSession } from '@/types/council'
 
 interface ReviewSidebarProps {
   session: DiscussionSession
   activeSourceLabel?: string | null
-  tab?: 'citations' | 'flow' | 'chat'
-  onTabChange?: (tab: 'citations' | 'flow' | 'chat') => void
+  activeDocumentTarget?: SourceReaderTarget | null
+  tab?: 'reader' | 'citations' | 'flow' | 'chat'
+  onTabChange?: (tab: 'reader' | 'citations' | 'flow' | 'chat') => void
+  onLocateInDocument?: (docId: string, chunkIndex: number) => void
 }
 
-export function ReviewSidebar({ session, activeSourceLabel, tab: tabProp, onTabChange }: ReviewSidebarProps) {
-  const [localTab, setLocalTab] = useState<'citations' | 'flow' | 'chat'>('citations')
+export function ReviewSidebar({ session, activeSourceLabel, activeDocumentTarget, tab: tabProp, onTabChange, onLocateInDocument }: ReviewSidebarProps) {
+  const [localTab, setLocalTab] = useState<'reader' | 'citations' | 'flow' | 'chat'>('citations')
   const tab = tabProp ?? localTab
   const setTab = onTabChange ?? setLocalTab
   const hasRound2 = session.messages.some((message) => message.round === 2 && message.isComplete)
+  const hasDocumentTargets = session.sourceRefs.some((ref) => ref.doc_id)
   const tabs = [
+    { key: 'reader' as const, label: 'Reader', disabled: !hasDocumentTargets },
     { key: 'citations' as const, label: 'Citations' },
     { key: 'flow' as const, label: 'Flow', disabled: !hasRound2 },
     { key: 'chat' as const, label: 'Chat' },
@@ -71,7 +76,7 @@ export function ReviewSidebar({ session, activeSourceLabel, tab: tabProp, onTabC
                   cursor: item.disabled ? 'not-allowed' : 'pointer',
                   opacity: item.disabled ? 0.75 : 1,
                 }}
-                title={item.disabled ? 'Available after Round 2 completes' : undefined}
+                title={item.disabled ? (item.key === 'reader' ? 'Available after a document-backed citation appears' : 'Available after Round 2 completes') : undefined}
               >
                 {item.label}
               </button>
@@ -81,8 +86,16 @@ export function ReviewSidebar({ session, activeSourceLabel, tab: tabProp, onTabC
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        {tab === 'citations' ? (
-          <SourcePanel session={session} activeLabel={activeSourceLabel} />
+        {tab === 'reader' ? (
+          <SourceReaderPanel
+            session={session}
+            target={activeDocumentTarget}
+            onSelectTarget={(next) => {
+              if (next.chunkIndex != null) onLocateInDocument?.(next.docId, next.chunkIndex)
+            }}
+          />
+        ) : tab === 'citations' ? (
+          <SourcePanel session={session} activeLabel={activeSourceLabel} onLocateInDocument={onLocateInDocument} />
         ) : tab === 'flow' ? (
           <DebateMap session={session} />
         ) : (

@@ -159,6 +159,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             canResume={canResume}
             sourceSummary={sessionState.sourceSummary}
             activeSourceLabel={sessionState.activeSourceLabel}
+            activeDocumentTarget={sessionState.activeDocumentTarget}
             sidebarTab={sessionState.sidebarTab}
             currentView={sessionState.workspaceView}
             isPublic={sessionState.isPublic}
@@ -170,6 +171,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             onSourceClick={sessionState.handleSourceClick}
             onTabChange={sessionState.setSidebarTab}
             onViewChange={sessionState.setWorkspaceView}
+            onLocateInDocument={sessionState.handleLocateInDocument}
             onRerun={sessionState.handleRerun}
             onDuplicateAsNew={sessionState.handleDuplicateAsNew}
             onExport={sessionState.handleExport}

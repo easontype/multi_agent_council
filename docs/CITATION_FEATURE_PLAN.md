@@ -721,7 +721,7 @@ This plan describes the target citation system well, but the codebase is not sta
 | 1 | done | evidence annotation visual typing, source icons, solid vs dashed underline, tooltip metadata are already implemented |
 | 2 | done | `citation-popover.tsx` exists; click-to-open popover and context fetch are wired |
 | 3-B | partial | current right sidebar has `Sources / Chat`; upgraded `Citations` tab workflow is not integrated yet, but `SourcePanel` foundation exists |
-| 3-C | not started | no source reader tab, no markdown reader route, no anchor scroll workflow |
+| 3-C | partial | right-rail reader exists with markdown fetch + chunk-context fallback, but anchor-level precision and richer reader polish remain |
 | 3-D | partial | `debate-map.tsx` already exists, but not integrated as the planned right-panel `Flow` tab |
 | 4-B | partial | `compare-view.tsx` exists as a comparison surface, but not yet aligned with the planned toggle workflow |
 | 4-C | not started | no citation coverage API or gap-map UI exists |
@@ -792,6 +792,12 @@ This plan describes the target citation system well, but the codebase is not sta
   - documents can now be read through `GET /api/documents/[id]/markdown`
   - chunk `section_heading` / `char_offset` persistence is implemented for successful marker runs
   - remaining work is still real: production marker verification, retry/backfill policy, and reader UI
+- `3-C` first-pass reader integration is now complete:
+  - right sidebar adds a `Reader` tab for document-backed citations
+  - `Locate in document` now routes from citation popover / source cards into the reader tab
+  - marker markdown renders as a full document view when available
+  - chunk-context fallback is shown when marker markdown is unavailable
+  - remaining work: anchor-level chunk precision, richer section navigation, and final reader polish
 - Verification completed:
   - `npm run build`
   - `npx jest --runInBand src/__tests__/council-session-hydrator.test.ts src/__tests__/council-event-reducer.test.ts`

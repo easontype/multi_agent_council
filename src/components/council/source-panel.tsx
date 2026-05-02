@@ -7,6 +7,7 @@ import { getSourceRefDisplayUrl, isVisibleSourceRef } from '@/lib/evidence-annot
 interface SourcePanelProps {
   session: DiscussionSession
   activeLabel?: string | null
+  onLocateInDocument?: (docId: string, chunkIndex: number) => void
 }
 
 function getSourceTypeConfig(sourceType: string | null | undefined) {
@@ -87,7 +88,7 @@ function BookOpenIcon() {
   )
 }
 
-export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
+export function SourcePanel({ session, activeLabel, onLocateInDocument }: SourcePanelProps) {
   const sourceRefs = (session.sourceRefs ?? []).filter(isVisibleSourceRef)
   const isActive = session.status !== 'waiting'
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -223,6 +224,7 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                   const displayUrl = getSourceRefDisplayUrl(ref)
                   const sourceType = getSourceTypeConfig(ref.source_type)
                   const SourceTypeIcon = sourceType.icon
+                  const canOpenReader = Boolean(ref.doc_id && ref.chunk_index != null && onLocateInDocument)
                   const refIsActive = Boolean(activeLabel && (
                     ref.label === activeLabel ||
                     ref.uri === activeLabel ||
@@ -377,11 +379,34 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                         </div>
                       )}
 
-                      {ref.uri && (
-                        <div style={{ fontSize: 11, color: '#355d7a', textDecoration: 'underline' }}>
-                          Open original source
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                        {ref.uri ? (
+                          <div style={{ fontSize: 11, color: '#355d7a', textDecoration: 'underline' }}>
+                            Open original source
+                          </div>
+                        ) : <span />}
+                        {canOpenReader && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              onLocateInDocument?.(ref.doc_id!, ref.chunk_index!)
+                            }}
+                            style={{
+                              border: '1px solid #e7dfd1',
+                              background: '#fff8ec',
+                              color: '#8a6a3d',
+                              borderRadius: 999,
+                              padding: '4px 8px',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Open reader
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
