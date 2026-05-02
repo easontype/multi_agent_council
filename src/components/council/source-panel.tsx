@@ -9,6 +9,34 @@ interface SourcePanelProps {
   activeLabel?: string | null
 }
 
+function getSourceTypeConfig(sourceType: string | null | undefined) {
+  if (sourceType === 'academic') {
+    return {
+      label: 'Academic',
+      color: '#2563eb',
+      bg: '#eff6ff',
+      border: '#bfdbfe',
+      icon: AcademicCapIcon,
+    }
+  }
+  if (sourceType === 'web') {
+    return {
+      label: 'Web',
+      color: '#0d9488',
+      bg: '#f0fdfa',
+      border: '#99f6e4',
+      icon: GlobeIcon,
+    }
+  }
+  return {
+    label: 'Document',
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    icon: FileTextIcon,
+  }
+}
+
 function FileTextIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -17,6 +45,25 @@ function FileTextIcon() {
       <line x1="16" y1="13" x2="8" y2="13" />
       <line x1="16" y1="17" x2="8" y2="17" />
       <polyline points="10 9 9 9 8 9" />
+    </svg>
+  )
+}
+
+function GlobeIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  )
+}
+
+function AcademicCapIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m22 10-10-5L2 10l10 5 10-5z" />
+      <path d="M6 12v5c3 3 9 3 12 0v-5" />
     </svg>
   )
 }
@@ -174,6 +221,8 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {sourceRefs.map((ref, index) => {
                   const displayUrl = getSourceRefDisplayUrl(ref)
+                  const sourceType = getSourceTypeConfig(ref.source_type)
+                  const SourceTypeIcon = sourceType.icon
                   const refIsActive = Boolean(activeLabel && (
                     ref.label === activeLabel ||
                     ref.uri === activeLabel ||
@@ -246,6 +295,25 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                         <span
                           style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: sourceType.color,
+                            background: sourceType.bg,
+                            border: `1px solid ${sourceType.border}`,
+                            borderRadius: 999,
+                            padding: '3px 7px',
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          <SourceTypeIcon />
+                          {sourceType.label}
+                        </span>
+                        <span
+                          style={{
                             fontSize: 10,
                             fontWeight: 600,
                             color: '#71717a',
@@ -270,6 +338,21 @@ export function SourcePanel({ session, activeLabel }: SourcePanelProps) {
                         >
                           Round {ref.round === 99 ? 'Synthesis' : ref.round}
                         </span>
+                        {ref.is_heuristic && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: '#a16207',
+                              background: '#fffbeb',
+                              border: '1px solid #fde68a',
+                              borderRadius: 999,
+                              padding: '3px 7px',
+                            }}
+                          >
+                            Heuristic match
+                          </span>
+                        )}
                         {displayUrl && (
                           <span style={{ fontSize: 10, color: '#71717a' }}>{displayUrl}</span>
                         )}

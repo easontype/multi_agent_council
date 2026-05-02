@@ -233,6 +233,13 @@ export function applyCouncilServerEvent(
         uri: string | null
         snippet: string | null
         marker?: string | null
+        chunk_index?: number | null
+        doc_id?: string | null
+        source_type?: 'local_doc' | 'academic' | 'web' | null
+        similarity_score?: number | null
+        is_heuristic?: boolean
+        authors?: string[] | null
+        year?: number | null
       }>
     ) ?? []
     const agent = findAgentByRole(agents, role)
@@ -272,6 +279,13 @@ export function applyCouncilServerEvent(
         uri: r.uri ?? null,
         snippet: r.snippet ?? null,
         marker: r.marker ?? null,
+        chunk_index: r.chunk_index ?? null,
+        doc_id: r.doc_id ?? null,
+        source_type: r.source_type ?? null,
+        similarity_score: r.similarity_score ?? null,
+        is_heuristic: r.is_heuristic,
+        authors: r.authors ?? null,
+        year: r.year ?? null,
         round: Number(event.round ?? 1),
         agentId: agent.id,
         agentColor: agent.color,

@@ -66,7 +66,21 @@ describe('council-session-hydrator', () => {
           status: 'completed',
           args: { query: 'method details' },
           result: 'Evidence result',
-          source_refs: [{ marker: '[1]', label: 'Paper §3', uri: null, snippet: 'Method section snippet' }],
+          source_refs: [
+            {
+              marker: '[1]',
+              label: 'Paper 3',
+              uri: null,
+              snippet: 'Method section snippet',
+              chunk_index: 4,
+              doc_id: 'doc-1',
+              source_type: 'academic',
+              similarity_score: 0.873,
+              is_heuristic: false,
+              authors: ['Alice Smith', 'Bob Jones'],
+              year: 2024,
+            },
+          ],
           created_at: '2026-04-22T12:01:30.000Z',
           updated_at: '2026-04-22T12:01:40.000Z',
         },
@@ -84,7 +98,16 @@ describe('council-session-hydrator', () => {
       type: 'text',
     })
     expect(hydrated.discussionSession.sourceRefs).toHaveLength(1)
-    expect(hydrated.discussionSession.sourceRefs[0]?.marker).toBe('[1]')
+    expect(hydrated.discussionSession.sourceRefs[0]).toMatchObject({
+      marker: '[1]',
+      chunk_index: 4,
+      doc_id: 'doc-1',
+      source_type: 'academic',
+      similarity_score: 0.873,
+      is_heuristic: false,
+      authors: ['Alice Smith', 'Bob Jones'],
+      year: 2024,
+    })
     expect(hydrated.discussionSession.alerts?.[0]?.message).toContain('moderate')
   })
 

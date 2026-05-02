@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
   let paperTitle: string;
   let paperText: string;
   let paperUrl: string;
+  let sourceType: "local_doc" | "academic" = "local_doc";
+  let markerPdfBuffer: Buffer | undefined;
 
   try {
     if (arxivId) {
@@ -73,10 +75,13 @@ export async function POST(req: NextRequest) {
       paperTitle = fetched.title;
       paperText = fetched.text;
       paperUrl = fetched.url;
+      sourceType = "academic";
+      markerPdfBuffer = fetched.pdfBuffer;
     } else {
       paperTitle = rawTitle!;
       paperText = rawText!;
       paperUrl = "text://inline";
+      sourceType = "local_doc";
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch paper";
@@ -89,6 +94,8 @@ export async function POST(req: NextRequest) {
       text: paperText,
       title: paperTitle,
       sourceUrl: paperUrl,
+      sourceType,
+      pdfBuffer: markerPdfBuffer,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to ingest paper";

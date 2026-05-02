@@ -2,20 +2,27 @@
 
 import { useState } from 'react'
 import { ChatWithPaper } from './chat-with-paper'
+import { DebateMap } from './debate-map'
 import { SourcePanel } from './source-panel'
 import type { DiscussionSession } from '@/types/council'
 
 interface ReviewSidebarProps {
   session: DiscussionSession
   activeSourceLabel?: string | null
-  tab?: 'sources' | 'chat'
-  onTabChange?: (tab: 'sources' | 'chat') => void
+  tab?: 'citations' | 'flow' | 'chat'
+  onTabChange?: (tab: 'citations' | 'flow' | 'chat') => void
 }
 
 export function ReviewSidebar({ session, activeSourceLabel, tab: tabProp, onTabChange }: ReviewSidebarProps) {
-  const [localTab, setLocalTab] = useState<'sources' | 'chat'>('sources')
+  const [localTab, setLocalTab] = useState<'citations' | 'flow' | 'chat'>('citations')
   const tab = tabProp ?? localTab
   const setTab = onTabChange ?? setLocalTab
+  const hasRound2 = session.messages.some((message) => message.round === 2 && message.isComplete)
+  const tabs = [
+    { key: 'citations' as const, label: 'Citations' },
+    { key: 'flow' as const, label: 'Flow', disabled: !hasRound2 },
+    { key: 'chat' as const, label: 'Chat' },
+  ]
 
   return (
     <div
@@ -46,25 +53,25 @@ export function ReviewSidebar({ session, activeSourceLabel, tab: tabProp, onTabC
         </span>
 
         <div style={{ display: 'inline-flex', border: '1px solid #ebebed', borderRadius: 999, overflow: 'hidden', background: '#fff' }}>
-          {([
-            { key: 'sources' as const, label: 'Sources' },
-            { key: 'chat' as const, label: 'Chat' },
-          ]).map((item) => {
+          {tabs.map((item) => {
             const active = tab === item.key
             return (
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setTab(item.key)}
+                onClick={() => !item.disabled && setTab(item.key)}
+                disabled={item.disabled}
                 style={{
                   border: 'none',
                   background: active ? '#111827' : 'transparent',
-                  color: active ? '#fff' : '#71717a',
+                  color: item.disabled ? '#c4c4cc' : active ? '#fff' : '#71717a',
                   padding: '6px 11px',
                   fontSize: 11,
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: item.disabled ? 'not-allowed' : 'pointer',
+                  opacity: item.disabled ? 0.75 : 1,
                 }}
+                title={item.disabled ? 'Available after Round 2 completes' : undefined}
               >
                 {item.label}
               </button>
@@ -74,8 +81,10 @@ export function ReviewSidebar({ session, activeSourceLabel, tab: tabProp, onTabC
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        {tab === 'sources' ? (
+        {tab === 'citations' ? (
           <SourcePanel session={session} activeLabel={activeSourceLabel} />
+        ) : tab === 'flow' ? (
+          <DebateMap session={session} />
         ) : (
           <ChatWithPaper sessionId={session.id || null} />
         )}

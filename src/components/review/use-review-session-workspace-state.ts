@@ -37,14 +37,14 @@ export function useReviewSessionWorkspaceState({
   const [shareCopied, setShareCopied] = useState(false)
   const [rerunLoading, setRerunLoading] = useState(false)
   const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
-  const [sidebarTab, setSidebarTab] = useState<'sources' | 'chat'>('sources')
+  const [sidebarTab, setSidebarTab] = useState<'citations' | 'flow' | 'chat'>('citations')
   const [workspaceView, setWorkspaceView] = useState<'timeline' | 'compare' | 'map'>('timeline')
   const [restoreSource, setRestoreSource] = useState<'url' | 'local' | null>(null)
   const requestedSessionIdRef = useRef<string | null>(null)
 
   const handleSourceClick = useCallback((label: string) => {
     setActiveSourceLabel(label)
-    setSidebarTab('sources')
+    setSidebarTab('citations')
   }, [])
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export function useReviewSessionWorkspaceState({
     if (!session.id || session.id === 'demo-session' || rerunLoading || phase === 'running' || phase === 'ingesting') return
     setRestoreSource(null)
     setActiveSourceLabel(null)
-    setSidebarTab('sources')
+    setSidebarTab('citations')
     setWorkspaceView('timeline')
     setRerunLoading(true)
     try {

@@ -64,31 +64,47 @@ export async function POST(req: NextRequest) {
     let paperTitle = title ?? "Untitled Paper";
     let paperText = "";
     let sourceUrl = "";
+    let sourceType: "local_doc" | "academic" | "web" = "local_doc";
+    let markerPdfBuffer: Buffer | undefined;
 
     if (uploadedPdfBuffer) {
       paperText = await extractTextFromPdfBuffer(uploadedPdfBuffer);
       sourceUrl = "upload";
+      sourceType = "local_doc";
+      markerPdfBuffer = uploadedPdfBuffer;
     } else if (arxivId) {
       const result = await fetchArxivPaper(arxivId);
       paperTitle = result.title;
       paperText = result.text;
       sourceUrl = result.url;
+      sourceType = "academic";
+      markerPdfBuffer = result.pdfBuffer;
     } else if (pdfUrl) {
       const res = await fetch(pdfUrl);
       if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());
       paperText = await extractTextFromPdfBuffer(buffer);
       sourceUrl = pdfUrl;
+      sourceType = "web";
+      markerPdfBuffer = buffer;
     } else if (text) {
       paperText = text;
       sourceUrl = "manual";
+      sourceType = "local_doc";
     } else {
       return NextResponse.json({ error: "provide arxivId, pdfUrl, or text" }, { status: 400 });
     }
 
     if (!paperText.trim()) throw new Error("Could not extract text from paper");
 
-    const result = await ingestPaper({ text: paperText, title: paperTitle, sourceUrl, libraryId });
+    const result = await ingestPaper({
+      text: paperText,
+      title: paperTitle,
+      sourceUrl,
+      libraryId,
+      sourceType,
+      pdfBuffer: markerPdfBuffer,
+    });
     if (uploadedPdfBuffer && uploadedFilename) {
       const account = await resolveAuthAccountContext();
       void recordUploadedFile({

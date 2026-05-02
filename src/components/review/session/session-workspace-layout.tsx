@@ -17,7 +17,7 @@ interface SessionWorkspaceLayoutProps {
   canResume: boolean
   sourceSummary: string
   activeSourceLabel: string | null
-  sidebarTab: 'sources' | 'chat'
+  sidebarTab: 'citations' | 'flow' | 'chat'
   currentView: 'timeline' | 'compare' | 'map'
   isPublic: boolean
   shareLoading: boolean
@@ -26,7 +26,7 @@ interface SessionWorkspaceLayoutProps {
   activeCount: number
   rounds: 1 | 2
   onSourceClick: (label: string) => void
-  onTabChange: (tab: 'sources' | 'chat') => void
+  onTabChange: (tab: 'citations' | 'flow' | 'chat') => void
   onViewChange: (view: 'timeline' | 'compare' | 'map') => void
   onRerun: () => void
   onDuplicateAsNew: () => void

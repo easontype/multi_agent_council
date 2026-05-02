@@ -87,18 +87,20 @@ export const handlers: Record<string, Handler> = {
     let text: string;
     let sourceUrl: string;
     let metaNote = "";
+    let sourceType: "academic" | "web" = "academic";
+    let markerPdfBuffer: Buffer | undefined;
 
     try {
       if (arxivIdRe.test(identifier)) {
         const id = identifier.replace(/^arxiv:/i, "");
         const r = await fetchArxivPaper(id);
-        title = r.title; text = r.text; sourceUrl = r.url;
+        title = r.title; text = r.text; sourceUrl = r.url; markerPdfBuffer = r.pdfBuffer;
 
       } else if (arxivUrlRe.test(identifier)) {
         const m = identifier.match(arxivUrlRe);
         if (!m) return `Cannot parse arXiv ID from: ${identifier}`;
         const r = await fetchArxivPaper(m[1]);
-        title = r.title; text = r.text; sourceUrl = r.url;
+        title = r.title; text = r.text; sourceUrl = r.url; markerPdfBuffer = r.pdfBuffer;
 
       } else if (doiRe.test(identifier)) {
         // Step 1: Crossref for canonical metadata
@@ -129,8 +131,10 @@ export const handlers: Record<string, Handler> = {
           signal: AbortSignal.timeout(25_000),
         });
         if (!pdfRes.ok) return `PDF fetch failed for DOI ${identifier}: HTTP ${pdfRes.status}`;
-        text = await extractTextFromPdfBuffer(Buffer.from(await pdfRes.arrayBuffer()));
+        markerPdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+        text = await extractTextFromPdfBuffer(markerPdfBuffer);
         sourceUrl = pdfUrl;
+        sourceType = "academic";
 
       } else {
         return [
@@ -146,7 +150,7 @@ export const handlers: Record<string, Handler> = {
         return `Paper fetched but text extraction returned too little content (${text?.length ?? 0} chars). May be image-only or access-restricted.`;
       }
 
-      const result = await ingestPaper({ text, title, sourceUrl, libraryId });
+      const result = await ingestPaper({ text, title, sourceUrl, libraryId, sourceType, pdfBuffer: markerPdfBuffer });
       return [
         "✓ Paper ingested and added to session library.",
         `  title:      ${result.title}`,

@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
   let paperTitle: string;
   let paperText: string;
   let sourceUrl: string;
+  let markerPdfBuffer: Buffer | undefined;
 
   try {
     if (uploadedBuffer) {
@@ -81,11 +82,13 @@ export async function POST(req: NextRequest) {
       paperText = await extract(uploadedBuffer);
       paperTitle = uploadTitle ?? "Uploaded Paper";
       sourceUrl = "upload";
+      markerPdfBuffer = uploadedBuffer;
     } else {
       const result = await fetchArxivPaper(arxivId!);
       paperTitle = result.title;
       paperText = result.text;
       sourceUrl = result.url;
+      markerPdfBuffer = result.pdfBuffer;
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to fetch paper";
@@ -100,7 +103,13 @@ export async function POST(req: NextRequest) {
   let libraryId: string;
   let documentId: string | undefined;
   try {
-    const ingested = await ingestPaper({ text: paperText, title: paperTitle, sourceUrl });
+    const ingested = await ingestPaper({
+      text: paperText,
+      title: paperTitle,
+      sourceUrl,
+      sourceType: uploadedBuffer ? "local_doc" : "academic",
+      pdfBuffer: markerPdfBuffer,
+    });
     libraryId = ingested.libraryId;
     documentId = ingested.documentId;
   } catch (err) {
