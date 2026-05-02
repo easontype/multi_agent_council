@@ -11,6 +11,8 @@ interface SearchRow {
   title: string;
   source_url: string | null;
   score: number;
+  chunk_index: number;
+  doc_id: string;
 }
 
 interface RetrievalResult {
@@ -140,6 +142,8 @@ async function semanticChunkSearch(query: string, limit: number, tag?: string | 
 
   const { rows } = await db.query(
     `SELECT c.content AS chunk,
+            c.chunk_index,
+            c.document_id AS doc_id,
             d.title,
             d.source_url,
             1 - (c.embedding <=> $1::vector) AS score
@@ -156,6 +160,8 @@ async function semanticChunkSearch(query: string, limit: number, tag?: string | 
     title: String(row.title ?? ""),
     source_url: row.source_url ? String(row.source_url) : null,
     score: Number(row.score ?? 0),
+    chunk_index: Number(row.chunk_index ?? 0),
+    doc_id: String(row.doc_id ?? ""),
   }));
 }
 
@@ -174,6 +180,8 @@ async function keywordChunkSearch(query: string, limit: number, tag?: string | n
 
   const { rows } = await db.query(
     `SELECT c.content AS chunk,
+            c.chunk_index,
+            c.document_id AS doc_id,
             d.title,
             d.source_url,
             (
@@ -207,6 +215,8 @@ async function keywordChunkSearch(query: string, limit: number, tag?: string | n
       title: String(row.title ?? ""),
       source_url: row.source_url ? String(row.source_url) : null,
       score: normalizedScore,
+      chunk_index: Number(row.chunk_index ?? 0),
+      doc_id: String(row.doc_id ?? ""),
     };
   });
 }
@@ -383,6 +393,25 @@ async function synthesizeRagAnswer(
   };
 }
 
+function inferSourceType(sourceUrl: string | null): "local_doc" | "academic" | "web" {
+  if (!sourceUrl) return "local_doc";
+  if (/arxiv\.org|doi\.org|semanticscholar\.org|openalex\.org|pubmed|ncbi\.nlm\.nih\.gov/i.test(sourceUrl)) {
+    return "academic";
+  }
+  return "web";
+}
+
+function buildSourceMeta(rows: SearchRow[]): string {
+  const meta = rows.slice(0, 6).map((row, index) => ({
+    marker: `[${index + 1}]`,
+    chunk_index: row.chunk_index,
+    doc_id: row.doc_id,
+    score: parseFloat(row.score.toFixed(3)),
+    source_type: inferSourceType(row.source_url),
+  }));
+  return `source_meta: ${JSON.stringify(meta)}`;
+}
+
 function renderSearchRows(rows: SearchRow[], heading: string, retrievalMode: RetrievalResult["retrievalMode"], warnings: string[]): string {
   const visibleRows = rows.slice(0, 6);
   const body = visibleRows
@@ -400,7 +429,7 @@ function renderSearchRows(rows: SearchRow[], heading: string, retrievalMode: Ret
     .filter(Boolean)
     .join("\n");
 
-  return `${heading}\n\n${body}\n\n${footer}`;
+  return `${heading}\n\n${body}\n\n${footer}\n${buildSourceMeta(rows)}`;
 }
 
 export async function embedDocumentById(documentId: string): Promise<EmbedDocumentResult> {
@@ -574,6 +603,7 @@ export const handlers: Record<string, Handler> = {
       "",
       "Evidence:",
       buildCompactEvidence(retrieval.rows),
+      buildSourceMeta(retrieval.rows),
     ]
       .filter((line) => line !== null)
       .join("\n");

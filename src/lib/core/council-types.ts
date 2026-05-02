@@ -91,6 +91,11 @@ export interface CouncilEvidenceSource {
   uri: string | null;
   snippet: string | null;
   marker?: string | null;
+  chunk_index?: number | null;
+  doc_id?: string | null;
+  source_type?: "local_doc" | "academic" | "web" | null;
+  similarity_score?: number | null;
+  is_heuristic?: boolean;
 }
 
 export interface CouncilEvidence {

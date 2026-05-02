@@ -442,6 +442,31 @@ export function extractEvidenceSources(
     addRef(`${tool} result`, null, result);
   }
 
+  // Enrich refs with chunk_index / doc_id / score / source_type from source_meta section
+  const sourceMetaMatch = result.match(/^source_meta:\s*(\[[\s\S]*?\])\s*$/m);
+  if (sourceMetaMatch) {
+    try {
+      const meta = JSON.parse(sourceMetaMatch[1]) as Array<{
+        marker: string;
+        chunk_index: number | null;
+        doc_id: string | null;
+        score: number;
+        source_type: "local_doc" | "academic" | "web";
+      }>;
+      for (const m of meta) {
+        const ref = refs.find((r) => r.marker === m.marker);
+        if (ref) {
+          ref.chunk_index = m.chunk_index ?? null;
+          ref.doc_id = m.doc_id ?? null;
+          ref.source_type = m.source_type;
+          ref.similarity_score = m.score;
+        }
+      }
+    } catch {
+      // malformed source_meta — ignore, refs remain without enrichment
+    }
+  }
+
   return refs.slice(0, 8);
 }
 

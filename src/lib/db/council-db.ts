@@ -113,6 +113,15 @@ export async function ensureCouncilSchema() {
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_api_key_id ON council_sessions(owner_api_key_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_user_email ON council_sessions(owner_user_email, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_evidence_session ON council_evidence(session_id, round, created_at);
+
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS authors TEXT[] DEFAULT '{}';
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS year INTEGER;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS venue TEXT;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'local_doc';
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS markdown_content TEXT;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_processed BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS section_heading TEXT;
+        ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS char_offset INTEGER;
       `);
     })().catch((error) => {
       councilSchemaReady = null;
@@ -269,11 +278,17 @@ export function mapEvidenceSource(raw: unknown): CouncilEvidenceSource | null {
   const value = raw as Record<string, unknown>;
   const label = sanitizeText(value.label);
   if (!label) return null;
+  const sourceType = value.source_type;
   return {
     label,
     uri: sanitizeText(value.uri) || null,
     snippet: sanitizeText(value.snippet) || null,
     marker: sanitizeText(value.marker) || null,
+    chunk_index: typeof value.chunk_index === "number" ? value.chunk_index : null,
+    doc_id: sanitizeText(value.doc_id) || null,
+    source_type: sourceType === "local_doc" || sourceType === "academic" || sourceType === "web" ? sourceType : null,
+    similarity_score: typeof value.similarity_score === "number" ? value.similarity_score : null,
+    is_heuristic: typeof value.is_heuristic === "boolean" ? value.is_heuristic : undefined,
   };
 }
 
