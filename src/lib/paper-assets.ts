@@ -38,6 +38,18 @@ export interface PaperAssetBackfillSummary {
   created: number;
 }
 
+export interface PaperAssetListItem {
+  id: string;
+  canonical_title: string;
+  arxiv_id: string | null;
+  status: PaperAssetStatus;
+  marker_processed: boolean;
+  primary_library_id: string | null;
+  created_at: string;
+  updated_at: string;
+  session_count: number;
+}
+
 function mapPaperAssetRow(row: Record<string, unknown>): PaperAsset {
   return {
     id: String(row.id),
@@ -485,4 +497,44 @@ export async function backfillPaperAssetsForSessions(limit = 100): Promise<Paper
     skipped,
     created,
   };
+}
+
+export async function listPaperAssets(input: {
+  workspaceId?: string | null;
+  limit?: number;
+}): Promise<PaperAssetListItem[]> {
+  await ensureCouncilSchema();
+  const limit = Number.isFinite(input.limit) ? Math.max(1, Math.min(Number(input.limit), 200)) : 50;
+  const workspaceId = input.workspaceId?.trim() || null;
+
+  const { rows } = await db.query(
+    `SELECT a.id,
+            a.canonical_title,
+            a.arxiv_id,
+            a.status,
+            a.marker_processed,
+            a.primary_library_id,
+            a.created_at,
+            a.updated_at,
+            COUNT(s.id)::int AS session_count
+     FROM paper_assets a
+     LEFT JOIN council_sessions s ON s.paper_asset_id = a.id
+     WHERE ($1::text IS NULL OR a.workspace_id = $1)
+     GROUP BY a.id
+     ORDER BY a.updated_at DESC NULLS LAST, a.created_at DESC
+     LIMIT $2`,
+    [workspaceId, limit],
+  );
+
+  return (rows as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id),
+    canonical_title: String(row.canonical_title ?? ""),
+    arxiv_id: row.arxiv_id ? String(row.arxiv_id) : null,
+    status: (row.status as PaperAssetStatus) ?? "pending",
+    marker_processed: Boolean(row.marker_processed),
+    primary_library_id: row.primary_library_id ? String(row.primary_library_id) : null,
+    created_at: String(row.created_at ?? ""),
+    updated_at: String(row.updated_at ?? ""),
+    session_count: Number(row.session_count ?? 0),
+  }));
 }
