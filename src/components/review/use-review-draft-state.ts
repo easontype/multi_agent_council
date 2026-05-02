@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 import { peekPendingUpload, setPendingUpload } from '@/lib/pending-upload'
 import {
+  PAPER_TOPIC_PRESETS,
+  resolvePaperTopicSelection,
+} from '@/lib/paper-topics'
+import {
   buildEditableTeam,
   createCustomEditableAgent,
   type EditableReviewAgent,
@@ -54,6 +58,11 @@ export function useReviewDraftState({
   const [savedTemplates, setSavedTemplates] = useState<SavedTeamTemplate[]>([])
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [draftNotice, setDraftNotice] = useState<string | null>(null)
+  const [topicPresetId, setTopicPresetId] = useState<string>('methodology')
+  const [customTopic, setCustomTopic] = useState('')
+  const [customGoal, setCustomGoal] = useState('')
+  const [cacheStatus, setCacheStatus] = useState<'ready' | 'processing' | 'failed' | 'unknown' | null>(null)
+  const [cacheTitle, setCacheTitle] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -74,6 +83,9 @@ export function useReviewDraftState({
     setModeSelection(prefill.mode)
     setRounds(prefill.rounds)
     setTeamAgents(prefill.agents)
+    setTopicPresetId(prefill.topicPresetId ?? 'custom')
+    setCustomTopic(prefill.topic ?? '')
+    setCustomGoal(prefill.goal ?? '')
     setDraftNotice(prefill.notice ?? null)
     if (prefill.arxivId && !routeArxivId) {
       router.replace(`/review/new?arxiv=${encodeURIComponent(prefill.arxivId)}`)
@@ -92,6 +104,34 @@ export function useReviewDraftState({
     }
     setPdfUrl(null)
   }, [routeArxivId, pendingFile])
+
+  useEffect(() => {
+    if (!routeArxivId) {
+      setCacheStatus(null)
+      setCacheTitle(null)
+      return
+    }
+    let cancelled = false
+    fetch(`/api/papers/lookup?arxivId=${encodeURIComponent(routeArxivId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return
+        const nextStatus = data?.status
+        setCacheStatus(
+          nextStatus === 'ready' || nextStatus === 'processing' || nextStatus === 'failed' || nextStatus === 'unknown'
+            ? nextStatus
+            : 'unknown',
+        )
+        setCacheTitle(typeof data?.title === 'string' ? data.title : null)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCacheStatus('unknown')
+          setCacheTitle(null)
+        }
+      })
+    return () => { cancelled = true }
+  }, [routeArxivId])
 
   const handleModeChange = (nextMode: ReviewMode) => {
     setModeSelection(nextMode)
@@ -170,8 +210,19 @@ export function useReviewDraftState({
   const canStart = Boolean(routeArxivId || pendingFile)
   const activeCount = teamAgents.filter((agent) => agent.enabled).length
   const costEstimate = estimateHostedReviewCost(activeCount, rounds)
+  const topicSelection = resolvePaperTopicSelection({
+    topicPresetId,
+    topic: customTopic,
+    goal: customGoal,
+  })
+  const selectedPreset = PAPER_TOPIC_PRESETS.find((item) => item.id === topicPresetId) ?? PAPER_TOPIC_PRESETS[0]
+  const topicError = topicPresetId === 'custom' && !customTopic.trim()
+    ? 'Add a custom review topic before launch.'
+    : null
   const paperTitle = pendingFile
     ? fileNameToTitle(pendingFile.name)
+    : cacheTitle
+      ? cacheTitle
     : routeArxivId
       ? `arXiv:${routeArxivId}`
       : 'Paper Preview'
@@ -191,21 +242,31 @@ export function useReviewDraftState({
     activeCount,
     arxivDraft,
     canStart,
+    cacheStatus,
     costEstimate,
+    customGoal,
+    customTopic,
     draftNotice,
     isUpload,
     modeSelection,
     paperSummary,
     paperTitle,
     pdfUrl,
+    selectedPreset,
     rounds,
     savedTemplates,
     sourceHref,
     sourceLabel,
     teamAgents,
+    topicError,
+    topicPresetId,
+    topicSelection,
     setArxivDraft,
+    setCustomGoal,
+    setCustomTopic,
     setRounds,
     setTeamAgents,
+    setTopicPresetId,
     handleArxivSubmit,
     handleDeleteTemplate,
     handleDuplicateTemplate,

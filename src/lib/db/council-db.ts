@@ -35,6 +35,7 @@ export async function ensureCouncilSchema() {
           topic            TEXT NOT NULL,
           context          TEXT,
           goal             TEXT,
+          paper_asset_id   TEXT,
           status           TEXT NOT NULL DEFAULT 'pending',
           rounds           INTEGER NOT NULL DEFAULT 1,
           moderator_model  TEXT NOT NULL DEFAULT '${DEFAULT_GEMMA_MODEL}',
@@ -95,6 +96,7 @@ export async function ensureCouncilSchema() {
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS context TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS goal TEXT;
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS paper_asset_id TEXT;
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS workspace_id TEXT REFERENCES workspaces(id);
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS created_by_user_id TEXT REFERENCES users(id);
         ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS owner_agent_id UUID;
@@ -109,6 +111,7 @@ export async function ensureCouncilSchema() {
         CREATE INDEX IF NOT EXISTS idx_council_turns_session ON council_turns(session_id, round, created_at);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_status ON council_sessions(status, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_workspace_id ON council_sessions(workspace_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_council_sessions_paper_asset_id ON council_sessions(paper_asset_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_created_by_user_id ON council_sessions(created_by_user_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_api_key_id ON council_sessions(owner_api_key_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_council_sessions_owner_user_email ON council_sessions(owner_user_email, created_at DESC);
@@ -127,6 +130,58 @@ export async function ensureCouncilSchema() {
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS section_heading TEXT;
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS char_offset INTEGER;
         ALTER TABLE council_turns ADD COLUMN IF NOT EXISTS responds_to_turn_id TEXT REFERENCES council_turns(id) ON DELETE SET NULL;
+
+        CREATE TABLE IF NOT EXISTS paper_assets (
+          id                        TEXT PRIMARY KEY,
+          workspace_id              TEXT REFERENCES workspaces(id),
+          canonical_title           TEXT NOT NULL DEFAULT '',
+          abstract                  TEXT,
+          authors                   TEXT[] NOT NULL DEFAULT '{}',
+          year                      INTEGER,
+          arxiv_id                  TEXT UNIQUE,
+          canonical_checksum_sha256 TEXT,
+          status                    TEXT NOT NULL DEFAULT 'pending',
+          processing_error          TEXT,
+          marker_processed          BOOLEAN NOT NULL DEFAULT FALSE,
+          document_id               TEXT,
+          primary_library_id        TEXT,
+          created_at                TIMESTAMPTZ DEFAULT NOW(),
+          updated_at                TIMESTAMPTZ DEFAULT NOW(),
+          processed_at              TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS paper_asset_sources (
+          id                 TEXT PRIMARY KEY,
+          paper_asset_id     TEXT NOT NULL REFERENCES paper_assets(id) ON DELETE CASCADE,
+          source_kind        TEXT NOT NULL,
+          source_locator     TEXT,
+          checksum_sha256    TEXT,
+          uploaded_file_id   TEXT,
+          created_at         TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS paper_libraries (
+          id             TEXT PRIMARY KEY,
+          paper_asset_id TEXT NOT NULL REFERENCES paper_assets(id) ON DELETE CASCADE,
+          library_id     TEXT NOT NULL UNIQUE,
+          document_id    TEXT,
+          is_primary     BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at     TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_paper_assets_workspace_id
+          ON paper_assets(workspace_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_paper_assets_checksum
+          ON paper_assets(canonical_checksum_sha256)
+          WHERE canonical_checksum_sha256 IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_paper_asset_sources_asset_id
+          ON paper_asset_sources(paper_asset_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_paper_asset_sources_kind_locator
+          ON paper_asset_sources(source_kind, source_locator)
+          WHERE source_locator IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_paper_asset_sources_kind_checksum
+          ON paper_asset_sources(source_kind, checksum_sha256)
+          WHERE checksum_sha256 IS NOT NULL;
       `);
     })().catch((error) => {
       councilSchemaReady = null;
@@ -186,6 +241,7 @@ export function mapSessionRow(row: Record<string, unknown>, defaultModeratorMode
     topic: String(row.topic ?? ""),
     context: row.context ? String(row.context) : null,
     goal: row.goal ? String(row.goal) : null,
+    paper_asset_id: row.paper_asset_id ? String(row.paper_asset_id) : null,
     status: (row.status as CouncilSessionStatus) ?? "pending",
     rounds: Number(row.rounds ?? 1),
     moderator_model: String(row.moderator_model ?? defaultModeratorModel),

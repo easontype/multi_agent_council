@@ -32,6 +32,7 @@ export interface CouncilSession {
   topic: string;
   context: string | null;
   goal: string | null;
+  paper_asset_id?: string | null;
   status: CouncilSessionStatus;
   rounds: number;
   moderator_model: string;
@@ -141,6 +142,7 @@ export interface CouncilCreateInput {
   topic: string;
   context?: string;
   goal?: string;
+  paperAssetId?: string | null;
   rounds?: number;
   moderator_model?: string;
   seats?: CouncilSeat[];

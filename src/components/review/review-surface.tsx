@@ -72,12 +72,16 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
   const showSetup = isDraftRoute && !isRestoring && !session.id && (phase === 'idle' || phase === 'error' || phase === 'ingesting')
 
   const handleStart = () => {
+    if (draftState.topicError) return
     sessionState.setRestoreSource(null)
     start({
       mode: draftState.modeSelection,
       rounds: draftState.rounds,
       customSeats: buildSeatsFromEditableAgents(draftState.teamAgents),
       discussionAgents: buildDiscussionAgents(draftState.teamAgents),
+      topic: draftState.topicSelection.topic,
+      goal: draftState.topicSelection.goal,
+      topicPresetId: draftState.topicSelection.topicPresetId,
     })
   }
 
@@ -130,6 +134,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             onSourceSubmit={draftState.handleArxivSubmit}
             onFileChange={draftState.handleFileSelect}
             hasSource={draftState.canStart}
+            cacheStatus={draftState.cacheStatus}
             mode={draftState.modeSelection}
             rounds={draftState.rounds}
             agents={draftState.teamAgents}
@@ -139,10 +144,18 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             error={error}
             notice={draftState.draftNotice}
             activeCount={draftState.activeCount}
+            customGoal={draftState.customGoal}
+            customTopic={draftState.customTopic}
             savedTemplates={draftState.savedTemplates}
             onModeChange={draftState.handleModeChange}
             onRoundsChange={draftState.setRounds}
             onAgentsChange={draftState.setTeamAgents}
+            topicError={draftState.topicError}
+            topicPresetId={draftState.topicPresetId}
+            selectedTopicLabel={draftState.selectedPreset.label}
+            onCustomGoalChange={draftState.setCustomGoal}
+            onCustomTopicChange={draftState.setCustomTopic}
+            onTopicPresetChange={draftState.setTopicPresetId}
             onAddAgent={() => draftState.setTeamAgents((current) => [...current, draftState.createCustomEditableAgent(current.length)])}
             onStart={handleStart}
             onSaveTemplate={draftState.handleSaveTemplate}

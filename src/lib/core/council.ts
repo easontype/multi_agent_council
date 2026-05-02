@@ -150,6 +150,7 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
     sanitizeText(input.moderator_model) || planned?.moderator_model || DEFAULT_MODERATOR_MODEL;
   const workspaceId = sanitizeText(input.workspaceId) || null;
   const createdByUserId = sanitizeText(input.createdByUserId) || null;
+  const paperAssetId = sanitizeText(input.paperAssetId) || null;
   const ownerAgentId = sanitizeText(input.ownerAgentId);
   const ownerApiKeyId = sanitizeText(input.ownerApiKeyId) || null;
   const ownerUserEmail = sanitizeText(input.ownerUserEmail).toLowerCase() || null;
@@ -158,10 +159,10 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
 
   const { rows } = await db.query(
     `INSERT INTO council_sessions (
-       id, title, topic, context, goal, rounds, moderator_model, seats, workspace_id,
+       id, title, topic, context, goal, paper_asset_id, rounds, moderator_model, seats, workspace_id,
        created_by_user_id, owner_agent_id, owner_api_key_id, owner_user_email, access_token_hash
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING *`,
     [
       id,
@@ -169,6 +170,7 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
       topic,
       sanitizeText(input.context) || null,
       sanitizeText(input.goal) || null,
+      paperAssetId,
       rounds,
       moderatorModel,
       JSON.stringify(seats),
@@ -207,7 +209,7 @@ export async function listSessions(
   }
 
   const { rows } = await db.query(
-    `SELECT s.id, s.title, s.topic, s.context, s.goal, s.status, s.rounds, s.moderator_model, s.seats,
+    `SELECT s.id, s.title, s.topic, s.context, s.goal, s.paper_asset_id, s.status, s.rounds, s.moderator_model, s.seats,
             s.workspace_id, s.created_by_user_id, s.owner_agent_id, s.owner_api_key_id, s.created_at,
             s.started_at, s.heartbeat_at, s.concluded_at, s.last_error, s.run_attempts, s.updated_at,
             s.divergence_level,

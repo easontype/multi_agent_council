@@ -18,7 +18,20 @@ export interface CouncilPaperChatResult {
   citations: CouncilEvidenceSource[]
 }
 
-function extractLibraryTag(session: Awaited<ReturnType<typeof getSession>>) {
+async function extractLibraryTag(session: Awaited<ReturnType<typeof getSession>>) {
+  const paperAssetId = session?.paper_asset_id?.trim()
+  if (paperAssetId) {
+    const { rows } = await db.query(
+      `SELECT primary_library_id
+       FROM paper_assets
+       WHERE id = $1
+       LIMIT 1`,
+      [paperAssetId],
+    )
+    const libraryId = rows[0]?.primary_library_id ? String(rows[0].primary_library_id) : null
+    if (libraryId) return `council:lib:${libraryId}`
+  }
+
   const libraryId = session?.seats.find((seat) => seat.library_id)?.library_id
   return libraryId ? `council:lib:${libraryId}` : null
 }
@@ -116,7 +129,7 @@ export async function answerCouncilPaperQuestion(sessionId: string, question: st
   const session = await getSession(sessionId)
   if (!session) throw new Error('Session not found')
 
-  const tag = extractLibraryTag(session)
+  const tag = await extractLibraryTag(session)
   if (!tag) throw new Error('This session does not have an attached paper library')
 
   const rows = await keywordSearch(question, tag, 6)

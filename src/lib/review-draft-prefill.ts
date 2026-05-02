@@ -8,6 +8,9 @@ export interface ReviewDraftPrefill {
   mode: ReviewMode
   rounds: 1 | 2
   agents: EditableReviewAgent[]
+  topicPresetId?: string
+  topic?: string
+  goal?: string
   arxivId?: string
   sourceType: 'arxiv' | 'upload' | 'unknown'
   notice?: string
@@ -67,6 +70,9 @@ export function buildDraftPrefillFromSession(session: CouncilSession): ReviewDra
     mode,
     rounds: session.rounds === 2 ? 2 : 1,
     agents: session.seats.map((seat, index) => buildEditableAgent(seat, index, mode)),
+    topicPresetId: 'custom',
+    topic: session.topic,
+    goal: session.goal ?? undefined,
     arxivId: arxivId ?? undefined,
     sourceType,
     notice: sourceType === 'upload'

@@ -2,6 +2,7 @@
 
 import { PaperPreview } from '@/components/council/paper-preview'
 import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
+import { PAPER_TOPIC_PRESETS } from '@/lib/paper-topics'
 import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-presets'
 import type { SavedTeamTemplate } from '@/lib/team-template-store'
 import {
@@ -25,6 +26,7 @@ interface ReviewDraftLayoutProps {
   onSourceSubmit: (event: React.FormEvent) => void
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
   hasSource: boolean
+  cacheStatus: 'ready' | 'processing' | 'failed' | 'unknown' | null
   mode: ReviewMode
   rounds: 1 | 2
   agents: EditableReviewAgent[]
@@ -34,10 +36,18 @@ interface ReviewDraftLayoutProps {
   error: string | null
   notice?: string | null
   activeCount: number
+  topicPresetId: string
+  selectedTopicLabel: string
+  customTopic: string
+  customGoal: string
+  topicError: string | null
   savedTemplates: SavedTeamTemplate[]
   onModeChange: (mode: ReviewMode) => void
   onRoundsChange: (rounds: 1 | 2) => void
   onAgentsChange: (agents: EditableReviewAgent[]) => void
+  onTopicPresetChange: (presetId: string) => void
+  onCustomTopicChange: (value: string) => void
+  onCustomGoalChange: (value: string) => void
   onAddAgent: () => void
   onStart: () => void
   onSaveTemplate: () => void
@@ -52,12 +62,21 @@ function PaperSourceStep({
   onSourceDraftChange,
   onSourceSubmit,
   onFileChange,
+  cacheStatus,
 }: {
   sourceDraft: string
   onSourceDraftChange: (value: string) => void
   onSourceSubmit: (event: React.FormEvent) => void
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  cacheStatus: 'ready' | 'processing' | 'failed' | 'unknown' | null
 }) {
+  const cacheTone = cacheStatus === 'ready'
+    ? { label: 'Cached', bg: '#ecfdf5', border: '#bbf7d0', color: '#166534' }
+    : cacheStatus === 'processing'
+      ? { label: 'Processing', bg: '#fffbeb', border: '#fde68a', color: '#92400e' }
+      : cacheStatus === 'failed'
+        ? { label: 'Retry needed', bg: '#fef2f2', border: '#fecaca', color: '#b91c1c' }
+        : { label: 'Unknown', bg: '#f5f5f4', border: '#e7e5e4', color: '#57534e' }
   return (
     <div style={{ padding: '20px' }}>
       <div style={{
@@ -72,6 +91,23 @@ function PaperSourceStep({
         <div style={{ fontSize: 12.5, color: reviewTheme.colors.muted, lineHeight: 1.6, marginBottom: 14 }}>
           Paste an arXiv ID or upload a PDF. The file is staged immediately, but ingestion only starts once you launch the review.
         </div>
+        {cacheStatus && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 14,
+            border: `1px solid ${cacheTone.border}`,
+            background: cacheTone.bg,
+            color: cacheTone.color,
+            borderRadius: 999,
+            padding: '7px 11px',
+            fontSize: 11.5,
+            fontWeight: 600,
+          }}>
+            Cache: {cacheTone.label}
+          </div>
+        )}
 
         <form onSubmit={onSourceSubmit} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <input
@@ -136,6 +172,103 @@ function PaperSourceStep({
   )
 }
 
+function TopicSelectionStep({
+  topicPresetId,
+  customTopic,
+  customGoal,
+  topicError,
+  onTopicPresetChange,
+  onCustomTopicChange,
+  onCustomGoalChange,
+}: {
+  topicPresetId: string
+  customTopic: string
+  customGoal: string
+  topicError: string | null
+  onTopicPresetChange: (presetId: string) => void
+  onCustomTopicChange: (value: string) => void
+  onCustomGoalChange: (value: string) => void
+}) {
+  return (
+    <ReviewSectionFrame
+      eyebrow="Step 2"
+      title="Review focus"
+      description="Choose what this panel should concentrate on before the debate starts."
+    >
+      <div style={{ padding: '18px 20px 20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+          {PAPER_TOPIC_PRESETS.map((preset) => {
+            const active = topicPresetId === preset.id
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => onTopicPresetChange(preset.id)}
+                style={{
+                  textAlign: 'left',
+                  border: `1px solid ${active ? '#111827' : '#e4e4e7'}`,
+                  borderRadius: 14,
+                  background: active ? '#111827' : '#fff',
+                  color: active ? '#fff' : '#18181b',
+                  padding: '13px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{preset.label}</div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.55, color: active ? 'rgba(255,255,255,0.76)' : '#71717a' }}>
+                  {preset.id === 'custom' ? 'Write your own review question.' : preset.topic}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        {topicPresetId === 'custom' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input
+              type="text"
+              value={customTopic}
+              onChange={(event) => onCustomTopicChange(event.target.value)}
+              placeholder="Custom review topic"
+              style={{
+                border: `1px solid ${topicError ? '#fca5a5' : reviewTheme.colors.borderStrong}`,
+                borderRadius: 12,
+                padding: '11px 12px',
+                fontSize: 13,
+                color: reviewTheme.colors.ink,
+                background: '#fffdfa',
+                outline: 'none',
+              }}
+            />
+            <textarea
+              value={customGoal}
+              onChange={(event) => onCustomGoalChange(event.target.value)}
+              placeholder="Optional: what exactly should the panel decide or verify?"
+              rows={3}
+              style={{
+                border: `1px solid ${reviewTheme.colors.border}`,
+                borderRadius: 12,
+                padding: '11px 12px',
+                fontSize: 12.5,
+                lineHeight: 1.6,
+                color: reviewTheme.colors.ink,
+                background: '#fff',
+                resize: 'vertical',
+                outline: 'none',
+              }}
+            />
+            {topicError && (
+              <div style={{ fontSize: 12, color: '#b91c1c', lineHeight: 1.5 }}>
+                {topicError}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </ReviewSectionFrame>
+  )
+}
+
 function SavedTemplatesPanel({
   savedTemplates,
   onSaveTemplate,
@@ -153,7 +286,7 @@ function SavedTemplatesPanel({
 }) {
   return (
     <ReviewSectionFrame
-      eyebrow="Step 3"
+      eyebrow="Step 4"
       title="Templates"
       description="Save a panel configuration you expect to reuse across papers, or load an existing one before launch."
     >
@@ -265,6 +398,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     onSourceSubmit,
     onFileChange,
     hasSource,
+    cacheStatus,
     mode,
     rounds,
     agents,
@@ -274,10 +408,18 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     error,
     notice,
     activeCount,
+    topicPresetId,
+    selectedTopicLabel,
+    customTopic,
+    customGoal,
+    topicError,
     savedTemplates,
     onModeChange,
     onRoundsChange,
     onAgentsChange,
+    onTopicPresetChange,
+    onCustomTopicChange,
+    onCustomGoalChange,
     onAddAgent,
     onStart,
     onSaveTemplate,
@@ -287,7 +429,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     onDuplicateTemplate,
   } = props
   const enabledCount = agents.filter((agent) => agent.enabled).length
-  const startDisabled = busy || !canStart || enabledCount < 2
+  const startDisabled = busy || !canStart || enabledCount < 2 || Boolean(topicError)
   const modeLabel = mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'
   const draftStatus = !hasSource
     ? 'Select a paper source to unlock launch.'
@@ -320,6 +462,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                   onSourceDraftChange={onSourceDraftChange}
                   onSourceSubmit={onSourceSubmit}
                   onFileChange={onFileChange}
+                  cacheStatus={cacheStatus}
                 />
               )}
               <div style={{ padding: hasSource ? 20 : '0 20px 20px' }}>
@@ -339,6 +482,22 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                     {notice}
                   </div>
                 )}
+                {hasSource && cacheStatus && (
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                    border: `1px solid ${cacheStatus === 'ready' ? '#bbf7d0' : cacheStatus === 'processing' ? '#fde68a' : cacheStatus === 'failed' ? '#fecaca' : '#e7e5e4'}`,
+                    background: cacheStatus === 'ready' ? '#ecfdf5' : cacheStatus === 'processing' ? '#fffbeb' : cacheStatus === 'failed' ? '#fef2f2' : '#f5f5f4',
+                    color: cacheStatus === 'ready' ? '#166534' : cacheStatus === 'processing' ? '#92400e' : cacheStatus === 'failed' ? '#b91c1c' : '#57534e',
+                    borderRadius: 999,
+                    padding: '7px 11px',
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                  }}>
+                    Cache: {cacheStatus === 'ready' ? 'Cached' : cacheStatus === 'processing' ? 'Processing' : cacheStatus === 'failed' ? 'Retry needed' : 'Unknown'}
+                  </div>
+                )}
                 <div style={{
                   border: '1px solid #ececf1',
                   borderRadius: 16,
@@ -356,6 +515,16 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
               </div>
             </ReviewSectionFrame>
 
+            <TopicSelectionStep
+              topicPresetId={topicPresetId}
+              customTopic={customTopic}
+              customGoal={customGoal}
+              topicError={topicError}
+              onTopicPresetChange={onTopicPresetChange}
+              onCustomTopicChange={onCustomTopicChange}
+              onCustomGoalChange={onCustomGoalChange}
+            />
+
             <SavedTemplatesPanel
               savedTemplates={savedTemplates}
               onSaveTemplate={onSaveTemplate}
@@ -368,7 +537,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
 
           <div style={{ minWidth: 0 }}>
             <ReviewSectionFrame
-              eyebrow="Step 2"
+              eyebrow="Step 3"
               title="Review setup"
               description="Choose the review mode, define the debate depth, and edit the seats that will participate in the council."
             >
@@ -435,6 +604,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
               <ReviewRailCard eyebrow="Draft Summary">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <ReviewSummaryItem label="Paper" value={hasSource ? sourceLabel : 'Not selected'} tone={hasSource ? '#18181b' : '#b45309'} />
+                  <ReviewSummaryItem label="Focus" value={selectedTopicLabel === 'Custom' && customTopic.trim() ? customTopic.trim() : selectedTopicLabel} />
                   <ReviewSummaryItem label="Mode" value={modeLabel} />
                   <ReviewSummaryItem label="Rounds" value={`${rounds} round${rounds > 1 ? 's' : ''}`} />
                   <ReviewSummaryItem label="Active Seats" value={`${enabledCount} active`} tone={enabledCount >= 2 ? '#18181b' : '#b91c1c'} />
