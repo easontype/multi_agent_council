@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { DiscussionSession, AgentMessage, Agent, SourceRef } from '@/types/council'
 import { AgentAvatar } from './agent-avatar'
 import { MarkdownContent } from './markdown-content'
@@ -72,15 +72,43 @@ function findRef(sourceRefs: SourceRef[], item: string): SourceRef | null {
   ) ?? null
 }
 
+function refKey(ref: SourceRef): string[] {
+  const keys: string[] = [ref.label.toLowerCase().trim()]
+  if (ref.uri) keys.push(ref.uri.toLowerCase().trim())
+  return keys
+}
+
+function buildSharedKeys(agentSourceRefs: Map<string, SourceRef[]>, agentIds: string[]): Set<string> {
+  if (agentIds.length !== 2) return new Set()
+  const [idA, idB] = agentIds
+  const keysA = new Set((agentSourceRefs.get(idA) ?? []).flatMap(refKey))
+  const shared = new Set<string>()
+  for (const ref of (agentSourceRefs.get(idB) ?? [])) {
+    for (const k of refKey(ref)) {
+      if (keysA.has(k)) shared.add(k)
+    }
+  }
+  return shared
+}
+
+function isItemShared(item: string, sourceRefs: SourceRef[], sharedKeys: Set<string>): boolean {
+  if (!sharedKeys.size) return false
+  const ref = findRef(sourceRefs, item)
+  if (ref && refKey(ref).some((k) => sharedKeys.has(k))) return true
+  return sharedKeys.has(item.toLowerCase().trim())
+}
+
 function EvidenceChip({
   item,
   agentColor,
   sourceRefs,
+  isShared,
   onSourceClick,
 }: {
   item: string
   agentColor: string
   sourceRefs: SourceRef[]
+  isShared: boolean
   onSourceClick?: (label: string) => void
 }) {
   const isUrl = item.startsWith('http')
@@ -100,49 +128,67 @@ function EvidenceChip({
   }
 
   return (
-    <button
-      onClick={handleClick}
-      title={item}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 3,
-        padding: '2px 7px',
-        border: `1px solid ${agentColor}33`,
-        borderRadius: 4,
-        background: `${agentColor}08`,
-        color: '#52525b',
-        fontSize: 11,
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        transition: 'all 100ms',
-        textDecoration: 'underline',
-        textDecorationColor: `${agentColor}55`,
-        textDecorationThickness: '1px',
-        textUnderlineOffset: '2px',
-        maxWidth: '100%',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-      onMouseEnter={(event) => {
-        event.currentTarget.style.background = `${agentColor}18`
-        event.currentTarget.style.borderColor = `${agentColor}66`
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.background = `${agentColor}08`
-        event.currentTarget.style.borderColor = `${agentColor}33`
-      }}
-    >
-      {display}
-      {(isUrl || ref?.uri) && (
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          <polyline points="15 3 21 3 21 9" />
-          <line x1="10" y1="14" x2="21" y2="3" />
-        </svg>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%' }}>
+      <button
+        onClick={handleClick}
+        title={item}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 3,
+          padding: '2px 7px',
+          border: `1px solid ${agentColor}33`,
+          borderRadius: 4,
+          background: `${agentColor}08`,
+          color: '#52525b',
+          fontSize: 11,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          transition: 'all 100ms',
+          textDecoration: 'underline',
+          textDecorationColor: `${agentColor}55`,
+          textDecorationThickness: '1px',
+          textUnderlineOffset: '2px',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        onMouseEnter={(event) => {
+          event.currentTarget.style.background = `${agentColor}18`
+          event.currentTarget.style.borderColor = `${agentColor}66`
+        }}
+        onMouseLeave={(event) => {
+          event.currentTarget.style.background = `${agentColor}08`
+          event.currentTarget.style.borderColor = `${agentColor}33`
+        }}
+      >
+        {display}
+        {(isUrl || ref?.uri) && (
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        )}
+      </button>
+      {isShared && (
+        <span style={{
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          color: '#92400e',
+          background: '#fef3c7',
+          border: '1px solid #fcd34d',
+          borderRadius: 3,
+          padding: '1px 4px',
+          flexShrink: 0,
+          textTransform: 'uppercase',
+        }}>
+          shared
+        </span>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -151,6 +197,7 @@ function DimensionRow({
   agents,
   agentMessages,
   agentSourceRefs,
+  sharedKeys,
   onSourceClick,
   defaultOpen,
 }: {
@@ -158,6 +205,7 @@ function DimensionRow({
   agents: Agent[]
   agentMessages: Map<string, Map<string, string>>
   agentSourceRefs: Map<string, SourceRef[]>
+  sharedKeys: Set<string>
   onSourceClick?: (label: string) => void
   defaultOpen: boolean
 }) {
@@ -239,6 +287,7 @@ function DimensionRow({
                           item={item}
                           agentColor={agent.color}
                           sourceRefs={sourceRefs}
+                          isShared={isItemShared(item, sourceRefs, sharedKeys)}
                           onSourceClick={onSourceClick}
                         />
                       ))}
@@ -267,37 +316,129 @@ interface CompareViewProps {
 
 export function CompareView({ session, onSourceClick }: CompareViewProps) {
   const [activeRound, setActiveRound] = useState(1)
+  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
 
   const nonModeratorAgents = session.agents.filter((agent) => agent.seatRole !== 'Moderator')
   const hasRound2 = session.messages.some((message) => message.round === 2 && message.isComplete)
+  const needsSelector = nonModeratorAgents.length > 2
+
+  // When >2 agents and exactly 2 selected, compare those two; else show all
+  const displayedAgents = useMemo(() => {
+    if (needsSelector && selectedAgentIds.length === 2) {
+      return nonModeratorAgents.filter((a) => selectedAgentIds.includes(a.id))
+    }
+    return nonModeratorAgents
+  }, [needsSelector, selectedAgentIds, nonModeratorAgents])
+
   const dimensions = activeRound === 1 ? ROUND1_DIMS : ROUND2_DIMS
 
-  const agentMessages = new Map<string, Map<string, string>>()
-  for (const agent of nonModeratorAgents) {
-    const message = session.messages.find((item) => item.round === activeRound && item.agentId === agent.id && item.isComplete)
-    if (message) {
-      agentMessages.set(agent.id, parseSections(getMessageText(message)))
+  const agentMessages = useMemo(() => {
+    const map = new Map<string, Map<string, string>>()
+    for (const agent of displayedAgents) {
+      const message = session.messages.find((item) => item.round === activeRound && item.agentId === agent.id && item.isComplete)
+      if (message) map.set(agent.id, parseSections(getMessageText(message)))
     }
-  }
+    return map
+  }, [displayedAgents, activeRound, session.messages])
 
-  const agentSourceRefs = new Map<string, SourceRef[]>()
-  for (const agent of nonModeratorAgents) {
-    agentSourceRefs.set(agent.id, session.sourceRefs.filter((ref) => ref.agentId === agent.id && ref.round === activeRound))
-  }
+  const agentSourceRefs = useMemo(() => {
+    const map = new Map<string, SourceRef[]>()
+    for (const agent of displayedAgents) {
+      map.set(agent.id, session.sourceRefs.filter((ref) => ref.agentId === agent.id && ref.round === activeRound))
+    }
+    return map
+  }, [displayedAgents, activeRound, session.sourceRefs])
+
+  const sharedKeys = useMemo(
+    () => buildSharedKeys(agentSourceRefs, displayedAgents.map((a) => a.id)),
+    [agentSourceRefs, displayedAgents],
+  )
 
   const hasMessages = session.messages.some((message) => message.round === activeRound && message.isComplete)
 
+  function toggleAgentSelect(agentId: string) {
+    setSelectedAgentIds((prev) => {
+      if (prev.includes(agentId)) return prev.filter((id) => id !== agentId)
+      if (prev.length >= 2) return [prev[1]!, agentId]
+      return [...prev, agentId]
+    })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+      {/* Agent selector — shown only when >2 agents */}
+      {needsSelector && (
+        <div style={{
+          padding: '10px 16px',
+          borderBottom: '1px solid #ebebed',
+          background: '#fafaf9',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', color: '#a1a1aa', textTransform: 'uppercase', flexShrink: 0 }}>
+            Compare
+          </span>
+          {nonModeratorAgents.map((agent) => {
+            const selected = selectedAgentIds.includes(agent.id)
+            return (
+              <button
+                key={agent.id}
+                type="button"
+                onClick={() => toggleAgentSelect(agent.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '4px 9px 4px 5px',
+                  borderRadius: 999,
+                  border: `1.5px solid ${selected ? agent.color : '#e4e4e7'}`,
+                  background: selected ? `${agent.color}14` : '#fff',
+                  color: selected ? '#18181b' : '#71717a',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 100ms',
+                }}
+              >
+                <AgentAvatar agent={agent} size="sm" />
+                {agent.name}
+              </button>
+            )
+          })}
+          {selectedAgentIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedAgentIds([])}
+              style={{ fontSize: 10, color: '#a1a1aa', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+            >
+              Reset
+            </button>
+          )}
+          {selectedAgentIds.length === 1 && (
+            <span style={{ fontSize: 10, color: '#a1a1aa', fontStyle: 'italic' }}>Pick one more agent</span>
+          )}
+          {sharedKeys.size > 0 && (
+            <span style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>
+              {sharedKeys.size} shared source{sharedKeys.size !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Agent header row */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${nonModeratorAgents.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `repeat(${displayedAgents.length}, minmax(0, 1fr))`,
         borderBottom: '1px solid #ebebed',
         background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(12px)',
         flexShrink: 0,
       }}>
-        {nonModeratorAgents.map((agent, index) => (
+        {displayedAgents.map((agent, index) => (
           <div
             key={agent.id}
             style={{
@@ -305,7 +446,7 @@ export function CompareView({ session, onSourceClick }: CompareViewProps) {
               alignItems: 'center',
               gap: 7,
               padding: '10px 16px',
-              borderRight: index < nonModeratorAgents.length - 1 ? '1px solid #ececf1' : 'none',
+              borderRight: index < displayedAgents.length - 1 ? '1px solid #ececf1' : 'none',
             }}
           >
             <AgentAvatar agent={agent} size="sm" />
@@ -321,6 +462,7 @@ export function CompareView({ session, onSourceClick }: CompareViewProps) {
         ))}
       </div>
 
+      {/* Round toggle */}
       {hasRound2 && (
         <div style={{
           display: 'flex',
@@ -353,6 +495,7 @@ export function CompareView({ session, onSourceClick }: CompareViewProps) {
         </div>
       )}
 
+      {/* Dimension rows */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {!hasMessages ? (
           <div style={{
@@ -372,9 +515,10 @@ export function CompareView({ session, onSourceClick }: CompareViewProps) {
             <DimensionRow
               key={dimension.label}
               dimension={dimension}
-              agents={nonModeratorAgents}
+              agents={displayedAgents}
               agentMessages={agentMessages}
               agentSourceRefs={agentSourceRefs}
+              sharedKeys={sharedKeys}
               onSourceClick={onSourceClick}
               defaultOpen={index === 0}
             />

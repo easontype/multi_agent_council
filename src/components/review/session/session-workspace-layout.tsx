@@ -3,6 +3,7 @@
 import { CompareView } from '@/components/council/compare-view'
 import { DebateMap } from '@/components/council/debate-map'
 import { DiscussionTimeline } from '@/components/council/discussion-timeline'
+import { GapMapView } from '@/components/council/gap-map-view'
 import { ReviewSidebar } from '@/components/council/review-sidebar'
 import type { SourceReaderTarget } from '@/components/council/source-reader-panel'
 import { SessionTopBar } from './session-top-bar'
@@ -20,7 +21,7 @@ interface SessionWorkspaceLayoutProps {
   activeSourceLabel: string | null
   activeDocumentTarget: SourceReaderTarget | null
   sidebarTab: 'reader' | 'citations' | 'flow' | 'chat'
-  currentView: 'timeline' | 'compare' | 'map'
+  currentView: 'timeline' | 'compare' | 'map' | 'gap-map'
   isPublic: boolean
   shareLoading: boolean
   shareCopied: boolean
@@ -29,7 +30,7 @@ interface SessionWorkspaceLayoutProps {
   rounds: 1 | 2
   onSourceClick: (label: string) => void
   onTabChange: (tab: 'reader' | 'citations' | 'flow' | 'chat') => void
-  onViewChange: (view: 'timeline' | 'compare' | 'map') => void
+  onViewChange: (view: 'timeline' | 'compare' | 'map' | 'gap-map') => void
   onLocateInDocument: (docId: string, chunkIndex: number) => void
   onRerun: () => void
   onDuplicateAsNew: () => void
@@ -45,7 +46,7 @@ function WorkspaceCanvas({
   onLocateInDocument,
 }: {
   session: DiscussionSession
-  currentView: 'timeline' | 'compare' | 'map'
+  currentView: 'timeline' | 'compare' | 'map' | 'gap-map'
   onSourceClick: (label: string) => void
   onLocateInDocument: (docId: string, chunkIndex: number) => void
 }) {
@@ -55,6 +56,10 @@ function WorkspaceCanvas({
 
   if (currentView === 'map') {
     return <DebateMap session={session} />
+  }
+
+  if (currentView === 'gap-map') {
+    return <GapMapView session={session} onLocateInDocument={onLocateInDocument} />
   }
 
   return <DiscussionTimeline session={session} onSourceClick={onSourceClick} onLocateInDocument={onLocateInDocument} />
@@ -159,7 +164,9 @@ export function SessionWorkspaceLayout({
                     ? 'Live transcript, agent progression, and moderator synthesis.'
                     : currentView === 'compare'
                       ? 'Cross-agent comparison by dimension and debate round.'
-                      : 'Round 2 challenge graph and stance shifts.'}
+                      : currentView === 'map'
+                        ? 'Round 2 challenge graph and stance shifts.'
+                        : 'Citation coverage heatmap — uncited sections shown as blind spots.'}
                 </div>
               </div>
             </div>

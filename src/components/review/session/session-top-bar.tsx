@@ -14,10 +14,10 @@ interface SessionTopBarProps {
   shareCopied: boolean
   activeCount: number
   rounds: 1 | 2
-  currentView: 'timeline' | 'compare' | 'map'
+  currentView: 'timeline' | 'compare' | 'map' | 'gap-map'
   canRerun: boolean
   rerunLoading: boolean
-  onViewChange: (view: 'timeline' | 'compare' | 'map') => void
+  onViewChange: (view: 'timeline' | 'compare' | 'map' | 'gap-map') => void
   onRerun: () => void
   onDuplicateAsNew: () => void
   onExport: () => void
@@ -36,7 +36,8 @@ const STATUS_CONFIG: Record<ReviewPhase, { dot: string; label: string; pulse: bo
 const VIEW_OPTIONS = [
   { key: 'timeline' as const, label: 'Timeline' },
   { key: 'compare' as const, label: 'Compare' },
-  { key: 'map' as const, label: 'Map' },
+  { key: 'map' as const, label: 'Flow' },
+  { key: 'gap-map' as const, label: 'Gap Map' },
 ]
 
 export function SessionTopBar({

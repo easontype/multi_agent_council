@@ -40,7 +40,7 @@ export function useReviewSessionWorkspaceState({
   const [activeSourceLabel, setActiveSourceLabel] = useState<string | null>(null)
   const [activeDocumentTarget, setActiveDocumentTarget] = useState<SourceReaderTarget | null>(null)
   const [sidebarTab, setSidebarTab] = useState<'reader' | 'citations' | 'flow' | 'chat'>('citations')
-  const [workspaceView, setWorkspaceView] = useState<'timeline' | 'compare' | 'map'>('timeline')
+  const [workspaceView, setWorkspaceView] = useState<'timeline' | 'compare' | 'map' | 'gap-map'>('timeline')
   const [restoreSource, setRestoreSource] = useState<'url' | 'local' | null>(null)
   const requestedSessionIdRef = useRef<string | null>(null)
 
