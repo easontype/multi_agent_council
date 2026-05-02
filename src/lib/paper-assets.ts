@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { createHash } from "crypto";
 import { db } from "@/lib/db/db";
 import type { IngestResult } from "@/lib/paper-ingest";
+import { ensureCouncilSchema } from "@/lib/db/council-db";
 
 export type PaperAssetStatus = "pending" | "processing" | "ready" | "failed";
 export type PaperAssetSourceKind = "arxiv" | "upload" | "pdf_url" | "text";
@@ -30,6 +31,13 @@ export interface ResolvedPaperAsset {
   reusedAsset: boolean;
 }
 
+export interface PaperAssetBackfillSummary {
+  scanned: number;
+  updated: number;
+  skipped: number;
+  created: number;
+}
+
 function mapPaperAssetRow(row: Record<string, unknown>): PaperAsset {
   return {
     id: String(row.id),
@@ -55,6 +63,20 @@ function normalizeArxivId(value?: string | null): string | null {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return null;
   return trimmed.replace(/^arxiv:/i, "");
+}
+
+function extractSourceUrlFromContext(context?: string | null): string | null {
+  if (!context) return null;
+  const match = context.match(/Source:\s*(.*)\. Library:\s*/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractArxivIdFromSource(sourceUrl?: string | null): string | null {
+  if (!sourceUrl) return null;
+  const arxivMatch = sourceUrl.match(/arxiv\.org\/(?:abs|pdf)\/([^/?#]+?)(?:\.pdf)?$/i);
+  if (arxivMatch?.[1]) return normalizeArxivId(arxivMatch[1]);
+  const plainMatch = sourceUrl.match(/^(\d{4}\.\d{4,5}(?:v\d+)?)$/i);
+  return plainMatch?.[1] ?? null;
 }
 
 export function computeBufferChecksum(buffer: Buffer | undefined): string | null {
@@ -326,5 +348,141 @@ export async function getPaperAssetLookupByArxivId(arxivId: string): Promise<{
     title: row.canonical_title ? String(row.canonical_title) : null,
     markerProcessed: Boolean(row.marker_processed),
     sessionCount: Number(row.session_count ?? 0),
+  };
+}
+
+export async function backfillPaperAssetsForSessions(limit = 100): Promise<PaperAssetBackfillSummary> {
+  await ensureCouncilSchema();
+
+  const { rows } = await db.query(
+    `SELECT s.id,
+            s.title,
+            s.context,
+            s.paper_asset_id,
+            s.workspace_id,
+            s.seats
+     FROM council_sessions s
+     WHERE s.paper_asset_id IS NULL
+     ORDER BY s.created_at ASC
+     LIMIT $1`,
+    [limit],
+  );
+
+  let updated = 0;
+  let skipped = 0;
+  let created = 0;
+
+  for (const row of rows as Array<{
+    id: string;
+    title: string | null;
+    context: string | null;
+    paper_asset_id: string | null;
+    workspace_id: string | null;
+    seats: unknown;
+  }>) {
+    const sourceUrl = extractSourceUrlFromContext(row.context);
+    const arxivId = extractArxivIdFromSource(sourceUrl);
+    const seats = Array.isArray(row.seats) ? row.seats as Array<Record<string, unknown>> : [];
+    const libraryId = seats.find((seat) => typeof seat.library_id === "string" && seat.library_id.trim())?.library_id as string | undefined;
+
+    if (!sourceUrl && !arxivId && !libraryId) {
+      skipped += 1;
+      continue;
+    }
+
+    let asset: PaperAsset | null = null;
+    let reused = true;
+
+    if (arxivId) {
+      const resolved = await resolvePaperAsset({
+        workspaceId: row.workspace_id,
+        title: row.title?.trim() || "Untitled Paper",
+        arxivId,
+        sourceKind: "arxiv",
+        sourceLocator: arxivId,
+      });
+      asset = resolved.asset;
+      reused = resolved.reusedAsset;
+    } else if (sourceUrl === "upload" && libraryId) {
+      const uploadedFileLookup = await db.query(
+        `SELECT checksum_sha256
+         FROM uploaded_files
+         WHERE library_id = $1
+         ORDER BY created_at ASC
+         LIMIT 1`,
+        [libraryId],
+      );
+      const checksum = uploadedFileLookup.rows[0]?.checksum_sha256 ? String(uploadedFileLookup.rows[0].checksum_sha256) : null;
+      if (!checksum) {
+        skipped += 1;
+        continue;
+      }
+      const resolved = await resolvePaperAsset({
+        workspaceId: row.workspace_id,
+        title: row.title?.trim() || "Untitled Paper",
+        sourceKind: "upload",
+        sourceLocator: "upload",
+        checksumSha256: checksum,
+      });
+      asset = resolved.asset;
+      reused = resolved.reusedAsset;
+    } else {
+      skipped += 1;
+      continue;
+    }
+
+    if (!asset) {
+      skipped += 1;
+      continue;
+    }
+
+    if (!reused) created += 1;
+
+    if (libraryId && !asset.primary_library_id) {
+      const documentLookup = await db.query(
+        `SELECT id::text, COALESCE(marker_processed, false) AS marker_processed
+         FROM documents
+         WHERE tags ? $1
+         ORDER BY created_at ASC NULLS LAST
+         LIMIT 1`,
+        [`council:lib:${libraryId}`],
+      );
+      const documentId = documentLookup.rows[0]?.id ? String(documentLookup.rows[0].id) : null;
+      const markerProcessed = Boolean(documentLookup.rows[0]?.marker_processed);
+      if (documentId) {
+        await db.query(
+          `UPDATE paper_assets
+           SET document_id = COALESCE(document_id, $2),
+               primary_library_id = COALESCE(primary_library_id, $3),
+               marker_processed = CASE WHEN marker_processed THEN marker_processed ELSE $4 END,
+               status = CASE WHEN status = 'pending' THEN 'ready' ELSE status END,
+               processed_at = COALESCE(processed_at, NOW()),
+               updated_at = NOW()
+           WHERE id = $1`,
+          [asset.id, documentId, libraryId, markerProcessed],
+        );
+        await db.query(
+          `INSERT INTO paper_libraries (id, paper_asset_id, library_id, document_id, is_primary)
+           VALUES ($1,$2,$3,$4,true)
+           ON CONFLICT (library_id) DO NOTHING`,
+          [nanoid(), asset.id, libraryId, documentId],
+        );
+      }
+    }
+
+    await db.query(
+      `UPDATE council_sessions
+       SET paper_asset_id = $2
+       WHERE id = $1 AND paper_asset_id IS NULL`,
+      [row.id, asset.id],
+    );
+    updated += 1;
+  }
+
+  return {
+    scanned: rows.length,
+    updated,
+    skipped,
+    created,
   };
 }
