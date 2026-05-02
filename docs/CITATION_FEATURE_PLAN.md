@@ -720,9 +720,9 @@ This plan describes the target citation system well, but the codebase is not sta
 | 0-E | partial | marker enrichment is wired, retry/backoff and backfill entry now exist, but production verification and richer alignment remain |
 | 1 | done | evidence annotation visual typing, source icons, solid vs dashed underline, tooltip metadata are already implemented |
 | 2 | done | `citation-popover.tsx` exists; click-to-open popover and context fetch are wired |
-| 3-B | partial | current right sidebar has `Sources / Chat`; upgraded `Citations` tab workflow is not integrated yet, but `SourcePanel` foundation exists |
+| 3-B | done | right sidebar now uses `Citations` tab and routes source interactions back into the citations workspace |
 | 3-C | partial | right-rail reader exists with markdown fetch + chunk-context fallback, but anchor-level precision and richer reader polish remain |
-| 3-D | partial | `debate-map.tsx` already exists, but not integrated as the planned right-panel `Flow` tab |
+| 3-D | done | `Flow` tab is integrated into the right sidebar and is disabled until Round 2 data exists |
 | 4-B | partial | `compare-view.tsx` exists as a comparison surface, but not yet aligned with the planned toggle workflow |
 | 4-C | not started | no citation coverage API or gap-map UI exists |
 | 5-A | not started | no citation conflict analysis pipeline exists |
@@ -733,9 +733,12 @@ This plan describes the target citation system well, but the codebase is not sta
 
 - The document was directionally correct, but `0-A/0-B/0-C/1/2` are more complete than the original table implied.
 - The next real delivery target is not backend plumbing first; it is to integrate the already-existing citation and flow foundations into the intended workspace structure.
-- The first meaningful product step remains:
+- The first meaningful product step was:
   - `3-B` Citations Tab
   - `3-D` Debate Flow Tab
+- That step is now complete in first-pass form, so the next practical focus is:
+  - `0-E` marker hardening and rollout validation
+  - `3-C` reader precision and polish
 - The highest-risk backend step remains:
   - `0-E` marker ingestion and markdown pipeline
 
@@ -805,6 +808,10 @@ This plan describes the target citation system well, but the codebase is not sta
   - `npm run build`
   - `npx jest --runInBand src/__tests__/council-session-hydrator.test.ts src/__tests__/council-event-reducer.test.ts`
   - `npx jest --runInBand src/__tests__/paper-ingest.test.ts`
+  - latest commit sequence:
+    - `3c1b97e` `feat(citation): wire flow tabs and marker ingest`
+    - `3a9d998` `feat(citation): add source reader workspace tab`
+    - `4ec57bd` `feat(citation): harden marker ingest retries and backfill`
 
 ### 2. Recommended Implementation Priority
 
@@ -980,3 +987,14 @@ Why:
 - Do not couple `0-E` marker ingestion to `3-B` / `3-D`.
 - Do not build citation conflict analysis before `source_type`, `chunk_index`, and `document_id` are stable.
 - Do not build gap-map logic before section/chunk mapping is credible.
+
+### 6. Latest Status Snapshot
+
+- `3-B` is functionally complete for v1: `Citations` is the default right-rail workspace and source interactions route back into it.
+- `3-D` is functionally complete for v1: `Flow` is wired into the right rail and is guarded behind Round 2 availability.
+- `3-C` is now in first-pass state: the `Reader` tab exists, renders marker markdown when available, and degrades to chunk-context fallback when it is not.
+- `0-E` is now in partial-but-real state: marker ingest runs, persists markdown/chunk metadata, retries transient failures, records attempt/error metadata, and exposes a manual backfill entry script.
+- The next highest-value work is no longer initial tab wiring; it is:
+  - improving chunk-to-markdown alignment precision in `0-E`
+  - polishing `3-C` reader navigation and anchor targeting
+  - deferring `4` / `5` analysis-layer work until citation metadata and reader behavior are stable
