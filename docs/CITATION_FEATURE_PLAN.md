@@ -1,6 +1,6 @@
 # Council — Citation UI Feature Plan
 
-> 版本：v1.2 · 2026-05-02  
+> 版本：v1.3 · 2026-05-02  
 > 範圍：辯論 citation 體驗全面升級 + PDF 原文渲染（marker 整合）  
 > 原則：不動現有邏輯，逐 phase 疊加；每個 phase 獨立可測試
 
@@ -15,8 +15,10 @@
 | 0-C | Chunk Context API | ✅ 完成 | 同上 |
 | 1 | Citation 視覺類型系統 | ✅ 完成 | feat(citation): Phase 1 visual type system |
 | 2 | Citation Popover（元件 + 接線） | ✅ 完成 | feat(citation): Phase 2 wire CitationPopover |
-| 0-E | marker PDF→Markdown 整合 | ⏳ 待做 | — |
-| 3 | 右側面板三 Tab 重構 | ⏳ 待做 | — |
+| 0-E | marker PDF→Markdown 整合 | ⚡ 架構完成，待生產驗證 | feat(citation): harden marker + reader precision |
+| 3-B | Citations Tab | ✅ 完成 | feat(citation): wire flow tabs and marker ingest |
+| 3-C | Source Reader Tab | ✅ 完成（chunk 精準 + 高亮 + 導航） | feat(citation): harden marker + reader precision |
+| 3-D | 辯論 Flow Tab | ✅ 完成 | feat(citation): wire flow tabs and marker ingest |
 | 4 | 左側面板 Toggle | ⏳ 待做 | — |
 | 5 | Citation 智慧層 | ⏳ 待做 | — |
 
@@ -988,13 +990,22 @@ Why:
 - Do not build citation conflict analysis before `source_type`, `chunk_index`, and `document_id` are stable.
 - Do not build gap-map logic before section/chunk mapping is credible.
 
-### 6. Latest Status Snapshot
+### 6. Latest Status Snapshot (v1.3 · 2026-05-02)
 
-- `3-B` is functionally complete for v1: `Citations` is the default right-rail workspace and source interactions route back into it.
-- `3-D` is functionally complete for v1: `Flow` is wired into the right rail and is guarded behind Round 2 availability.
-- `3-C` is now in first-pass state: the `Reader` tab exists, renders marker markdown when available, and degrades to chunk-context fallback when it is not.
-- `0-E` is now in partial-but-real state: marker ingest runs, persists markdown/chunk metadata, retries transient failures, records attempt/error metadata, and exposes a manual backfill entry script.
-- The next highest-value work is no longer initial tab wiring; it is:
-  - improving chunk-to-markdown alignment precision in `0-E`
-  - polishing `3-C` reader navigation and anchor targeting
-  - deferring `4` / `5` analysis-layer work until citation metadata and reader behavior are stable
+- `3-B` ✅ functionally complete: `Citations` is the default right-rail workspace.
+- `3-D` ✅ functionally complete: `Flow` tab wired, guarded behind Round 2 availability.
+- `3-C` ✅ complete with full reader precision:
+  - `rehype-raw` added; `<span id="chunk-N">` anchors now render in DOM (was being stripped before)
+  - Scroll targets chunk-level anchor first, falls back to section heading
+  - Chunk highlight: amber left-border + background on paragraph(s) following the anchor
+  - Prev/Next navigation footer with `Citation N of M` counter
+  - Section heading + page estimate shown in Focused Citation header
+- `0-E` ⚡ architecture complete, awaiting production verification:
+  - `findChunkOffset` now tries 160→80→40 char prefix fallback with try-catch per attempt
+  - `snapToParagraphStart` snaps anchor injection to paragraph boundary (not mid-sentence)
+  - Coverage log: `[marker] docId: X/Y chunks mapped (Z%)`
+  - Retry/backoff, backfill script, attempt metadata all in place
+- Next work:
+  - **Production marker verification**: run backfill on real arXiv papers, check coverage %
+  - **Phase 4**: Left panel Toggle (Agent Compare + Gap Map)
+  - Phase 5 deferred until metadata is stable

@@ -54,7 +54,9 @@ const MARKER_RETRY_MAX_DELAY_MS = 8000;
 const MARKER_RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 const MARKER_RETRYABLE_ERRORS = /(rate limit|timed out|timeout|temporar|unavailable|network|fetch failed|429|500|502|503|504)/i;
 const MARKER_REATTEMPT_COOLDOWN_MS = 30 * 60 * 1000;
-const CHUNK_MATCH_PREFIX = 160;
+const CHUNK_MATCH_PREFIX_LENGTHS = [160, 80, 40] as const;
+// Max chars to look back from a match offset when snapping anchor to paragraph boundary
+const ANCHOR_SNAP_WINDOW = 400;
 
 /** Fetch plain text from an arXiv paper by ID (e.g. "2301.07041") */
 export async function fetchArxivPaper(arxivId: string): Promise<FetchArxivPaperResult> {
@@ -342,8 +344,15 @@ async function enrichDocumentWithMarker(documentId: string, pdfBuffer?: Buffer):
   const chunkRows = await fetchDocumentChunks(documentId);
   const sections = extractMarkdownSections(markdown);
   const chunkUpdates = mapChunksToMarkdown(markdown, chunkRows, sections);
-  const markdownWithAnchors = injectChunkAnchors(markdown, chunkUpdates);
 
+  const matchedCount = chunkUpdates.filter((u) => u.charOffset != null).length;
+  const total = chunkUpdates.length;
+  console.log(
+    `[marker] ${documentId}: ${matchedCount}/${total} chunks mapped` +
+    (total > 0 ? ` (${Math.round((matchedCount / total) * 100)}%)` : ''),
+  );
+
+  const markdownWithAnchors = injectChunkAnchors(markdown, chunkUpdates);
   await persistMarkerEnrichment(documentId, markdownWithAnchors, chunkUpdates);
 }
 
@@ -476,24 +485,49 @@ function findChunkOffset(markdown: string, chunkContent: string): number | null 
   const trimmed = chunkContent.replace(/\s+/g, " ").trim();
   if (!trimmed) return null;
 
-  const prefix = trimmed.slice(0, CHUNK_MATCH_PREFIX).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  if (!prefix) return null;
+  for (const prefixLen of CHUNK_MATCH_PREFIX_LENGTHS) {
+    const prefix = trimmed.slice(0, prefixLen);
+    if (!prefix) break;
 
-  const whitespaceTolerant = prefix.replace(/\s+/g, "\\s+");
-  const regex = new RegExp(whitespaceTolerant, "i");
-  const match = regex.exec(markdown);
-  return match?.index ?? null;
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = escaped.replace(/ /g, "\\s+");
+    try {
+      const match = new RegExp(pattern, "i").exec(markdown);
+      if (match?.index != null) return match.index;
+    } catch {
+      // regex compile failed (too many special chars), try shorter prefix
+    }
+  }
+
+  return null;
+}
+
+function snapToParagraphStart(markdown: string, offset: number): number {
+  const before = markdown.slice(0, offset);
+  const lastBlankLine = before.lastIndexOf("\n\n");
+  if (lastBlankLine !== -1 && offset - lastBlankLine <= ANCHOR_SNAP_WINDOW) {
+    return lastBlankLine + 2;
+  }
+  const lastNewline = before.lastIndexOf("\n");
+  if (lastNewline !== -1 && offset - lastNewline <= ANCHOR_SNAP_WINDOW / 2) {
+    return lastNewline + 1;
+  }
+  return offset;
 }
 
 function injectChunkAnchors(markdown: string, chunkUpdates: ChunkMarkerUpdate[]): string {
+  // Snap each offset to the start of its paragraph, then insert in reverse order
   const inserts = chunkUpdates
     .filter((item) => item.charOffset != null)
-    .sort((a, b) => (b.charOffset ?? 0) - (a.charOffset ?? 0));
+    .map((item) => ({
+      chunkIndex: item.chunkIndex,
+      offset: snapToParagraphStart(markdown, item.charOffset!),
+    }))
+    .sort((a, b) => b.offset - a.offset);
 
   let output = markdown;
   for (const item of inserts) {
-    const offset = item.charOffset ?? 0;
-    output = `${output.slice(0, offset)}\n<span id="chunk-${item.chunkIndex}"></span>\n${output.slice(offset)}`;
+    output = `${output.slice(0, item.offset)}<span id="chunk-${item.chunkIndex}"></span>\n${output.slice(item.offset)}`;
   }
   return output;
 }
