@@ -27,15 +27,17 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  // Collect all cited chunk_index values per document for this session
+  // Collect all cited chunk_index values per document for this session.
+  // source_refs is a JSONB array of CouncilEvidenceSource; unnest to extract per-ref fields.
   const evidenceRows = await db.query(
     `SELECT DISTINCT
-       (e.source_meta->>'doc_id') AS doc_id,
-       (e.source_meta->>'chunk_index')::integer AS chunk_index
-     FROM council_evidence e
+       (sr->>'doc_id') AS doc_id,
+       (sr->>'chunk_index')::integer AS chunk_index
+     FROM council_evidence e,
+          jsonb_array_elements(e.source_refs) AS sr
      WHERE e.session_id = $1
-       AND e.source_meta->>'doc_id' IS NOT NULL
-       AND e.source_meta->>'chunk_index' IS NOT NULL`,
+       AND sr->>'doc_id' IS NOT NULL
+       AND sr->>'chunk_index' IS NOT NULL`,
     [id],
   );
 
