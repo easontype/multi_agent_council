@@ -120,6 +120,10 @@ export async function ensureCouncilSchema() {
         ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'local_doc';
         ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS markdown_content TEXT;
         ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_processed BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_attempts INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_last_error TEXT;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_last_attempt_at TIMESTAMPTZ;
+        ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS marker_completed_at TIMESTAMPTZ;
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS section_heading TEXT;
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS char_offset INTEGER;
       `);

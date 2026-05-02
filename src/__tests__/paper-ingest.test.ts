@@ -15,16 +15,20 @@ import { embedDocumentById } from "@/lib/tools/handlers/rag";
 const mockedDbQuery = jest.mocked(db.query);
 const mockedEmbedDocumentById = jest.mocked(embedDocumentById);
 
+function mockSchemaSetup() {
+  for (let index = 0; index < 7; index += 1) {
+    mockedDbQuery.mockResolvedValueOnce({ rows: [] } as never);
+  }
+}
+
 describe("ingestPaper", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it("waits for the inserted document to be embedded before resolving", async () => {
+    mockSchemaSetup();
     mockedDbQuery
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [{ id: "doc-123" }] } as never);
     mockedEmbedDocumentById.mockResolvedValue({
@@ -47,10 +51,8 @@ describe("ingestPaper", () => {
   });
 
   it("fails the ingest when embedding the inserted document fails", async () => {
+    mockSchemaSetup();
     mockedDbQuery
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [{ id: "doc-456" }] } as never);
     mockedEmbedDocumentById.mockRejectedValue(new Error("embedding unavailable"));
@@ -65,16 +67,18 @@ describe("ingestPaper", () => {
   });
 
   it("reuses an existing document with the same source URL and content hash", async () => {
+    mockSchemaSetup();
     mockedDbQuery
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({
         rows: [{
           id: "doc-cached",
           title: "Cached Paper",
           tags: ["council:lib:paper:cached-lib"],
           content_hash: "existing-hash",
+          marker_processed: false,
+          marker_attempts: 0,
+          marker_last_attempt_at: null,
+          marker_last_error: null,
           done: true,
           has_chunks: true,
         }],
@@ -94,16 +98,18 @@ describe("ingestPaper", () => {
   });
 
   it("adds a requested library tag to a reused document without re-embedding", async () => {
+    mockSchemaSetup();
     mockedDbQuery
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({
         rows: [{
           id: "doc-cached",
           title: "Cached Paper",
           tags: ["council:lib:paper:cached-lib"],
           content_hash: "existing-hash",
+          marker_processed: false,
+          marker_attempts: 0,
+          marker_last_attempt_at: null,
+          marker_last_error: null,
           done: true,
           has_chunks: true,
         }],

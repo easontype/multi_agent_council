@@ -717,7 +717,7 @@ This plan describes the target citation system well, but the codebase is not sta
 | 0-B | done | `CouncilEvidenceSource` already carries `chunk_index`, `doc_id`, `source_type`, `similarity_score`, `is_heuristic`, `authors`, `year`; RAG source metadata is already merged into refs |
 | 0-C | done | `GET /api/documents/[id]/chunks/[index]/context` already exists and returns ±2 chunks plus `sectionHeading` |
 | 0-D | partial | `document_chunks.section_heading` and `char_offset` columns exist, but no reliable population pipeline is in place yet |
-| 0-E | not started | marker ingestion / markdown rendering pipeline is not implemented; only schema placeholders exist |
+| 0-E | partial | marker enrichment is wired, retry/backoff and backfill entry now exist, but production verification and richer alignment remain |
 | 1 | done | evidence annotation visual typing, source icons, solid vs dashed underline, tooltip metadata are already implemented |
 | 2 | done | `citation-popover.tsx` exists; click-to-open popover and context fetch are wired |
 | 3-B | partial | current right sidebar has `Sources / Chat`; upgraded `Citations` tab workflow is not integrated yet, but `SourcePanel` foundation exists |
@@ -791,7 +791,10 @@ This plan describes the target citation system well, but the codebase is not sta
   - marker enrichment is wired as a non-blocking path gated by `MARKER_API_KEY`
   - documents can now be read through `GET /api/documents/[id]/markdown`
   - chunk `section_heading` / `char_offset` persistence is implemented for successful marker runs
-  - remaining work is still real: production marker verification, retry/backfill policy, and reader UI
+  - marker requests now retry with exponential backoff on transient failures
+  - document metadata now records marker attempts / last error / last attempt timestamp / completed timestamp
+  - a manual backfill entry point exists via `scripts/backfill-marker.ts`
+  - remaining work is still real: production marker verification, better chunk-to-markdown precision, and operational rollout policy
 - `3-C` first-pass reader integration is now complete:
   - right sidebar adds a `Reader` tab for document-backed citations
   - `Locate in document` now routes from citation popover / source cards into the reader tab

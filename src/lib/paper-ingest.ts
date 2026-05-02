@@ -25,6 +25,13 @@ export interface FetchArxivPaperResult {
   pdfBuffer: Buffer;
 }
 
+interface MarkerAttemptState {
+  markerProcessed: boolean;
+  markerAttempts: number;
+  markerLastAttemptAt: string | null;
+  markerLastError: string | null;
+}
+
 interface MarkerSection {
   heading: string;
   level: number;
@@ -41,6 +48,12 @@ interface ChunkMarkerUpdate {
 const MARKER_API_BASE = "https://www.datalab.to/api/v1/marker";
 const MARKER_POLL_MAX_ATTEMPTS = 20;
 const MARKER_POLL_INTERVAL_MS = 1500;
+const MARKER_RETRY_MAX_ATTEMPTS = 3;
+const MARKER_RETRY_BASE_MS = 1200;
+const MARKER_RETRY_MAX_DELAY_MS = 8000;
+const MARKER_RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const MARKER_RETRYABLE_ERRORS = /(rate limit|timed out|timeout|temporar|unavailable|network|fetch failed|429|500|502|503|504)/i;
+const MARKER_REATTEMPT_COOLDOWN_MS = 30 * 60 * 1000;
 const CHUNK_MATCH_PREFIX = 160;
 
 /** Fetch plain text from an arXiv paper by ID (e.g. "2301.07041") */
@@ -101,9 +114,7 @@ export async function ingestPaper(params: {
     if (!existing.isReady) {
       await embedDocument(existing.documentId);
     }
-    if (!existing.markerProcessed) {
-      void enrichDocumentWithMarker(existing.documentId, params.pdfBuffer).catch(() => {});
-    }
+    queueMarkerEnrichment(existing.documentId, params.pdfBuffer, existing);
 
     return {
       documentId: existing.documentId,
@@ -134,7 +145,12 @@ export async function ingestPaper(params: {
   const insertedId: string = (insertRes.rows[0] as Record<string, string>).id;
 
   await embedDocument(insertedId);
-  void enrichDocumentWithMarker(insertedId, params.pdfBuffer).catch(() => {});
+  queueMarkerEnrichment(insertedId, params.pdfBuffer, {
+    markerProcessed: false,
+    markerAttempts: 0,
+    markerLastAttemptAt: null,
+    markerLastError: null,
+  });
 
   return {
     documentId: insertedId,
@@ -150,6 +166,10 @@ async function ensureDocumentSchema() {
   // The documents/document_chunks tables are managed by the platform schema.
   // We only ensure the indexes/metadata needed by the paper ingest path.
   await db.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS content_hash TEXT;`);
+  await db.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS marker_attempts INTEGER NOT NULL DEFAULT 0;`);
+  await db.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS marker_last_error TEXT;`);
+  await db.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS marker_last_attempt_at TIMESTAMPTZ;`);
+  await db.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS marker_completed_at TIMESTAMPTZ;`);
   await db.query(`
     CREATE INDEX IF NOT EXISTS idx_documents_tags ON documents USING gin(tags);
   `);
@@ -213,6 +233,9 @@ async function findExistingDocument(sourceUrl: string, contentHash: string, cont
   libraryId: string | null;
   isReady: boolean;
   markerProcessed: boolean;
+  markerAttempts: number;
+  markerLastAttemptAt: string | null;
+  markerLastError: string | null;
 } | null> {
   const { rows } = await db.query(
     `SELECT d.id::text,
@@ -220,6 +243,9 @@ async function findExistingDocument(sourceUrl: string, contentHash: string, cont
             d.tags,
             d.content_hash,
             COALESCE(d.marker_processed, false) AS marker_processed,
+            COALESCE(d.marker_attempts, 0) AS marker_attempts,
+            d.marker_last_attempt_at,
+            d.marker_last_error,
             COALESCE(d.done, false) AS done,
             EXISTS (
               SELECT 1 FROM document_chunks c WHERE c.document_id = d.id
@@ -243,6 +269,9 @@ async function findExistingDocument(sourceUrl: string, contentHash: string, cont
     tags: unknown;
     content_hash: string | null;
     marker_processed: boolean;
+    marker_attempts: number;
+    marker_last_attempt_at: string | null;
+    marker_last_error: string | null;
     done: boolean;
     has_chunks: boolean;
   };
@@ -261,6 +290,9 @@ async function findExistingDocument(sourceUrl: string, contentHash: string, cont
     libraryId: extractLibraryIdFromTags(row.tags),
     isReady: Boolean(row.done && row.has_chunks),
     markerProcessed: Boolean(row.marker_processed),
+    markerAttempts: Number(row.marker_attempts ?? 0),
+    markerLastAttemptAt: row.marker_last_attempt_at ?? null,
+    markerLastError: row.marker_last_error ?? null,
   };
 }
 
@@ -276,9 +308,34 @@ async function addDocumentTag(documentId: string, tag: string): Promise<void> {
   );
 }
 
+function queueMarkerEnrichment(
+  documentId: string,
+  pdfBuffer: Buffer | undefined,
+  state: MarkerAttemptState,
+): void {
+  if (!shouldAttemptMarkerEnrichment(pdfBuffer, state)) return;
+  void enrichDocumentWithMarker(documentId, pdfBuffer).catch((error) => {
+    void recordMarkerFailure(documentId, error);
+  });
+}
+
+function shouldAttemptMarkerEnrichment(
+  pdfBuffer: Buffer | undefined,
+  state: MarkerAttemptState,
+  now = Date.now(),
+): boolean {
+  if (!pdfBuffer?.byteLength || !process.env.MARKER_API_KEY) return false;
+  if (state.markerProcessed) return false;
+  if (!state.markerLastAttemptAt) return true;
+  const lastAttemptAt = new Date(state.markerLastAttemptAt).getTime();
+  if (!Number.isFinite(lastAttemptAt)) return true;
+  return now - lastAttemptAt >= MARKER_REATTEMPT_COOLDOWN_MS;
+}
+
 async function enrichDocumentWithMarker(documentId: string, pdfBuffer?: Buffer): Promise<void> {
   if (!pdfBuffer?.byteLength || !process.env.MARKER_API_KEY) return;
 
+  await recordMarkerAttemptStart(documentId);
   const markdown = await requestMarkerMarkdown(pdfBuffer);
   if (!markdown.trim()) return;
 
@@ -291,6 +348,21 @@ async function enrichDocumentWithMarker(documentId: string, pdfBuffer?: Buffer):
 }
 
 async function requestMarkerMarkdown(pdfBuffer: Buffer): Promise<string> {
+  for (let attempt = 1; attempt <= MARKER_RETRY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await requestMarkerMarkdownOnce(pdfBuffer);
+    } catch (error) {
+      if (!isRetryableMarkerError(error) || attempt === MARKER_RETRY_MAX_ATTEMPTS) {
+        throw error;
+      }
+      await sleep(getMarkerRetryDelayMs(attempt));
+    }
+  }
+
+  throw new Error("marker request failed");
+}
+
+async function requestMarkerMarkdownOnce(pdfBuffer: Buffer): Promise<string> {
   const formData = new FormData();
   const pdfBytes = new Uint8Array(pdfBuffer);
   formData.append("file", new Blob([pdfBytes], { type: "application/pdf" }), "document.pdf");
@@ -337,6 +409,19 @@ async function requestMarkerMarkdown(pdfBuffer: Buffer): Promise<string> {
   }
 
   throw new Error("marker polling timed out");
+}
+
+function isRetryableMarkerError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const statusMatch = message.match(/\b(\d{3})\b/);
+  if (statusMatch && MARKER_RETRYABLE_STATUS_CODES.has(Number(statusMatch[1]))) {
+    return true;
+  }
+  return MARKER_RETRYABLE_ERRORS.test(message);
+}
+
+function getMarkerRetryDelayMs(attempt: number): number {
+  return Math.min(MARKER_RETRY_BASE_MS * (2 ** (attempt - 1)), MARKER_RETRY_MAX_DELAY_MS);
 }
 
 async function fetchDocumentChunks(documentId: string): Promise<Array<{ chunk_index: number; content: string }>> {
@@ -424,7 +509,9 @@ async function persistMarkerEnrichment(
     await client.query(
       `UPDATE documents
        SET markdown_content = $2,
-           marker_processed = true
+           marker_processed = true,
+           marker_last_error = NULL,
+           marker_completed_at = NOW()
        WHERE id = $1`,
       [documentId, markdown],
     );
@@ -447,6 +534,91 @@ async function persistMarkerEnrichment(
   } finally {
     client.release();
   }
+}
+
+async function recordMarkerAttemptStart(documentId: string): Promise<void> {
+  await db.query(
+    `UPDATE documents
+     SET marker_attempts = COALESCE(marker_attempts, 0) + 1,
+         marker_last_attempt_at = NOW()
+     WHERE id = $1`,
+    [documentId],
+  );
+}
+
+async function recordMarkerFailure(documentId: string, error: unknown): Promise<void> {
+  const message = error instanceof Error ? error.message : String(error ?? "marker enrichment failed");
+  await db.query(
+    `UPDATE documents
+     SET marker_last_error = $2
+     WHERE id = $1`,
+    [documentId, message.slice(0, 2000)],
+  );
+}
+
+export async function backfillMarkerDocuments(limit = 20): Promise<{
+  scanned: number;
+  attempted: number;
+  succeeded: number;
+  failed: number;
+}> {
+  await ensureDocumentSchema();
+
+  const { rows } = await db.query(
+    `SELECT id::text, source_url, source_type
+     FROM documents
+     WHERE COALESCE(marker_processed, false) = false
+       AND source_url IS NOT NULL
+       AND source_url <> ''
+     ORDER BY created_at ASC NULLS LAST
+     LIMIT $1`,
+    [limit],
+  );
+
+  let attempted = 0;
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const row of rows as Array<{ id: string; source_url: string; source_type: IngestSourceType | null }>) {
+    const sourceType = row.source_type ?? inferSourceType(row.source_url);
+    const pdfBuffer = await fetchBackfillPdfBuffer(row.source_url, sourceType).catch(() => null);
+    if (!pdfBuffer?.byteLength) continue;
+
+    attempted += 1;
+    try {
+      await enrichDocumentWithMarker(row.id, pdfBuffer);
+      succeeded += 1;
+    } catch (error) {
+      await recordMarkerFailure(row.id, error);
+      failed += 1;
+    }
+  }
+
+  return {
+    scanned: rows.length,
+    attempted,
+    succeeded,
+    failed,
+  };
+}
+
+async function fetchBackfillPdfBuffer(sourceUrl: string, sourceType: IngestSourceType): Promise<Buffer | null> {
+  if (sourceType === "local_doc") return null;
+
+  if (/arxiv\.org\//i.test(sourceUrl)) {
+    const arxivMatch = sourceUrl.match(/arxiv\.org\/(?:abs|pdf)\/([^/?#]+)/i);
+    if (arxivMatch?.[1]) {
+      const fetched = await fetchArxivPaper(arxivMatch[1].replace(/\.pdf$/i, ""));
+      return fetched.pdfBuffer;
+    }
+  }
+
+  if (!/^https?:\/\//i.test(sourceUrl)) return null;
+  const response = await fetch(sourceUrl);
+  if (!response.ok) {
+    throw new Error(`backfill pdf fetch failed: ${response.status}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 function sleep(ms: number): Promise<void> {
