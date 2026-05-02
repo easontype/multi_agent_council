@@ -452,6 +452,8 @@ export function extractEvidenceSources(
         doc_id: string | null;
         score: number;
         source_type: "local_doc" | "academic" | "web";
+        authors: string[] | null;
+        year: number | null;
       }>;
       for (const m of meta) {
         const ref = refs.find((r) => r.marker === m.marker);
@@ -460,6 +462,8 @@ export function extractEvidenceSources(
           ref.doc_id = m.doc_id ?? null;
           ref.source_type = m.source_type;
           ref.similarity_score = m.score;
+          ref.authors = m.authors ?? null;
+          ref.year = m.year ?? null;
         }
       }
     } catch {

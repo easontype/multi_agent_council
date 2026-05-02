@@ -289,6 +289,8 @@ export function mapEvidenceSource(raw: unknown): CouncilEvidenceSource | null {
     source_type: sourceType === "local_doc" || sourceType === "academic" || sourceType === "web" ? sourceType : null,
     similarity_score: typeof value.similarity_score === "number" ? value.similarity_score : null,
     is_heuristic: typeof value.is_heuristic === "boolean" ? value.is_heuristic : undefined,
+    authors: Array.isArray(value.authors) ? (value.authors as unknown[]).map(String).filter(Boolean) : null,
+    year: typeof value.year === "number" ? value.year : null,
   };
 }
 

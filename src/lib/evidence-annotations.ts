@@ -7,6 +7,8 @@ export interface EvidenceAnnotation {
   text: string
   sourceRef: SourceRef
   score: number
+  sourceType: "local_doc" | "academic" | "web"
+  isHeuristic: boolean
 }
 
 const GENERIC_SOURCE_PREFIXES = ['rag:', 'semantic:', 'documents tag:', 'document:']
@@ -208,6 +210,8 @@ export function buildEvidenceAnnotations(text: string, sourceRefs: SourceRef[]):
       text: raw,
       sourceRef,
       score: 100,
+      sourceType: sourceRef.source_type ?? "local_doc",
+      isHeuristic: false,
     })
   }
 
@@ -240,6 +244,8 @@ export function buildEvidenceAnnotations(text: string, sourceRefs: SourceRef[]):
       text: range.text,
       sourceRef: bestRef,
       score: bestScore,
+      sourceType: bestRef.source_type ?? "local_doc",
+      isHeuristic: true,
     })
   }
 

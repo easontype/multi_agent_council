@@ -96,6 +96,8 @@ export interface CouncilEvidenceSource {
   source_type?: "local_doc" | "academic" | "web" | null;
   similarity_score?: number | null;
   is_heuristic?: boolean;
+  authors?: string[] | null;
+  year?: number | null;
 }
 
 export interface CouncilEvidence {

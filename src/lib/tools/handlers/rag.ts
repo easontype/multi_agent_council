@@ -13,6 +13,8 @@ interface SearchRow {
   score: number;
   chunk_index: number;
   doc_id: string;
+  authors: string[];
+  year: number | null;
 }
 
 interface RetrievalResult {
@@ -146,6 +148,8 @@ async function semanticChunkSearch(query: string, limit: number, tag?: string | 
             c.document_id AS doc_id,
             d.title,
             d.source_url,
+            COALESCE(d.authors, '{}') AS authors,
+            d.year,
             1 - (c.embedding <=> $1::vector) AS score
      FROM document_chunks c
      JOIN documents d ON d.id = c.document_id
@@ -162,6 +166,8 @@ async function semanticChunkSearch(query: string, limit: number, tag?: string | 
     score: Number(row.score ?? 0),
     chunk_index: Number(row.chunk_index ?? 0),
     doc_id: String(row.doc_id ?? ""),
+    authors: Array.isArray(row.authors) ? (row.authors as string[]) : [],
+    year: row.year != null ? Number(row.year) : null,
   }));
 }
 
@@ -184,6 +190,8 @@ async function keywordChunkSearch(query: string, limit: number, tag?: string | n
             c.document_id AS doc_id,
             d.title,
             d.source_url,
+            COALESCE(d.authors, '{}') AS authors,
+            d.year,
             (
               CASE WHEN lower(d.title) LIKE ANY($1::text[]) THEN 4 ELSE 0 END +
               CASE WHEN lower(COALESCE(d.source_url, '')) LIKE ANY($1::text[]) THEN 1 ELSE 0 END +
@@ -217,6 +225,8 @@ async function keywordChunkSearch(query: string, limit: number, tag?: string | n
       score: normalizedScore,
       chunk_index: Number(row.chunk_index ?? 0),
       doc_id: String(row.doc_id ?? ""),
+      authors: Array.isArray(row.authors) ? (row.authors as string[]) : [],
+      year: row.year != null ? Number(row.year) : null,
     };
   });
 }
@@ -408,6 +418,8 @@ function buildSourceMeta(rows: SearchRow[]): string {
     doc_id: row.doc_id,
     score: parseFloat(row.score.toFixed(3)),
     source_type: inferSourceType(row.source_url),
+    authors: row.authors.length ? row.authors : null,
+    year: row.year ?? null,
   }));
   return `source_meta: ${JSON.stringify(meta)}`;
 }

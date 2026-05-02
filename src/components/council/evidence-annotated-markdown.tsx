@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import { FileText, GraduationCap, Globe } from 'lucide-react'
 import type { SourceRef } from '@/types/council'
 import {
   buildEvidenceAnnotations,
@@ -96,8 +97,48 @@ function buildSegments(text: string, annotations: EvidenceAnnotation[]): TextSeg
   return segments.filter((segment) => segment.text.length > 0)
 }
 
+const SOURCE_TYPE_CONFIG = {
+  local_doc: {
+    Icon: FileText,
+    label: 'Local Document',
+    confirmedColor: '#d97706',
+    heuristicColor: '#fcd34d',
+    hoverBg: '#fffbeb',
+  },
+  academic: {
+    Icon: GraduationCap,
+    label: 'Academic Paper',
+    confirmedColor: '#2563eb',
+    heuristicColor: '#93c5fd',
+    hoverBg: '#eff6ff',
+  },
+  web: {
+    Icon: Globe,
+    label: 'Web Source',
+    confirmedColor: '#0d9488',
+    heuristicColor: '#5eead4',
+    hoverBg: '#f0fdfa',
+  },
+} as const
+
+function getSourceConfig(sourceType: string) {
+  return SOURCE_TYPE_CONFIG[sourceType as keyof typeof SOURCE_TYPE_CONFIG] ?? SOURCE_TYPE_CONFIG.local_doc
+}
+
+function formatAuthors(authors: string[] | null | undefined): string | null {
+  if (!authors?.length) return null
+  if (authors.length === 1) return authors[0]
+  if (authors.length === 2) return `${authors[0]} & ${authors[1]}`
+  return `${authors[0]} et al.`
+}
+
 function EvidenceTooltip({ annotation }: { annotation: EvidenceAnnotation }) {
   const displayUrl = getSourceRefDisplayUrl(annotation.sourceRef)
+  const config = getSourceConfig(annotation.sourceType)
+  const { Icon } = config
+  const authorStr = formatAuthors(annotation.sourceRef.authors)
+  const year = annotation.sourceRef.year
+  const score = annotation.sourceRef.similarity_score
 
   return (
     <span
@@ -117,24 +158,55 @@ function EvidenceTooltip({ annotation }: { annotation: EvidenceAnnotation }) {
         whiteSpace: 'normal',
       }}
     >
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: 6 }}>
-        Evidence Support
+      {/* Source type eyebrow */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+        <Icon size={11} color={config.confirmedColor} />
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: config.confirmedColor, textTransform: 'uppercase' }}>
+          {config.label}
+        </span>
+        {annotation.isHeuristic && (
+          <span style={{ fontSize: 10, color: '#a1a1aa', marginLeft: 'auto' }}>推算配對</span>
+        )}
       </div>
+
+      {/* Title */}
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#18181b', lineHeight: 1.45, marginBottom: 3 }}>
+        {annotation.sourceRef.marker ? `${annotation.sourceRef.marker} ` : ''}{annotation.sourceRef.label}
+      </div>
+
+      {/* Authors + year */}
+      {(authorStr || year) && (
+        <div style={{ fontSize: 11, color: '#71717a', marginBottom: 6 }}>
+          {[authorStr, year].filter(Boolean).join(' · ')}
+        </div>
+      )}
+
+      {/* Divider */}
       {annotation.sourceRef.snippet && (
-        <div style={{ fontSize: 12, lineHeight: 1.55, color: '#18181b', marginBottom: 8 }}>
+        <div style={{ borderTop: '1px solid #f4f4f5', margin: '7px 0' }} />
+      )}
+
+      {/* Snippet quote */}
+      {annotation.sourceRef.snippet && (
+        <div style={{ fontSize: 12, lineHeight: 1.55, color: '#3f3f46', fontStyle: 'italic' }}>
           "{annotation.sourceRef.snippet}"
         </div>
       )}
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#18181b', lineHeight: 1.45 }}>
-        {annotation.sourceRef.marker ? `${annotation.sourceRef.marker} ` : ''}{annotation.sourceRef.label}
+
+      {/* Footer: domain + score */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, gap: 8 }}>
+        {displayUrl && (
+          <span style={{ fontSize: 11, color: '#71717a' }}>{displayUrl}</span>
+        )}
+        {score != null && (
+          <span style={{ fontSize: 10, color: '#a1a1aa', marginLeft: 'auto' }}>
+            {Math.round(score * 100)}% match
+          </span>
+        )}
       </div>
-      {displayUrl && (
-        <div style={{ fontSize: 11, color: '#71717a', marginTop: 4 }}>
-          {displayUrl}
-        </div>
-      )}
+
       {annotation.sourceRef.uri && (
-        <div style={{ fontSize: 11, color: '#355d7a', marginTop: 8, textDecoration: 'underline' }}>
+        <div style={{ fontSize: 11, color: config.confirmedColor, marginTop: 6, textDecoration: 'underline' }}>
           Click to open source
         </div>
       )}
@@ -201,6 +273,9 @@ function EvidenceHoverSpan({
 }) {
   const [hovered, setHovered] = useState(false)
   const clickable = Boolean(onSourceClick || annotation.sourceRef.uri)
+  const config = getSourceConfig(annotation.sourceType)
+  const { Icon } = config
+  const underlineColor = annotation.isHeuristic ? config.heuristicColor : config.confirmedColor
 
   const handleClick = () => {
     if (onSourceClick) {
@@ -220,10 +295,7 @@ function EvidenceHoverSpan({
 
   return (
     <span
-      style={{
-        position: 'relative',
-        display: 'inline',
-      }}
+      style={{ position: 'relative', display: 'inline' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -234,16 +306,20 @@ function EvidenceHoverSpan({
         onKeyDown={handleKeyDown}
         style={{
           textDecorationLine: 'underline',
-          textDecorationStyle: 'solid',
+          textDecorationStyle: annotation.isHeuristic ? 'dashed' : 'solid',
           textDecorationThickness: '1.5px',
           textUnderlineOffset: '3px',
-          textDecorationColor: '#355d7a88',
-          background: hovered ? '#eef6fb' : 'transparent',
-          borderRadius: 4,
+          textDecorationColor: underlineColor,
+          background: hovered ? config.hoverBg : 'transparent',
+          borderRadius: 3,
           cursor: clickable ? 'pointer' : 'help',
-          transition: 'background 120ms ease',
+          transition: 'background 100ms ease',
         }}
       >
+        <Icon
+          size={10}
+          style={{ display: 'inline', verticalAlign: 'baseline', marginRight: 2, opacity: 0.7, color: underlineColor }}
+        />
         {children}
       </span>
       {hovered && <EvidenceTooltip annotation={annotation} />}
