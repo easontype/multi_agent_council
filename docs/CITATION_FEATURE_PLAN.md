@@ -19,8 +19,12 @@
 | 3-B | Citations Tab | ✅ 完成 | feat(citation): wire flow tabs and marker ingest |
 | 3-C | Source Reader Tab | ✅ 完成（chunk 精準 + 高亮 + 導航） | feat(citation): harden marker + reader precision |
 | 3-D | 辯論 Flow Tab | ✅ 完成 | feat(citation): wire flow tabs and marker ingest |
-| 4 | 左側面板 Toggle | ⏳ 待做 | — |
-| 5 | Citation 智慧層 | ⏳ 待做 | — |
+| 4-A | 左側面板 Toggle + Gap Map 切換 | ✅ 完成 | feat(phase4): compare view + gap map |
+| 4-B | Agent Compare 選擇器 + 共引 badge | ✅ 完成 | 同上 |
+| 4-C | Gap Map 覆蓋率熱力圖 | ✅ 完成 | 同上 |
+| 5-A | 跨 Agent Citation 衝突偵測 | ✅ 完成 | feat(phase5): citation intelligence |
+| 5-B | 未引用主張 Toggle | ✅ 完成 | 同上 |
+| 5-C | responds_to_turn_id 精準連線 | ✅ 完成 | 同上 |
 
 ---
 
@@ -990,22 +994,25 @@ Why:
 - Do not build citation conflict analysis before `source_type`, `chunk_index`, and `document_id` are stable.
 - Do not build gap-map logic before section/chunk mapping is credible.
 
-### 6. Latest Status Snapshot (v1.3 · 2026-05-02)
+### 6. Latest Status Snapshot (v1.4 · 2026-05-02)
 
-- `3-B` ✅ functionally complete: `Citations` is the default right-rail workspace.
-- `3-D` ✅ functionally complete: `Flow` tab wired, guarded behind Round 2 availability.
-- `3-C` ✅ complete with full reader precision:
-  - `rehype-raw` added; `<span id="chunk-N">` anchors now render in DOM (was being stripped before)
-  - Scroll targets chunk-level anchor first, falls back to section heading
-  - Chunk highlight: amber left-border + background on paragraph(s) following the anchor
-  - Prev/Next navigation footer with `Citation N of M` counter
-  - Section heading + page estimate shown in Focused Citation header
-- `0-E` ⚡ architecture complete, awaiting production verification:
-  - `findChunkOffset` now tries 160→80→40 char prefix fallback with try-catch per attempt
-  - `snapToParagraphStart` snaps anchor injection to paragraph boundary (not mid-sentence)
-  - Coverage log: `[marker] docId: X/Y chunks mapped (Z%)`
-  - Retry/backoff, backfill script, attempt metadata all in place
-- Next work:
-  - **Production marker verification**: run backfill on real arXiv papers, check coverage %
-  - **Phase 4**: Left panel Toggle (Agent Compare + Gap Map)
-  - Phase 5 deferred until metadata is stable
+- `3-B/C/D` ✅ complete.
+- `0-E` ⚡ architecture complete, awaiting production verification.
+- `4-A` ✅ Gap Map view + session-top-bar toggle wired end-to-end.
+- `4-B` ✅ Compare view agent selector (2-of-N) + shared citation badges.
+- `4-C` ✅ `citation-coverage` API + GapMapView heatmap with blind-spot detection.
+- `5-A` ✅ Contested badge in SourcePanel:
+  - `buildConflictedKeys()` groups refs by label/URI, flags any cited by both supportive + skeptical roles
+  - Rose `⚠ Contested` pill rendered per-card when conflict detected
+- `5-B` ✅ Uncited claims toggle in EvidenceAnnotatedMarkdown:
+  - "Uncited" button shown when sourceRefs exist
+  - Paragraphs with zero annotation results get gray left-border + dimmed text
+- `5-C` ✅ `responds_to_turn_id` DB field + full-stack flow-through:
+  - `council_turns` column added via `ensureCouncilSchema()`
+  - `mapTurnRow` / `saveTurn` / `updateTurnRespondsTo` updated
+  - Orchestrator: after each R2 turn, parses **Challenge** section → finds target R1 role → `updateTurnRespondsTo`
+  - Hydrator maps field to `AgentMessage.responds_to_turn_id`
+  - Event reducer: propagates field + updates message `id` to real DB turn ID on `turn_done`
+  - Debate map: prefers DB-backed `responds_to_turn_id` for edge arrows; falls back to text parsing
+- **All Phase 5 tasks complete.** Branch: `feat/phase5-citation-intelligence`
+- Next: merge to main, verify production marker coverage, consider Phase 6 if needed.

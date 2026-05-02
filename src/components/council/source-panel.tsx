@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { DiscussionSession } from '@/types/council'
+import { useEffect, useMemo, useRef } from 'react'
+import type { AgentUI } from '@/types/council'
+import { DiscussionSession, SourceRef } from '@/types/council'
 import { getSourceRefDisplayUrl, isVisibleSourceRef } from '@/lib/evidence-annotations'
 
 interface SourcePanelProps {
@@ -88,10 +89,45 @@ function BookOpenIcon() {
   )
 }
 
+const SKEPTICAL_KEYWORDS = ['skeptic', 'critic', 'critical', 'challenge', 'opposition', 'dissent', 'adversarial']
+const SUPPORTIVE_KEYWORDS = ['constructive', 'advocate', 'support', 'positive', 'champion', 'proponent']
+
+function refCategory(agentId: string, agents: AgentUI[]): 'skeptical' | 'supportive' | 'neutral' {
+  const agent = agents.find((a) => a.id === agentId)
+  if (!agent) return 'neutral'
+  const lower = agent.seatRole.toLowerCase()
+  if (SKEPTICAL_KEYWORDS.some((k) => lower.includes(k))) return 'skeptical'
+  if (SUPPORTIVE_KEYWORDS.some((k) => lower.includes(k))) return 'supportive'
+  return 'neutral'
+}
+
+function buildConflictedKeys(sourceRefs: SourceRef[], agents: AgentUI[]): Set<string> {
+  const byKey = new Map<string, { supportive: boolean; skeptical: boolean }>()
+  for (const ref of sourceRefs) {
+    const key = ref.label || ref.uri || ''
+    if (!key) continue
+    const cat = refCategory(ref.agentId, agents)
+    const existing = byKey.get(key) ?? { supportive: false, skeptical: false }
+    byKey.set(key, {
+      supportive: existing.supportive || cat === 'supportive',
+      skeptical: existing.skeptical || cat === 'skeptical',
+    })
+  }
+  const conflicted = new Set<string>()
+  for (const [key, { supportive, skeptical }] of byKey) {
+    if (supportive && skeptical) conflicted.add(key)
+  }
+  return conflicted
+}
+
 export function SourcePanel({ session, activeLabel, onLocateInDocument }: SourcePanelProps) {
   const sourceRefs = (session.sourceRefs ?? []).filter(isVisibleSourceRef)
   const isActive = session.status !== 'waiting'
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+  const conflictedKeys = useMemo(
+    () => buildConflictedKeys(sourceRefs, session.agents),
+    [sourceRefs, session.agents],
+  )
 
   useEffect(() => {
     if (!activeLabel) return
@@ -225,6 +261,7 @@ export function SourcePanel({ session, activeLabel, onLocateInDocument }: Source
                   const sourceType = getSourceTypeConfig(ref.source_type)
                   const SourceTypeIcon = sourceType.icon
                   const canOpenReader = Boolean(ref.doc_id && ref.chunk_index != null && onLocateInDocument)
+                  const isContested = conflictedKeys.has(ref.label || ref.uri || '')
                   const refIsActive = Boolean(activeLabel && (
                     ref.label === activeLabel ||
                     ref.uri === activeLabel ||
@@ -353,6 +390,29 @@ export function SourcePanel({ session, activeLabel, onLocateInDocument }: Source
                             }}
                           >
                             Heuristic match
+                          </span>
+                        )}
+                        {isContested && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: '#be123c',
+                              background: '#fff1f2',
+                              border: '1px solid #fecdd3',
+                              borderRadius: 999,
+                              padding: '3px 7px',
+                            }}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                            Contested
                           </span>
                         )}
                         {displayUrl && (
