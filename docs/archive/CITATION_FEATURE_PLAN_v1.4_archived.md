@@ -1,9 +1,7 @@
 # Council — Citation UI Feature Plan
 
-> ⚠️ **[ARCHIVED 2026-05-02 · 全部完成]**  
-> Phase 0–5 所有工作項目均已實作完成並合併。  
-> 完整封存版本：`docs/archive/CITATION_FEATURE_PLAN_v1.4_archived.md`  
-> 後續計畫：`docs/PAPER_CACHE_AND_TOPIC_PLAN.md`
+> ⚠️ **[ARCHIVED 2026-05-02]** 所有 Phase 0–5 均已實作完成。此文件封存供歷史參考，不再更新。  
+> 後續計畫請見 `docs/PAPER_CACHE_AND_TOPIC_PLAN.md`
 
 ---
 
