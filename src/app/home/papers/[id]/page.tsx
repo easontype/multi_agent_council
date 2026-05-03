@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 interface PaperAsset {
@@ -86,8 +86,10 @@ export default function PaperDetailPage() {
   const [detail, setDetail] = useState<PaperDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
     if (!params.id) return;
     fetch(`/api/papers/${params.id}`)
       .then((res) => {
@@ -98,6 +100,28 @@ export default function PaperDetailPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  async function handleRetry() {
+    if (!params.id || retrying) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await fetch(`/api/papers/${params.id}/retry`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setRetryError(body.error ?? "Retry failed");
+      } else {
+        setLoading(true);
+        loadDetail();
+      }
+    } catch {
+      setRetryError("Network error, please try again.");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -211,9 +235,59 @@ export default function PaperDetailPage() {
           </p>
         )}
 
-        {asset.status === "failed" && asset.processing_error && (
-          <div style={{ marginTop: 10, padding: "8px 12px", background: "#fef2f2", borderRadius: 6, fontSize: 12, color: "#b91c1c" }}>
-            Processing error: {asset.processing_error}
+        {asset.status === "failed" && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ padding: "10px 12px", background: "#fef2f2", borderRadius: 6, fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>
+              {asset.processing_error
+                ? `Processing error: ${asset.processing_error}`
+                : "Processing failed."}
+            </div>
+            {asset.arxiv_id ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  style={{
+                    border: "1px solid #fca5a5",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    background: retrying ? "#fef2f2" : "#fff",
+                    color: "#b91c1c",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: retrying ? "not-allowed" : "pointer",
+                    opacity: retrying ? 0.7 : 1,
+                  }}
+                >
+                  {retrying ? "Retrying…" : "Retry Ingest"}
+                </button>
+                {retryError && (
+                  <span style={{ fontSize: 12, color: "#b91c1c" }}>{retryError}</span>
+                )}
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: "#71717a", margin: 0 }}>
+                Re-upload the PDF to retry processing.
+              </p>
+            )}
+          </div>
+        )}
+
+        {(asset.status === "processing" || asset.status === "pending") && (
+          <div style={{ marginTop: 10, padding: "8px 12px", background: "#fffbeb", borderRadius: 6, fontSize: 12, color: "#92400e", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#f59e0b", flexShrink: 0, animation: "pulse 1.5s infinite" }} />
+            {asset.status === "processing" ? "Processing in progress…" : "Queued for processing."}
+            {asset.arxiv_id && asset.status === "pending" && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={retrying}
+                style={{ marginLeft: 4, background: "none", border: "none", color: "#92400e", fontSize: 12, fontWeight: 600, cursor: retrying ? "not-allowed" : "pointer", padding: 0, textDecoration: "underline" }}
+              >
+                {retrying ? "Retrying…" : "Retry now"}
+              </button>
+            )}
           </div>
         )}
       </div>
