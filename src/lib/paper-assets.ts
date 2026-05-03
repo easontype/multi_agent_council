@@ -424,16 +424,15 @@ export async function backfillPaperAssetsForSessions(limit = 100): Promise<Paper
          LIMIT 1`,
         [libraryId],
       );
-      const checksum = uploadedFileLookup.rows[0]?.checksum_sha256 ? String(uploadedFileLookup.rows[0].checksum_sha256) : null;
-      if (!checksum) {
-        skipped += 1;
-        continue;
-      }
+      const checksum = uploadedFileLookup.rows[0]?.checksum_sha256
+        ? String(uploadedFileLookup.rows[0].checksum_sha256)
+        : null;
+      // Fallback: no checksum recorded (pre-dates tracking) — use library ID as unique locator
       const resolved = await resolvePaperAsset({
         workspaceId: row.workspace_id,
         title: row.title?.trim() || "Untitled Paper",
         sourceKind: "upload",
-        sourceLocator: "upload",
+        sourceLocator: checksum ? "upload" : `library:${libraryId}`,
         checksumSha256: checksum,
       });
       asset = resolved.asset;
