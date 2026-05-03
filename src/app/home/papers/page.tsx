@@ -154,7 +154,7 @@ export default function PapersPage() {
             return (
               <div
                 key={paper.id}
-                onClick={() => router.push(paper.arxiv_id ? `/review/new?arxiv=${encodeURIComponent(paper.arxiv_id)}` : "/review/new")}
+                onClick={() => router.push(`/home/papers/${paper.id}`)}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "minmax(0,1fr) 120px 90px 90px",

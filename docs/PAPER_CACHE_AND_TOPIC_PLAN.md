@@ -1,14 +1,21 @@
 # Council Paper Cache + Topic Selection Execution Plan
 
 > Version 2.0  
-> Updated 2026-05-03  
-> Status: active execution plan
+> Updated 2026-05-04  
+> Status: active execution plan, partially implemented
 
 ---
 
 ## Summary
 
 This document replaces the earlier concept draft with an implementation plan that matches the current repository state.
+
+Implementation status as of 2026-05-04:
+
+- Phase A is implemented in v1.
+- Phase B is implemented in v1.
+- Phase C is implemented in v1.
+- Phase D is partially implemented.
 
 The next step is to introduce a canonical paper asset layer and add topic selection to `/review/new` without breaking the existing staged draft flow.
 
@@ -35,27 +42,34 @@ Implementation defaults for this plan:
 - `src/lib/paper-ingest.ts`
   - Fetches arXiv PDFs, extracts text, embeds documents, and reuses an existing `document` when `source_url + content_hash` match.
 - `src/app/api/papers/upload/route.ts`
-  - Ingests the selected paper and immediately creates a session.
+  - Resolves or creates a paper asset, reuses the primary library when available, and creates a session.
 - `src/components/review/use-review-draft-state.ts`
-  - Manages staged paper selection in `/review/new`.
+  - Manages staged paper selection, topic selection, and arXiv cache lookup state in `/review/new`.
 - `src/hooks/use-council-review.ts`
-  - Calls `/api/papers/upload` only after the user clicks `Start review`.
+  - Calls `/api/papers/upload` only after the user clicks `Start review`, including selected topic inputs.
 - `src/lib/core/council-paper-chat.ts`
-  - Resolves the active paper library from `seat.library_id`.
+  - Resolves the active paper library from `session.paper_asset_id` first, then falls back to `seat.library_id`.
+- `src/lib/paper-assets.ts`
+  - Stores canonical paper assets, source identities, library mappings, lookup helpers, and session backfill logic.
+- `src/app/api/papers/lookup/route.ts`
+  - Exposes draft-stage arXiv cache lookup.
+- `src/app/api/papers/route.ts`
+  - Exposes a first-pass paper asset list for authenticated users.
+- `src/app/home/papers/page.tsx`
+  - Provides a first-pass papers dashboard.
 
 ### What does not exist yet
 
-- No canonical `paper_assets` or `papers` table.
-- No `paper_asset_id` or `paper_id` column on `council_sessions`.
-- No topic preset step in `/review/new`.
-- No pre-start paper cache lookup endpoint.
 - No durable raw-PDF store for replaying historical uploads.
+- No per-paper detail page that lists and opens all attached review sessions.
+- No AI topic suggestion endpoint.
+- No complete upload-backfill guarantee for historical rows that lack recoverable checksums or source identity.
 
 ### Consequences
 
-- Re-ingest reuse works at the `documents` layer, but not at the session/domain level.
-- There is no stable paper identity for listing all sessions tied to the same paper.
-- Topic choice is implicit in the current session topic/goal generation and cannot be intentionally chosen by the user.
+- New reviews now have stable paper identity, but historical coverage still depends on backfill quality.
+- Topic choice is now explicit for new reviews, but topic suggestion remains manual.
+- The papers dashboard exists, but it is still a list view rather than a full paper workspace.
 
 ---
 
@@ -182,6 +196,8 @@ Do not add a separate topic table in v1. Topic selection still persists into `se
 
 Goal: create canonical paper identity without changing the staged front-end flow.
 
+Status: implemented in v1
+
 Work:
 
 - Extend `ensureCouncilSchema()` with:
@@ -206,6 +222,8 @@ Acceptance criteria:
 
 Goal: make `/api/papers/upload` create sessions from paper assets instead of directly from ad hoc ingest results.
 
+Status: implemented in v1
+
 Work:
 
 - Refactor `/api/papers/upload` to:
@@ -229,6 +247,8 @@ Acceptance criteria:
 ### Phase C: Topic Selection in `/review/new`
 
 Goal: let the user intentionally choose the review focus before session creation.
+
+Status: implemented in v1
 
 Work:
 
@@ -268,6 +288,8 @@ Acceptance criteria:
 
 Goal: make the new model observable and incrementally adoptable.
 
+Status: partially implemented
+
 Work:
 
 - Add a lightweight lookup endpoint for arXiv draft-stage cache status.
@@ -279,6 +301,7 @@ Work:
 - Add a backfill script for older sessions and documents:
   - infer asset identity from arXiv URLs, library tags, and session context where possible
   - populate `paper_asset_id` only when the mapping is reliable
+- Add a first-pass `/home/papers` list page for browsing cached paper assets.
 - Keep nullable compatibility for sessions that cannot be backfilled.
 
 Acceptance criteria:
@@ -286,6 +309,12 @@ Acceptance criteria:
 - Draft flow can show arXiv cache status before start.
 - Backfill can attach at least old arXiv-backed sessions to paper assets.
 - Unmappable historical rows do not break any existing flow.
+
+Remaining work in this phase:
+
+- Expand backfill coverage and tests for upload-backed sessions.
+- Add per-paper drill-down from `/home/papers`.
+- Add retry and operator-facing visibility for failed cache entries.
 
 ---
 
@@ -329,12 +358,31 @@ Response shape:
 - `markerProcessed`
 - `sessionCount` optional
 
+### New papers list endpoint
+
+Add:
+
+- `GET /api/papers`
+
+Response shape:
+
+- `id`
+- `canonical_title`
+- `arxiv_id`
+- `status`
+- `marker_processed`
+- `primary_library_id`
+- `created_at`
+- `updated_at`
+- `session_count`
+
 ---
 
 ## Testing Plan
 
 ### Unit tests
 
+- backfill of a legacy arXiv-backed session
 - asset resolution by arXiv id
 - asset resolution by upload checksum
 - asset creation on cache miss
@@ -356,6 +404,7 @@ Response shape:
 - preset selection updates summary state correctly
 - duplicate-as-new restores topic choice
 - arXiv draft flow shows cache badge states
+- `/home/papers` renders cached paper assets for authenticated users
 
 ### Backfill tests
 
@@ -369,7 +418,7 @@ Response shape:
 These are intentionally deferred:
 
 - AI-generated topic suggestion endpoint
-- full papers dashboard or `/home/papers`
+- per-paper drill-down and deeper papers workspace
 - durable raw-PDF storage for all historical uploads
 - multi-library-per-paper strategies
 - background job queue or detached ingest workers
@@ -396,3 +445,4 @@ This plan is complete when all of the following are true:
 - `/review/new` includes topic selection
 - old sessions remain compatible
 - arXiv draft flow can show pre-start cache state
+- authenticated users can browse cached paper assets from `/home/papers`

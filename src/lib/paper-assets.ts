@@ -499,6 +499,60 @@ export async function backfillPaperAssetsForSessions(limit = 100): Promise<Paper
   };
 }
 
+export interface PaperSessionSummary {
+  id: string;
+  title: string;
+  topic: string;
+  status: string;
+  rounds: number;
+  divergence_level: string | null;
+  created_at: string;
+  concluded_at: string | null;
+}
+
+export interface PaperAssetDetail {
+  asset: PaperAsset;
+  sessions: PaperSessionSummary[];
+}
+
+export async function getPaperAssetDetail(
+  paperAssetId: string,
+  workspaceId?: string | null,
+): Promise<PaperAssetDetail | null> {
+  await ensureCouncilSchema();
+  const { rows: assetRows } = await db.query(
+    `SELECT * FROM paper_assets WHERE id = $1 LIMIT 1`,
+    [paperAssetId],
+  );
+  if (!assetRows[0]) return null;
+
+  const asset = mapPaperAssetRow(assetRows[0] as Record<string, unknown>);
+
+  if (workspaceId && asset.workspace_id && asset.workspace_id !== workspaceId) return null;
+
+  const { rows: sessionRows } = await db.query(
+    `SELECT id, title, topic, status, rounds, divergence_level, created_at, concluded_at
+     FROM council_sessions
+     WHERE paper_asset_id = $1
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [paperAssetId],
+  );
+
+  const sessions: PaperSessionSummary[] = (sessionRows as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id),
+    title: String(row.title ?? ""),
+    topic: String(row.topic ?? ""),
+    status: String(row.status ?? "pending"),
+    rounds: Number(row.rounds ?? 1),
+    divergence_level: row.divergence_level ? String(row.divergence_level) : null,
+    created_at: String(row.created_at ?? ""),
+    concluded_at: row.concluded_at ? String(row.concluded_at) : null,
+  }));
+
+  return { asset, sessions };
+}
+
 export async function listPaperAssets(input: {
   workspaceId?: string | null;
   limit?: number;
