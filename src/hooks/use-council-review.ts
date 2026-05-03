@@ -53,6 +53,7 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     topic?: string
     goal?: string
     topicPresetId?: string
+    onSessionReady?: (sessionId: string) => void
   }) => {
     setError(null)
     setPhase('ingesting')
@@ -112,6 +113,13 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to ingest paper')
       setPhase('error')
+      return
+    }
+
+    // If caller wants to handle navigation themselves (wizard flow), fire the callback and exit.
+    // The destination page will resume streaming via loadSession / resumeSession.
+    if (opts?.onSessionReady) {
+      opts.onSessionReady(sessionId)
       return
     }
 

@@ -3,6 +3,13 @@ import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-prese
 import { CRITIQUE_SEAT_DEFINITIONS, GAP_SEAT_DEFINITIONS } from '@/lib/core/council-academic'
 
 const STORAGE_KEY = 'council.review-draft-prefill.v1'
+const TEAM_STORAGE_KEY = 'council.team-draft-prefill.v1'
+
+export interface TeamDraftPrefill {
+  mode: ReviewMode
+  rounds: 1 | 2
+  agents: EditableReviewAgent[]
+}
 
 export interface ReviewDraftPrefill {
   mode: ReviewMode
@@ -94,7 +101,27 @@ export function consumeReviewDraftPrefill(): ReviewDraftPrefill | null {
   if (!raw) return null
   window.sessionStorage.removeItem(STORAGE_KEY)
   try {
-    return JSON.parse(raw) as ReviewDraftPrefill
+    const prefill = JSON.parse(raw) as ReviewDraftPrefill
+    // Stash team portion so step 2 can pick it up
+    saveTeamDraftPrefill({ mode: prefill.mode, rounds: prefill.rounds, agents: prefill.agents })
+    return prefill
+  } catch {
+    return null
+  }
+}
+
+export function saveTeamDraftPrefill(prefill: TeamDraftPrefill) {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.setItem(TEAM_STORAGE_KEY, JSON.stringify(prefill))
+}
+
+export function consumeTeamDraftPrefill(): TeamDraftPrefill | null {
+  if (typeof window === 'undefined') return null
+  const raw = window.sessionStorage.getItem(TEAM_STORAGE_KEY)
+  if (!raw) return null
+  window.sessionStorage.removeItem(TEAM_STORAGE_KEY)
+  try {
+    return JSON.parse(raw) as TeamDraftPrefill
   } catch {
     return null
   }

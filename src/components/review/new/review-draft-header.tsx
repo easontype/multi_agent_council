@@ -13,9 +13,6 @@ interface ReviewDraftHeaderProps {
   isPublic: boolean
   shareLoading: boolean
   shareCopied: boolean
-  activeCount: number
-  rounds: 1 | 2
-  showSetup: boolean
   onExport: () => void
   onSetShareAccess: (nextPublic: boolean) => void
   onCopyShareLink: () => void
@@ -39,9 +36,6 @@ export function ReviewDraftHeader({
   isPublic,
   shareLoading,
   shareCopied,
-  activeCount,
-  rounds,
-  showSetup,
   onExport,
   onSetShareAccess,
   onCopyShareLink,
@@ -94,12 +88,6 @@ export function ReviewDraftHeader({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-        {showSetup && (
-          <span style={{ fontSize: 12, color: '#71717a' }}>
-            {activeCount} agents - {rounds} round{rounds > 1 ? 's' : ''}
-          </span>
-        )}
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{
             width: 6, height: 6, borderRadius: '50%', background: statusConfig.dot,

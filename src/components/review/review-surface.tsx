@@ -4,10 +4,6 @@ import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { SessionRestoreBanner } from '@/components/council/session-restore-banner'
 import { useCouncilReview } from '@/hooks/use-council-review'
-import {
-  buildDiscussionAgents,
-  buildSeatsFromEditableAgents,
-} from '@/lib/prompts/review-presets'
 import { ReviewDraftHeader } from './new/review-draft-header'
 import { ReviewDraftLayout } from './new/review-draft-layout'
 import { SessionWorkspaceLayout } from './session/session-workspace-layout'
@@ -20,10 +16,6 @@ export type ReviewSurfaceMode = 'draft' | 'session'
 interface ReviewSurfaceProps {
   mode: ReviewSurfaceMode
   forcedSessionId?: string | null
-}
-
-function formatUsd(value: number) {
-  return `$${value.toFixed(2)}`
 }
 
 function WorkspaceLoading({ label }: { label: string }) {
@@ -49,7 +41,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
   const isDraftRoute = mode === 'draft'
   const routeArxivId = isDraftRoute ? searchParams.get('arxiv') : null
 
-  const { session, phase, error, isRestoring, canResume, start, loadSession, resumeSession, rerunSession } = useCouncilReview(routeArxivId)
+  const { session, phase, error, isRestoring, canResume, loadSession, resumeSession, rerunSession } = useCouncilReview(routeArxivId)
   const draftState = useReviewDraftState({
     isDraftRoute,
     routeArxivId,
@@ -67,23 +59,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
     rerunSession,
   })
   const paperTitle = session.paperTitle || draftState.paperTitle
-  const paperSummary = session.paperAbstract || draftState.paperSummary
-  const isPreparing = phase === 'ingesting'
-  const showSetup = isDraftRoute && !isRestoring && !session.id && (phase === 'idle' || phase === 'error' || phase === 'ingesting')
-
-  const handleStart = () => {
-    if (draftState.topicError) return
-    sessionState.setRestoreSource(null)
-    start({
-      mode: draftState.modeSelection,
-      rounds: draftState.rounds,
-      customSeats: buildSeatsFromEditableAgents(draftState.teamAgents),
-      discussionAgents: buildDiscussionAgents(draftState.teamAgents),
-      topic: draftState.topicSelection.topic,
-      goal: draftState.topicSelection.goal,
-      topicPresetId: draftState.topicSelection.topicPresetId,
-    })
-  }
+  const showSetup = isDraftRoute && !isRestoring && !session.id && (phase === 'idle' || phase === 'error')
 
   return (
     <div style={{
@@ -102,9 +78,6 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
           isPublic={sessionState.isPublic}
           shareLoading={sessionState.shareLoading}
           shareCopied={sessionState.shareCopied}
-          activeCount={draftState.activeCount}
-          rounds={draftState.rounds}
-          showSetup={showSetup}
           onExport={sessionState.handleExport}
           onSetShareAccess={sessionState.setShareAccess}
           onCopyShareLink={sessionState.handleCopyShareLink}
@@ -125,7 +98,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
         ) : showSetup ? (
           <ReviewDraftLayout
             paperTitle={paperTitle}
-            paperSummary={paperSummary}
+            paperSummary={draftState.paperSummary}
             sourceLabel={draftState.sourceLabel}
             sourceHref={draftState.sourceHref}
             pdfUrl={draftState.pdfUrl}
@@ -135,34 +108,17 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             onFileChange={draftState.handleFileSelect}
             hasSource={draftState.canStart}
             cacheStatus={draftState.cacheStatus}
-            mode={draftState.modeSelection}
-            rounds={draftState.rounds}
-            agents={draftState.teamAgents}
-            busy={isPreparing}
-            canStart={draftState.canStart}
-            costLabel={`${formatUsd(draftState.costEstimate.minUsd)} - ${formatUsd(draftState.costEstimate.maxUsd)}`}
-            error={error}
             notice={draftState.draftNotice}
-            activeCount={draftState.activeCount}
-            customGoal={draftState.customGoal}
-            customTopic={draftState.customTopic}
-            savedTemplates={draftState.savedTemplates}
-            onModeChange={draftState.handleModeChange}
-            onRoundsChange={draftState.setRounds}
-            onAgentsChange={draftState.setTeamAgents}
             topicError={draftState.topicError}
             topicPresetId={draftState.topicPresetId}
             selectedTopicLabel={draftState.selectedPreset.label}
+            customGoal={draftState.customGoal}
+            customTopic={draftState.customTopic}
             onCustomGoalChange={draftState.setCustomGoal}
             onCustomTopicChange={draftState.setCustomTopic}
             onTopicPresetChange={draftState.setTopicPresetId}
-            onAddAgent={() => draftState.setTeamAgents((current) => [...current, draftState.createCustomEditableAgent(current.length)])}
-            onStart={handleStart}
-            onSaveTemplate={draftState.handleSaveTemplate}
-            onLoadTemplate={draftState.handleLoadTemplate}
-            onDeleteTemplate={draftState.handleDeleteTemplate}
-            onRenameTemplate={draftState.handleRenameTemplate}
-            onDuplicateTemplate={draftState.handleDuplicateTemplate}
+            canContinue={draftState.canContinue}
+            onContinue={draftState.handleContinue}
           />
         ) : session.id ? (
           <SessionWorkspaceLayout

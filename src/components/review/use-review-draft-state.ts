@@ -8,31 +8,12 @@ import {
   resolvePaperTopicSelection,
 } from '@/lib/paper-topics'
 import {
-  buildEditableTeam,
-  createCustomEditableAgent,
-  type EditableReviewAgent,
-  type ReviewMode,
-} from '@/lib/prompts/review-presets'
-import { estimateHostedReviewCost } from '@/lib/review-cost'
-import {
   consumeReviewDraftPrefill,
 } from '@/lib/review-draft-prefill'
-import {
-  deleteSavedTeamTemplate,
-  loadSavedTeamTemplates,
-  upsertSavedTeamTemplate,
-  type SavedTeamTemplate,
-} from '@/lib/team-template-store'
 
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function createTemplateId() {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `tmpl-${Date.now()}`
 }
 
 export function fileNameToTitle(fileName: string) {
@@ -52,10 +33,6 @@ export function useReviewDraftState({
 }: UseReviewDraftStateArgs) {
   const [pendingFile, setLocalPendingFile] = useState<File | null>(() => peekPendingUpload())
   const [arxivDraft, setArxivDraft] = useState(routeArxivId ?? '')
-  const [modeSelection, setModeSelection] = useState<ReviewMode>('critique')
-  const [rounds, setRounds] = useState<1 | 2>(1)
-  const [teamAgents, setTeamAgents] = useState<EditableReviewAgent[]>(() => buildEditableTeam('critique'))
-  const [savedTemplates, setSavedTemplates] = useState<SavedTeamTemplate[]>([])
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [draftNotice, setDraftNotice] = useState<string | null>(null)
   const [topicPresetId, setTopicPresetId] = useState<string>('methodology')
@@ -65,14 +42,6 @@ export function useReviewDraftState({
   const [cacheTitle, setCacheTitle] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    loadSavedTeamTemplates().then((templates) => {
-      if (!cancelled) setSavedTemplates(templates)
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => {
     setArxivDraft(routeArxivId ?? '')
   }, [routeArxivId])
 
@@ -80,9 +49,6 @@ export function useReviewDraftState({
     if (!isDraftRoute) return
     const prefill = consumeReviewDraftPrefill()
     if (!prefill) return
-    setModeSelection(prefill.mode)
-    setRounds(prefill.rounds)
-    setTeamAgents(prefill.agents)
     setTopicPresetId(prefill.topicPresetId ?? 'custom')
     setCustomTopic(prefill.topic ?? '')
     setCustomGoal(prefill.goal ?? '')
@@ -133,59 +99,6 @@ export function useReviewDraftState({
     return () => { cancelled = true }
   }, [routeArxivId])
 
-  const handleModeChange = (nextMode: ReviewMode) => {
-    setModeSelection(nextMode)
-    setTeamAgents(buildEditableTeam(nextMode))
-  }
-
-  const handleLoadTemplate = (template: SavedTeamTemplate) => {
-    setModeSelection(template.mode)
-    setRounds(template.rounds)
-    setTeamAgents(template.agents)
-  }
-
-  const handleDeleteTemplate = async (id: string) => {
-    setSavedTemplates(await deleteSavedTeamTemplate(id))
-  }
-
-  const handleSaveTemplate = async () => {
-    const name = window.prompt('Template name', `${modeSelection === 'gap' ? 'Gap' : 'Critique'} Team`)
-    if (!name?.trim()) return
-    const now = new Date().toISOString()
-    setSavedTemplates(await upsertSavedTeamTemplate({
-      id: createTemplateId(),
-      name: name.trim(),
-      mode: modeSelection,
-      rounds,
-      agents: teamAgents,
-      createdAt: now,
-      updatedAt: now,
-    }))
-  }
-
-  const handleRenameTemplate = async (template: SavedTeamTemplate) => {
-    const name = window.prompt('Rename template', template.name)
-    if (!name?.trim()) return
-    setSavedTemplates(await upsertSavedTeamTemplate({
-      ...template,
-      name: name.trim(),
-      updatedAt: new Date().toISOString(),
-    }))
-  }
-
-  const handleDuplicateTemplate = async (template: SavedTeamTemplate) => {
-    const name = window.prompt('Duplicate template as', `${template.name} Copy`)
-    if (!name?.trim()) return
-    const now = new Date().toISOString()
-    setSavedTemplates(await upsertSavedTeamTemplate({
-      ...template,
-      id: createTemplateId(),
-      name: name.trim(),
-      createdAt: now,
-      updatedAt: now,
-    }))
-  }
-
   const handleArxivSubmit = (event: React.FormEvent) => {
     event.preventDefault()
     const normalized = arxivDraft.trim()
@@ -206,10 +119,21 @@ export function useReviewDraftState({
     event.target.value = ''
   }
 
+  const handleContinue = () => {
+    const params = new URLSearchParams()
+    if (routeArxivId) params.set('arxivId', routeArxivId)
+    params.set('topicPresetId', topicPresetId)
+    if (topicPresetId === 'custom') {
+      if (customTopic) params.set('customTopic', customTopic)
+      if (customGoal) params.set('customGoal', customGoal)
+    }
+    const title = cacheTitle || (pendingFile ? fileNameToTitle(pendingFile.name) : null)
+    if (title) params.set('paperTitle', title)
+    router.push(`/review/new/team?${params.toString()}`)
+  }
+
   const isUpload = Boolean(pendingFile)
   const canStart = Boolean(routeArxivId || pendingFile)
-  const activeCount = teamAgents.filter((agent) => agent.enabled).length
-  const costEstimate = estimateHostedReviewCost(activeCount, rounds)
   const topicSelection = resolvePaperTopicSelection({
     topicPresetId,
     topic: customTopic,
@@ -217,8 +141,9 @@ export function useReviewDraftState({
   })
   const selectedPreset = PAPER_TOPIC_PRESETS.find((item) => item.id === topicPresetId) ?? PAPER_TOPIC_PRESETS[0]
   const topicError = topicPresetId === 'custom' && !customTopic.trim()
-    ? 'Add a custom review topic before launch.'
+    ? 'Add a custom review topic before continuing.'
     : null
+  const canContinue = canStart && !topicError
   const paperTitle = pendingFile
     ? fileNameToTitle(pendingFile.name)
     : cacheTitle
@@ -229,7 +154,7 @@ export function useReviewDraftState({
   const paperSummary = pendingFile
     ? `This PDF is staged locally and will only be parsed once you start the review. Current file: ${pendingFile.name} (${formatFileSize(pendingFile.size)}).`
     : routeArxivId
-      ? 'This arXiv paper is staged for review. The PDF preview is live, but ingestion and debate will not begin until you start the panel.'
+      ? 'This arXiv paper is staged for review. Ingestion and debate will not begin until you start the panel in the next step.'
       : 'Choose a paper first, then configure the panel before running the debate.'
   const sourceLabel = pendingFile
     ? `Uploaded PDF - ${pendingFile.name}`
@@ -239,42 +164,29 @@ export function useReviewDraftState({
   const sourceHref = routeArxivId ? `https://arxiv.org/abs/${encodeURIComponent(routeArxivId)}` : null
 
   return {
-    activeCount,
     arxivDraft,
+    canContinue,
     canStart,
     cacheStatus,
-    costEstimate,
     customGoal,
     customTopic,
     draftNotice,
     isUpload,
-    modeSelection,
     paperSummary,
     paperTitle,
     pdfUrl,
     selectedPreset,
-    rounds,
-    savedTemplates,
     sourceHref,
     sourceLabel,
-    teamAgents,
     topicError,
     topicPresetId,
     topicSelection,
     setArxivDraft,
     setCustomGoal,
     setCustomTopic,
-    setRounds,
-    setTeamAgents,
     setTopicPresetId,
     handleArxivSubmit,
-    handleDeleteTemplate,
-    handleDuplicateTemplate,
+    handleContinue,
     handleFileSelect,
-    handleLoadTemplate,
-    handleModeChange,
-    handleRenameTemplate,
-    handleSaveTemplate,
-    createCustomEditableAgent,
   }
 }
