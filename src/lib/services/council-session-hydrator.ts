@@ -118,6 +118,7 @@ function buildMessages(
       timestamp: new Date(turn.created_at),
       blocks,
       isComplete: true,
+      responds_to_turn_id: turn.responds_to_turn_id ?? null,
     }
   })
 }

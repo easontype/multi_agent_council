@@ -1,9 +1,7 @@
 'use client'
 
 import { PaperPreview } from '@/components/council/paper-preview'
-import { ReviewSetupPanel } from '@/components/council/review-setup-panel'
-import type { EditableReviewAgent, ReviewMode } from '@/lib/prompts/review-presets'
-import type { SavedTeamTemplate } from '@/lib/team-template-store'
+import { PAPER_TOPIC_PRESETS } from '@/lib/paper-topics'
 import {
   ReviewActionButton,
   ReviewPageBody,
@@ -25,26 +23,18 @@ interface ReviewDraftLayoutProps {
   onSourceSubmit: (event: React.FormEvent) => void
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
   hasSource: boolean
-  mode: ReviewMode
-  rounds: 1 | 2
-  agents: EditableReviewAgent[]
-  busy: boolean
-  canStart: boolean
-  costLabel: string
-  error: string | null
+  cacheStatus: 'ready' | 'processing' | 'failed' | 'unknown' | null
   notice?: string | null
-  activeCount: number
-  savedTemplates: SavedTeamTemplate[]
-  onModeChange: (mode: ReviewMode) => void
-  onRoundsChange: (rounds: 1 | 2) => void
-  onAgentsChange: (agents: EditableReviewAgent[]) => void
-  onAddAgent: () => void
-  onStart: () => void
-  onSaveTemplate: () => void
-  onLoadTemplate: (template: SavedTeamTemplate) => void
-  onDeleteTemplate: (id: string) => void
-  onRenameTemplate: (template: SavedTeamTemplate) => void
-  onDuplicateTemplate: (template: SavedTeamTemplate) => void
+  topicPresetId: string
+  selectedTopicLabel: string
+  customTopic: string
+  customGoal: string
+  topicError: string | null
+  canContinue: boolean
+  onTopicPresetChange: (presetId: string) => void
+  onCustomTopicChange: (value: string) => void
+  onCustomGoalChange: (value: string) => void
+  onContinue: () => void
 }
 
 function PaperSourceStep({
@@ -52,12 +42,21 @@ function PaperSourceStep({
   onSourceDraftChange,
   onSourceSubmit,
   onFileChange,
+  cacheStatus,
 }: {
   sourceDraft: string
   onSourceDraftChange: (value: string) => void
   onSourceSubmit: (event: React.FormEvent) => void
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  cacheStatus: 'ready' | 'processing' | 'failed' | 'unknown' | null
 }) {
+  const cacheTone = cacheStatus === 'ready'
+    ? { label: 'Cached', bg: '#ecfdf5', border: '#bbf7d0', color: '#166534' }
+    : cacheStatus === 'processing'
+      ? { label: 'Processing', bg: '#fffbeb', border: '#fde68a', color: '#92400e' }
+      : cacheStatus === 'failed'
+        ? { label: 'Retry needed', bg: '#fef2f2', border: '#fecaca', color: '#b91c1c' }
+        : { label: 'Unknown', bg: '#f5f5f4', border: '#e7e5e4', color: '#57534e' }
   return (
     <div style={{ padding: '20px' }}>
       <div style={{
@@ -72,6 +71,23 @@ function PaperSourceStep({
         <div style={{ fontSize: 12.5, color: reviewTheme.colors.muted, lineHeight: 1.6, marginBottom: 14 }}>
           Paste an arXiv ID or upload a PDF. The file is staged immediately, but ingestion only starts once you launch the review.
         </div>
+        {cacheStatus && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 14,
+            border: `1px solid ${cacheTone.border}`,
+            background: cacheTone.bg,
+            color: cacheTone.color,
+            borderRadius: 999,
+            padding: '7px 11px',
+            fontSize: 11.5,
+            fontWeight: 600,
+          }}>
+            Cache: {cacheTone.label}
+          </div>
+        )}
 
         <form onSubmit={onSourceSubmit} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <input
@@ -136,116 +152,96 @@ function PaperSourceStep({
   )
 }
 
-function SavedTemplatesPanel({
-  savedTemplates,
-  onSaveTemplate,
-  onLoadTemplate,
-  onDeleteTemplate,
-  onRenameTemplate,
-  onDuplicateTemplate,
+function TopicSelectionStep({
+  topicPresetId,
+  customTopic,
+  customGoal,
+  topicError,
+  onTopicPresetChange,
+  onCustomTopicChange,
+  onCustomGoalChange,
 }: {
-  savedTemplates: SavedTeamTemplate[]
-  onSaveTemplate: () => void
-  onLoadTemplate: (template: SavedTeamTemplate) => void
-  onDeleteTemplate: (id: string) => void
-  onRenameTemplate: (template: SavedTeamTemplate) => void
-  onDuplicateTemplate: (template: SavedTeamTemplate) => void
+  topicPresetId: string
+  customTopic: string
+  customGoal: string
+  topicError: string | null
+  onTopicPresetChange: (presetId: string) => void
+  onCustomTopicChange: (value: string) => void
+  onCustomGoalChange: (value: string) => void
 }) {
   return (
     <ReviewSectionFrame
-      eyebrow="Step 3"
-      title="Templates"
-      description="Save a panel configuration you expect to reuse across papers, or load an existing one before launch."
+      eyebrow="Step 1b"
+      title="Review focus"
+      description="Choose what this panel should concentrate on before the debate starts."
     >
       <div style={{ padding: '18px 20px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 12.5, color: reviewTheme.colors.muted }}>
-            Saved team presets
-          </div>
-          <button
-            type="button"
-            onClick={onSaveTemplate}
-            style={subtleButtonStyle({ padding: '7px 12px', fontSize: 12, fontWeight: 600 })}
-          >
-            Save Current Setup
-          </button>
-        </div>
-
-        {savedTemplates.length === 0 ? (
-          <div style={{
-            border: `1px dashed ${reviewTheme.colors.border}`,
-            borderRadius: 14,
-            background: 'rgba(248,242,232,0.46)',
-            padding: '18px',
-            fontSize: 12.5,
-            color: reviewTheme.colors.softMuted,
-          }}>
-            No saved teams yet.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {savedTemplates.slice(0, 4).map((template) => (
-              <div
-                key={template.id}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: 14 }}>
+          {PAPER_TOPIC_PRESETS.map((preset) => {
+            const active = topicPresetId === preset.id
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => onTopicPresetChange(preset.id)}
                 style={{
-                  border: '1px solid #ececf1',
-                  borderRadius: 14,
-                  padding: '12px 13px',
-                  background: '#fcfcfb',
+                  textAlign: 'left',
+                  border: `1px solid ${active ? '#111827' : '#e4e4e7'}`,
+                  borderRadius: 12,
+                  background: active ? '#111827' : '#fff',
+                  color: active ? '#fff' : '#18181b',
+                  padding: '10px 11px',
+                  cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#18181b' }}>{template.name}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af' }}>
-                    {template.agents.filter((agent) => agent.enabled).length} agents
-                  </div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 3 }}>{preset.label}</div>
+                <div style={{ fontSize: 11, lineHeight: 1.5, color: active ? 'rgba(255,255,255,0.76)' : '#71717a' }}>
+                  {preset.id === 'custom' ? 'Write your own review question.' : preset.topic}
                 </div>
-                <div style={{ fontSize: 12, color: '#71717a', marginBottom: 10 }}>
-                  {template.mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'} · {template.rounds} round{template.rounds > 1 ? 's' : ''}
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(['Load', 'Duplicate', 'Rename'] as const).map((label) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => {
-                        if (label === 'Load') onLoadTemplate(template)
-                        else if (label === 'Duplicate') onDuplicateTemplate(template)
-                        else onRenameTemplate(template)
-                      }}
-                      style={{
-                        border: '1px solid #d4d4d8',
-                        background: '#fff',
-                        color: '#3f3f46',
-                        borderRadius: 999,
-                        padding: '6px 10px',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => onDeleteTemplate(template.id)}
-                    style={{
-                      border: 'none',
-                      background: 'transparent',
-                      color: '#a1a1aa',
-                      borderRadius: 999,
-                      padding: '6px 2px',
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        {topicPresetId === 'custom' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input
+              type="text"
+              value={customTopic}
+              onChange={(event) => onCustomTopicChange(event.target.value)}
+              placeholder="Custom review topic"
+              style={{
+                border: `1px solid ${topicError ? '#fca5a5' : reviewTheme.colors.borderStrong}`,
+                borderRadius: 12,
+                padding: '11px 12px',
+                fontSize: 13,
+                color: reviewTheme.colors.ink,
+                background: '#fffdfa',
+                outline: 'none',
+              }}
+            />
+            <textarea
+              value={customGoal}
+              onChange={(event) => onCustomGoalChange(event.target.value)}
+              placeholder="Optional: what exactly should the panel decide or verify?"
+              rows={3}
+              style={{
+                border: `1px solid ${reviewTheme.colors.border}`,
+                borderRadius: 12,
+                padding: '11px 12px',
+                fontSize: 12.5,
+                lineHeight: 1.6,
+                color: reviewTheme.colors.ink,
+                background: '#fff',
+                resize: 'vertical',
+                outline: 'none',
+              }}
+            />
+            {topicError && (
+              <div style={{ fontSize: 12, color: '#b91c1c', lineHeight: 1.5 }}>
+                {topicError}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -265,54 +261,42 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     onSourceSubmit,
     onFileChange,
     hasSource,
-    mode,
-    rounds,
-    agents,
-    busy,
-    canStart,
-    costLabel,
-    error,
+    cacheStatus,
     notice,
-    activeCount,
-    savedTemplates,
-    onModeChange,
-    onRoundsChange,
-    onAgentsChange,
-    onAddAgent,
-    onStart,
-    onSaveTemplate,
-    onLoadTemplate,
-    onDeleteTemplate,
-    onRenameTemplate,
-    onDuplicateTemplate,
+    topicPresetId,
+    selectedTopicLabel,
+    customTopic,
+    customGoal,
+    topicError,
+    canContinue,
+    onTopicPresetChange,
+    onCustomTopicChange,
+    onCustomGoalChange,
+    onContinue,
   } = props
-  const enabledCount = agents.filter((agent) => agent.enabled).length
-  const startDisabled = busy || !canStart || enabledCount < 2
-  const modeLabel = mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'
+
   const draftStatus = !hasSource
-    ? 'Select a paper source to unlock launch.'
-    : enabledCount < 2
-      ? 'Keep at least two active agents before launch.'
-      : busy
-        ? 'Council is preparing the ingest and runtime.'
-        : 'Draft is ready to launch.'
+    ? 'Select a paper source to continue.'
+    : topicError
+      ? topicError
+      : 'Ready to configure the review team.'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <ReviewCreateHeader hasSource={hasSource} activeCount={activeCount} rounds={rounds} />
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, height: '100%' }}>
+      <ReviewCreateHeader hasSource={hasSource} />
 
       <ReviewPageBody>
         <div className="review-draft-grid" style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.06fr) minmax(320px, 0.94fr) minmax(260px, 0.5fr)',
+          gridTemplateColumns: 'minmax(0, 1.35fr) minmax(260px, 0.5fr)',
           gap: 20,
           alignItems: 'start',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
             <ReviewSectionFrame
-              eyebrow="Step 1"
+              eyebrow="Step 1a"
               title="Paper source"
-              description="Stage the paper before configuring the panel. This is the only paper-selection step in the review flow."
+              description="Stage the paper before configuring the panel."
             >
               {!hasSource && (
                 <PaperSourceStep
@@ -320,180 +304,112 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                   onSourceDraftChange={onSourceDraftChange}
                   onSourceSubmit={onSourceSubmit}
                   onFileChange={onFileChange}
+                  cacheStatus={cacheStatus}
                 />
               )}
-              <div style={{ padding: hasSource ? 20 : '0 20px 20px' }}>
-                {notice && (
-                  <div
-                    style={{
+              {hasSource && (
+                <div style={{ padding: 20 }}>
+                  {notice && (
+                    <div
+                      style={{
+                        marginBottom: 12,
+                        border: `1px solid ${reviewTheme.colors.warningBorder}`,
+                        background: reviewTheme.colors.warningBg,
+                        color: reviewTheme.colors.warningText,
+                        borderRadius: 12,
+                        padding: '10px 12px',
+                        fontSize: 12.5,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {notice}
+                    </div>
+                  )}
+                  {cacheStatus && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
                       marginBottom: 12,
-                      border: `1px solid ${reviewTheme.colors.warningBorder}`,
-                      background: reviewTheme.colors.warningBg,
-                      color: reviewTheme.colors.warningText,
-                      borderRadius: 12,
-                      padding: '10px 12px',
-                      fontSize: 12.5,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {notice}
+                      border: `1px solid ${cacheStatus === 'ready' ? '#bbf7d0' : cacheStatus === 'processing' ? '#fde68a' : cacheStatus === 'failed' ? '#fecaca' : '#e7e5e4'}`,
+                      background: cacheStatus === 'ready' ? '#ecfdf5' : cacheStatus === 'processing' ? '#fffbeb' : cacheStatus === 'failed' ? '#fef2f2' : '#f5f5f4',
+                      color: cacheStatus === 'ready' ? '#166534' : cacheStatus === 'processing' ? '#92400e' : cacheStatus === 'failed' ? '#b91c1c' : '#57534e',
+                      borderRadius: 999,
+                      padding: '7px 11px',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                    }}>
+                      Cache: {cacheStatus === 'ready' ? 'Cached' : cacheStatus === 'processing' ? 'Processing' : cacheStatus === 'failed' ? 'Retry needed' : 'Unknown'}
+                    </div>
+                  )}
+                  <div style={{
+                    border: '1px solid #ececf1',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    background: '#fff',
+                  }}>
+                    <PaperPreview
+                      title={paperTitle}
+                      sourceLabel={sourceLabel}
+                      pdfUrl={pdfUrl}
+                      sourceHref={sourceHref}
+                      helperText="The preview is live now. Council will only parse and index the paper after you launch the review."
+                    />
                   </div>
-                )}
-                <div style={{
-                  border: '1px solid #ececf1',
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  background: '#fff',
-                }}>
-                  <PaperPreview
-                    title={paperTitle}
-                    sourceLabel={sourceLabel}
-                    pdfUrl={pdfUrl}
-                    sourceHref={sourceHref}
-                    helperText="The preview is live now. Council will only parse and index the paper after you launch the review."
-                  />
                 </div>
-              </div>
-            </ReviewSectionFrame>
-
-            <SavedTemplatesPanel
-              savedTemplates={savedTemplates}
-              onSaveTemplate={onSaveTemplate}
-              onLoadTemplate={onLoadTemplate}
-              onDeleteTemplate={onDeleteTemplate}
-              onRenameTemplate={onRenameTemplate}
-              onDuplicateTemplate={onDuplicateTemplate}
-            />
-          </div>
-
-          <div style={{ minWidth: 0 }}>
-            <ReviewSectionFrame
-              eyebrow="Step 2"
-              title="Review setup"
-              description="Choose the review mode, define the debate depth, and edit the seats that will participate in the council."
-            >
-              <ReviewSetupPanel
-                paperTitle={paperTitle}
-                paperSummary={paperSummary}
-                sourceLabel={sourceLabel}
-                mode={mode}
-                rounds={rounds}
-                agents={agents}
-                busy={busy}
-                canStart={canStart}
-                costLabel={costLabel}
-                error={error}
-                onModeChange={onModeChange}
-                onRoundsChange={onRoundsChange}
-                onAgentsChange={onAgentsChange}
-                onAddAgent={onAddAgent}
-                onStart={onStart}
-                showLaunchFooter={false}
-              />
+              )}
             </ReviewSectionFrame>
           </div>
 
           <div style={{ minWidth: 0 }}>
             <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <ReviewRailCard eyebrow="Launch Review" accent>
+              <TopicSelectionStep
+                topicPresetId={topicPresetId}
+                customTopic={customTopic}
+                customGoal={customGoal}
+                topicError={topicError}
+                onTopicPresetChange={onTopicPresetChange}
+                onCustomTopicChange={onCustomTopicChange}
+                onCustomGoalChange={onCustomGoalChange}
+              />
+
+              <ReviewRailCard eyebrow="Continue" accent>
                 <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, marginBottom: 8, fontFamily: reviewTheme.fonts.display }}>
-                  Confirm the draft, then start the council.
+                  Choose the paper, then configure the team.
                 </div>
                 <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(255,255,255,0.72)', marginBottom: 16 }}>
                   {draftStatus}
                 </div>
                 <ReviewActionButton
                   variant="primary"
-                  disabled={startDisabled}
-                  onClick={onStart}
+                  disabled={!canContinue}
+                  onClick={onContinue}
                   style={{
                     width: '100%',
-                    background: startDisabled ? 'rgba(255,255,255,0.22)' : '#fff',
-                    color: startDisabled ? 'rgba(255,255,255,0.7)' : '#111827',
-                    marginBottom: 10,
+                    background: canContinue ? '#fff' : 'rgba(255,255,255,0.22)',
+                    color: canContinue ? '#111827' : 'rgba(255,255,255,0.7)',
                   }}
                 >
-                  {busy ? 'Preparing...' : 'Start Review'}
-                </ReviewActionButton>
-                <ReviewActionButton
-                  onClick={onSaveTemplate}
-                  style={{
-                    width: '100%',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    borderRadius: 12,
-                    padding: '11px 14px',
-                    background: 'transparent',
-                    color: '#fff',
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  Save Current Setup
+                  Continue →
                 </ReviewActionButton>
               </ReviewRailCard>
 
               <ReviewRailCard eyebrow="Draft Summary">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <ReviewSummaryItem label="Paper" value={hasSource ? sourceLabel : 'Not selected'} tone={hasSource ? '#18181b' : '#b45309'} />
-                  <ReviewSummaryItem label="Mode" value={modeLabel} />
-                  <ReviewSummaryItem label="Rounds" value={`${rounds} round${rounds > 1 ? 's' : ''}`} />
-                  <ReviewSummaryItem label="Active Seats" value={`${enabledCount} active`} tone={enabledCount >= 2 ? '#18181b' : '#b91c1c'} />
-                  <ReviewSummaryItem label="Estimated Cost" value={costLabel} />
+                  <ReviewSummaryItem
+                    label="Focus"
+                    value={selectedTopicLabel === 'Custom' && customTopic.trim() ? customTopic.trim() : selectedTopicLabel}
+                  />
                 </div>
-              </ReviewRailCard>
-
-              <ReviewRailCard eyebrow="Templates">
-                <div style={{ fontSize: 12.5, lineHeight: 1.65, color: reviewTheme.colors.muted, marginBottom: 10 }}>
-                  {savedTemplates.length > 0
-                    ? `${savedTemplates.length} saved team template${savedTemplates.length > 1 ? 's' : ''} available in this workspace.`
-                    : 'No saved team templates yet. Save this setup if you expect to reuse it.'}
-                </div>
-                {savedTemplates.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {savedTemplates.slice(0, 3).map((template) => (
-                      <button
-                        key={template.id}
-                        type="button"
-                        onClick={() => onLoadTemplate(template)}
-                        style={{
-                          textAlign: 'left',
-                          border: '1px solid #ececf1',
-                          background: '#fcfcfb',
-                          borderRadius: 12,
-                          padding: '10px 11px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#18181b', marginBottom: 3 }}>
-                          {template.name}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: '#71717a' }}>
-                          {template.mode === 'gap' ? 'Gap Analysis' : 'Academic Critique'} · {template.rounds} round{template.rounds > 1 ? 's' : ''}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </ReviewRailCard>
             </div>
           </div>
         </div>
         <style>{`
-          @media (max-width: 1200px) {
-            .review-draft-grid {
-              grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr) !important;
-            }
-            .review-draft-grid > :nth-child(3) {
-              grid-column: 1 / -1;
-            }
-          }
           @media (max-width: 900px) {
             .review-draft-grid {
               grid-template-columns: 1fr !important;
               gap: 14px !important;
-            }
-            .review-draft-grid > :nth-child(3) {
-              grid-column: auto;
             }
           }
         `}</style>

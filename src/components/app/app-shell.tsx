@@ -15,6 +15,7 @@ const LANGUAGES = [
 const NAV = [
   { href: '/home', label: 'Dashboard', match: (pathname: string) => pathname === '/home', Icon: DashboardIcon },
   { href: '/home/reviews', label: 'Reviews', match: (pathname: string) => pathname.startsWith('/home/reviews'), Icon: ReviewsIcon },
+  { href: '/home/papers', label: 'Papers', match: (pathname: string) => pathname.startsWith('/home/papers'), Icon: PapersIcon },
   { href: '/review/new', label: 'New Review', match: (pathname: string) => pathname === '/review/new', Icon: PlusSquareIcon },
   { href: '/keys', label: 'API Keys', match: (pathname: string) => pathname.startsWith('/keys'), Icon: KeyIcon },
 ]
@@ -91,6 +92,15 @@ function ReviewsIcon({ active }: { active: boolean }) {
       <polyline points="14 2 14 8 20 8" />
       <line x1="8" y1="13" x2="16" y2="13" />
       <line x1="8" y1="17" x2="16" y2="17" />
+    </svg>
+  )
+}
+
+function PapersIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
   )
 }

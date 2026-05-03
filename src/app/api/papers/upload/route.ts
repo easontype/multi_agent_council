@@ -8,6 +8,14 @@ import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/
 import type { CouncilSeat } from "@/lib/core/council-types";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { recordUploadedFile } from "@/lib/uploaded-files";
+import {
+  attachIngestedDocumentToPaperAsset,
+  computeBufferChecksum,
+  markPaperAssetProcessingFailed,
+  markPaperAssetProcessingStarted,
+  resolvePaperAsset,
+} from "@/lib/paper-assets";
+import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
@@ -31,12 +39,18 @@ export async function POST(req: NextRequest) {
   let customSeats: CouncilSeat[] = [];
   let uploadedBuffer: Buffer | undefined;
   let uploadTitle: string | undefined;
+  let topicPresetId: string | undefined;
+  let requestedTopic: string | undefined;
+  let requestedGoal: string | undefined;
 
   if (contentType.includes("multipart/form-data")) {
     const form = await req.formData();
     arxivId = (form.get("arxivId") as string) || undefined;
     mode = form.get("mode") === "gap" ? "gap" : "critique";
     rounds = form.get("rounds") === "2" ? 2 : 1;
+    topicPresetId = (form.get("topicPresetId") as string) || undefined;
+    requestedTopic = (form.get("topic") as string) || undefined;
+    requestedGoal = (form.get("goal") as string) || undefined;
     const customSeatsRaw = form.get("customSeats");
     if (typeof customSeatsRaw === "string") {
       try {
@@ -61,6 +75,9 @@ export async function POST(req: NextRequest) {
     arxivId = body.arxivId?.trim() || undefined;
     mode = body.mode === "gap" ? "gap" : "critique";
     rounds = body.rounds === 2 ? 2 : 1;
+    topicPresetId = typeof body.topicPresetId === "string" ? body.topicPresetId : undefined;
+    requestedTopic = typeof body.topic === "string" ? body.topic : undefined;
+    requestedGoal = typeof body.goal === "string" ? body.goal : undefined;
     if (Array.isArray(body.customSeats)) {
       customSeats = body.customSeats as CouncilSeat[];
     }
@@ -75,20 +92,27 @@ export async function POST(req: NextRequest) {
   let paperText: string;
   let sourceUrl: string;
   let markerPdfBuffer: Buffer | undefined;
+  let sourceKind: "arxiv" | "upload";
+  const topicSelection = resolvePaperTopicSelection({
+    topicPresetId: topicPresetId ?? "methodology",
+    topic: requestedTopic,
+    goal: requestedGoal,
+  });
 
   try {
     if (uploadedBuffer) {
-      const { extractTextFromPdfBuffer: extract } = await import("@/lib/paper-ingest");
-      paperText = await extract(uploadedBuffer);
+      paperText = await extractTextFromPdfBuffer(uploadedBuffer);
       paperTitle = uploadTitle ?? "Uploaded Paper";
       sourceUrl = "upload";
       markerPdfBuffer = uploadedBuffer;
+      sourceKind = "upload";
     } else {
       const result = await fetchArxivPaper(arxivId!);
       paperTitle = result.title;
       paperText = result.text;
       sourceUrl = result.url;
       markerPdfBuffer = result.pdfBuffer;
+      sourceKind = "arxiv";
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to fetch paper";
@@ -99,25 +123,55 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not extract text from paper" }, { status: 422 });
   }
 
-  // 2. Ingest into RAG library
+  const paperAbstract = paperText.slice(0, 600).trim();
+  const account = await resolveAuthAccountContext();
+  const checksumSha256 = computeBufferChecksum(markerPdfBuffer);
+  const paperAssetResolution = await resolvePaperAsset({
+    workspaceId: account?.workspaceId,
+    title: paperTitle,
+    abstract: paperAbstract,
+    arxivId: arxivId ?? null,
+    sourceKind,
+    sourceLocator: sourceKind === "arxiv" ? arxivId ?? null : sourceUrl,
+    checksumSha256,
+  });
+
+  // 2. Ingest into RAG library when the asset has no primary library yet
   let libraryId: string;
   let documentId: string | undefined;
+  let cacheStatus: "ready" | "processing";
   try {
-    const ingested = await ingestPaper({
-      text: paperText,
-      title: paperTitle,
-      sourceUrl,
-      sourceType: uploadedBuffer ? "local_doc" : "academic",
-      pdfBuffer: markerPdfBuffer,
-    });
-    libraryId = ingested.libraryId;
-    documentId = ingested.documentId;
+    if (paperAssetResolution.asset.primary_library_id && paperAssetResolution.asset.document_id) {
+      libraryId = paperAssetResolution.asset.primary_library_id;
+      documentId = paperAssetResolution.asset.document_id;
+      cacheStatus = "ready";
+    } else {
+      await markPaperAssetProcessingStarted(paperAssetResolution.asset.id);
+      const ingested = await ingestPaper({
+        text: paperText,
+        title: paperTitle,
+        sourceUrl,
+        sourceType: uploadedBuffer ? "local_doc" : "academic",
+        pdfBuffer: markerPdfBuffer,
+      });
+      const asset = await attachIngestedDocumentToPaperAsset({
+        paperAssetId: paperAssetResolution.asset.id,
+        ingestResult: ingested,
+        title: paperTitle,
+        abstract: paperAbstract,
+        arxivId: arxivId ?? null,
+        checksumSha256,
+      });
+      libraryId = asset.primary_library_id || ingested.libraryId;
+      documentId = asset.document_id || ingested.documentId;
+      cacheStatus = "processing";
+    }
   } catch (err) {
+    await markPaperAssetProcessingFailed(paperAssetResolution.asset.id, err).catch(() => {});
     const msg = err instanceof Error ? err.message : "Failed to ingest paper";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 
-  const account = await resolveAuthAccountContext();
   if (uploadedBuffer && uploadTitle && documentId) {
     void recordUploadedFile({
       workspaceId: account?.workspaceId,
@@ -152,11 +206,12 @@ export async function POST(req: NextRequest) {
   try {
     const session = await createCouncilSession({
       title: paperTitle,
-      topic: `Academic peer review of: ${paperTitle}`,
+      topic: topicSelection.topic,
       context: `Source: ${sourceUrl}. Library: ${libraryId}`,
-      goal: mode === "gap"
+      goal: topicSelection.goal || (mode === "gap"
         ? "Identify research gaps, missing elements, and opportunities for improvement."
-        : "Provide rigorous multi-perspective academic critique.",
+        : "Provide rigorous multi-perspective academic critique."),
+      paperAssetId: paperAssetResolution.asset.id,
       seats,
       rounds,
       workspaceId: account?.workspaceId,
@@ -173,7 +228,10 @@ export async function POST(req: NextRequest) {
   const response = NextResponse.json({
     sessionId,
     paperTitle,
-    paperAbstract: paperText.slice(0, 600).trim(),
+    paperAbstract,
+    paperAssetId: paperAssetResolution.asset.id,
+    cacheStatus,
+    reusedAsset: paperAssetResolution.reusedAsset,
   }, { status: 201 });
 
   if (anonymousAccess) {

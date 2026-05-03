@@ -1,6 +1,6 @@
 # Council Project Status
 
-Updated: 2026-05-01
+Updated: 2026-05-03
 
 Single source of truth for current project progress. Supersedes all older roadmap and planning files.
 
@@ -250,3 +250,4 @@ Last known passing:
 - `PRODUCT_SPEC.md` - product shape and original spec
 - `COMMIT_GUIDE.md` - commit workflow notes
 - `CLAUDE.md` - project/agent context notes
+- `docs/archive/UI_REFACTOR_EXECUTION_PLAN_archived_2026-05-03.md` - archived record of the completed UI refactor execution plan

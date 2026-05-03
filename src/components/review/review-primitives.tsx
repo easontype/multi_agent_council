@@ -26,6 +26,8 @@ export function ReviewPageBody({
       className={className}
       style={{
         flex: 1,
+        minHeight: 0,
+        minWidth: 0,
         overflow: 'auto',
         padding,
         ...pageGradientStyle(),

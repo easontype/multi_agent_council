@@ -50,6 +50,10 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     rounds?: 1 | 2
     customSeats?: CouncilSeat[]
     discussionAgents?: Agent[]
+    topic?: string
+    goal?: string
+    topicPresetId?: string
+    onSessionReady?: (sessionId: string) => void
   }) => {
     setError(null)
     setPhase('ingesting')
@@ -74,12 +78,23 @@ export function useCouncilReview(arxivIdParam?: string | null) {
         form.append('file', pendingFile)
         form.append('mode', mode)
         form.append('rounds', String(rounds))
+        if (opts?.topic) form.append('topic', opts.topic)
+        if (opts?.goal) form.append('goal', opts.goal)
+        if (opts?.topicPresetId) form.append('topicPresetId', opts.topicPresetId)
         if (customSeats.length) {
           form.append('customSeats', JSON.stringify(customSeats))
         }
         body = form
       } else if (arxivIdParam) {
-        body = JSON.stringify({ arxivId: arxivIdParam, mode, rounds, customSeats })
+        body = JSON.stringify({
+          arxivId: arxivIdParam,
+          mode,
+          rounds,
+          customSeats,
+          topic: opts?.topic,
+          goal: opts?.goal,
+          topicPresetId: opts?.topicPresetId,
+        })
         headers = { 'Content-Type': 'application/json' }
       } else {
         throw new Error('No paper provided')
@@ -98,6 +113,13 @@ export function useCouncilReview(arxivIdParam?: string | null) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to ingest paper')
       setPhase('error')
+      return
+    }
+
+    // If caller wants to handle navigation themselves (wizard flow), fire the callback and exit.
+    // The destination page will resume streaming via loadSession / resumeSession.
+    if (opts?.onSessionReady) {
+      opts.onSessionReady(sessionId)
       return
     }
 

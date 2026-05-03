@@ -4,11 +4,9 @@ import { heroGradientStyle, reviewTheme, sectionEyebrowStyle } from '../review-t
 
 interface ReviewCreateHeaderProps {
   hasSource: boolean
-  activeCount: number
-  rounds: 1 | 2
 }
 
-export function ReviewCreateHeader({ hasSource, activeCount, rounds }: ReviewCreateHeaderProps) {
+export function ReviewCreateHeader({ hasSource: _ }: ReviewCreateHeaderProps) {
   return (
     <div
       className="review-create-header"
@@ -21,7 +19,7 @@ export function ReviewCreateHeader({ hasSource, activeCount, rounds }: ReviewCre
     >
       <div>
         <div style={sectionEyebrowStyle({ marginBottom: 8 })}>
-          New Review
+          Step 1 of 2
         </div>
         <h1 style={{
           margin: 0,
@@ -31,7 +29,7 @@ export function ReviewCreateHeader({ hasSource, activeCount, rounds }: ReviewCre
           color: reviewTheme.colors.ink,
           fontFamily: reviewTheme.fonts.display,
         }}>
-          Stage a paper, shape the panel, then launch the debate.
+          Choose a paper and set the review focus.
         </h1>
       </div>
       <style>{`

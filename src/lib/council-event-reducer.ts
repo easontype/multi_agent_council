@@ -297,7 +297,7 @@ export function applyCouncilServerEvent(
   }
 
   if (type === 'turn_done') {
-    const turn = event.turn as { role: string; content?: string }
+    const turn = event.turn as { id?: string; role: string; content?: string; responds_to_turn_id?: string | null }
     if (!turn?.role) return session
     const agent = findAgentByRole(agents, turn.role)
     if (!agent) return session
@@ -314,7 +314,13 @@ export function applyCouncilServerEvent(
       msg.blocks,
       typeof turn.content === 'string' ? turn.content : '',
     )
-    messages[idx] = { ...msg, blocks, isComplete: true }
+    messages[idx] = {
+      ...msg,
+      ...(turn.id ? { id: turn.id } : {}),
+      blocks,
+      isComplete: true,
+      responds_to_turn_id: turn.responds_to_turn_id ?? null,
+    }
     return { ...session, messages }
   }
 
