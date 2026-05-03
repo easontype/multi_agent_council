@@ -176,7 +176,7 @@ function TopicSelectionStep({
       description="Choose what this panel should concentrate on before the debate starts."
     >
       <div style={{ padding: '18px 20px 20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: 14 }}>
           {PAPER_TOPIC_PRESETS.map((preset) => {
             const active = topicPresetId === preset.id
             return (
@@ -187,15 +187,15 @@ function TopicSelectionStep({
                 style={{
                   textAlign: 'left',
                   border: `1px solid ${active ? '#111827' : '#e4e4e7'}`,
-                  borderRadius: 14,
+                  borderRadius: 12,
                   background: active ? '#111827' : '#fff',
                   color: active ? '#fff' : '#18181b',
-                  padding: '13px 14px',
+                  padding: '10px 11px',
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{preset.label}</div>
-                <div style={{ fontSize: 11.5, lineHeight: 1.55, color: active ? 'rgba(255,255,255,0.76)' : '#71717a' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 3 }}>{preset.label}</div>
+                <div style={{ fontSize: 11, lineHeight: 1.5, color: active ? 'rgba(255,255,255,0.76)' : '#71717a' }}>
                   {preset.id === 'custom' ? 'Write your own review question.' : preset.topic}
                 </div>
               </button>
@@ -282,7 +282,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
       : 'Ready to configure the review team.'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, height: '100%' }}>
       <ReviewCreateHeader hasSource={hasSource} />
 
       <ReviewPageBody>
@@ -307,69 +307,71 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
                   cacheStatus={cacheStatus}
                 />
               )}
-              <div style={{ padding: hasSource ? 20 : '0 20px 20px' }}>
-                {notice && (
-                  <div
-                    style={{
+              {hasSource && (
+                <div style={{ padding: 20 }}>
+                  {notice && (
+                    <div
+                      style={{
+                        marginBottom: 12,
+                        border: `1px solid ${reviewTheme.colors.warningBorder}`,
+                        background: reviewTheme.colors.warningBg,
+                        color: reviewTheme.colors.warningText,
+                        borderRadius: 12,
+                        padding: '10px 12px',
+                        fontSize: 12.5,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {notice}
+                    </div>
+                  )}
+                  {cacheStatus && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
                       marginBottom: 12,
-                      border: `1px solid ${reviewTheme.colors.warningBorder}`,
-                      background: reviewTheme.colors.warningBg,
-                      color: reviewTheme.colors.warningText,
-                      borderRadius: 12,
-                      padding: '10px 12px',
-                      fontSize: 12.5,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {notice}
-                  </div>
-                )}
-                {hasSource && cacheStatus && (
+                      border: `1px solid ${cacheStatus === 'ready' ? '#bbf7d0' : cacheStatus === 'processing' ? '#fde68a' : cacheStatus === 'failed' ? '#fecaca' : '#e7e5e4'}`,
+                      background: cacheStatus === 'ready' ? '#ecfdf5' : cacheStatus === 'processing' ? '#fffbeb' : cacheStatus === 'failed' ? '#fef2f2' : '#f5f5f4',
+                      color: cacheStatus === 'ready' ? '#166534' : cacheStatus === 'processing' ? '#92400e' : cacheStatus === 'failed' ? '#b91c1c' : '#57534e',
+                      borderRadius: 999,
+                      padding: '7px 11px',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                    }}>
+                      Cache: {cacheStatus === 'ready' ? 'Cached' : cacheStatus === 'processing' ? 'Processing' : cacheStatus === 'failed' ? 'Retry needed' : 'Unknown'}
+                    </div>
+                  )}
                   <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    marginBottom: 12,
-                    border: `1px solid ${cacheStatus === 'ready' ? '#bbf7d0' : cacheStatus === 'processing' ? '#fde68a' : cacheStatus === 'failed' ? '#fecaca' : '#e7e5e4'}`,
-                    background: cacheStatus === 'ready' ? '#ecfdf5' : cacheStatus === 'processing' ? '#fffbeb' : cacheStatus === 'failed' ? '#fef2f2' : '#f5f5f4',
-                    color: cacheStatus === 'ready' ? '#166534' : cacheStatus === 'processing' ? '#92400e' : cacheStatus === 'failed' ? '#b91c1c' : '#57534e',
-                    borderRadius: 999,
-                    padding: '7px 11px',
-                    fontSize: 11.5,
-                    fontWeight: 600,
+                    border: '1px solid #ececf1',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    background: '#fff',
                   }}>
-                    Cache: {cacheStatus === 'ready' ? 'Cached' : cacheStatus === 'processing' ? 'Processing' : cacheStatus === 'failed' ? 'Retry needed' : 'Unknown'}
+                    <PaperPreview
+                      title={paperTitle}
+                      sourceLabel={sourceLabel}
+                      pdfUrl={pdfUrl}
+                      sourceHref={sourceHref}
+                      helperText="The preview is live now. Council will only parse and index the paper after you launch the review."
+                    />
                   </div>
-                )}
-                <div style={{
-                  border: '1px solid #ececf1',
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  background: '#fff',
-                }}>
-                  <PaperPreview
-                    title={paperTitle}
-                    sourceLabel={sourceLabel}
-                    pdfUrl={pdfUrl}
-                    sourceHref={sourceHref}
-                    helperText="The preview is live now. Council will only parse and index the paper after you launch the review."
-                  />
                 </div>
-              </div>
+              )}
             </ReviewSectionFrame>
-
-            <TopicSelectionStep
-              topicPresetId={topicPresetId}
-              customTopic={customTopic}
-              customGoal={customGoal}
-              topicError={topicError}
-              onTopicPresetChange={onTopicPresetChange}
-              onCustomTopicChange={onCustomTopicChange}
-              onCustomGoalChange={onCustomGoalChange}
-            />
           </div>
 
           <div style={{ minWidth: 0 }}>
             <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <TopicSelectionStep
+                topicPresetId={topicPresetId}
+                customTopic={customTopic}
+                customGoal={customGoal}
+                topicError={topicError}
+                onTopicPresetChange={onTopicPresetChange}
+                onCustomTopicChange={onCustomTopicChange}
+                onCustomGoalChange={onCustomGoalChange}
+              />
+
               <ReviewRailCard eyebrow="Continue" accent>
                 <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, marginBottom: 8, fontFamily: reviewTheme.fonts.display }}>
                   Choose the paper, then configure the team.

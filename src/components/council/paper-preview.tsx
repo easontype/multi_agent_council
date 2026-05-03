@@ -51,8 +51,10 @@ function EmptyState() {
 }
 
 export function PaperPreview({ title, sourceLabel, pdfUrl, sourceHref, helperText }: PaperPreviewProps) {
+  const previewFrameHeight = pdfUrl ? 'clamp(640px, 72vh, 1100px)' : '420px'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fcfcfb' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', background: '#fcfcfb' }}>
       <div
         style={{
           display: 'flex',
@@ -117,10 +119,12 @@ export function PaperPreview({ title, sourceLabel, pdfUrl, sourceHref, helperTex
         )}
       </div>
 
-      <div style={{ flex: 1, padding: 16, overflow: 'hidden', background: '#fcfcfb' }}>
+      <div style={{ padding: 16, overflow: 'hidden', background: '#fcfcfb' }}>
         <div
           style={{
-            height: '100%',
+            height: previewFrameHeight,
+            display: 'flex',
+            flexDirection: 'column',
             border: '1px solid #ececf1',
             borderRadius: 14,
             overflow: 'hidden',
@@ -134,7 +138,7 @@ export function PaperPreview({ title, sourceLabel, pdfUrl, sourceHref, helperTex
             </div>
           </div>
 
-          <div style={{ height: 'calc(100% - 56px)', background: '#f5f5f7' }}>
+          <div style={{ flex: 1, minHeight: 0, background: '#f5f5f7' }}>
             {pdfUrl ? (
               <iframe
                 title={`Preview of ${title}`}

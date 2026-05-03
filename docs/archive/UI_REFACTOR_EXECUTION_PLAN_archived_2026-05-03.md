@@ -1,6 +1,18 @@
 # Council UI Refactor Execution Plan
 
-Updated: 2026-05-01
+Archived: 2026-05-03
+Final status: Complete
+
+> [ARCHIVED 2026-05-03]
+> This execution plan is complete on the current branch and is preserved for historical reference.
+> The route split, shared app shell, draft/session layout split, session workspace controls, and Phase 5 visual/style cleanup described here are implemented.
+> Remaining work in the repo is normal follow-up iteration, not unfinished scope from this plan.
+
+---
+
+# Council UI Refactor Execution Plan
+
+Updated: 2026-05-03
 
 ## Goal
 
@@ -13,10 +25,11 @@ This refactor is primarily an information architecture and navigation correction
 
 ## Current Checkpoint
 
-Current implementation state:
+Final implementation state:
 
-- Phase 5A visual pass is complete
-- Phase 5B style debt reduction is now complete in the working tree
+- Phase 1A through Phase 5B are complete on the current branch
+- `/analyze` is now a compatibility redirect surface, not the primary review UI
+- the refactor scope described in this document is complete and no further execution phases remain open here
 
 Completed so far:
 
@@ -51,7 +64,7 @@ Current state:
 
 Next planned phase:
 
-- Validation and targeted cleanup only; no larger IA change is currently planned inside this document
+- None inside this plan; remaining work belongs in ongoing product/status documents rather than this execution plan
 
 ## Why This Refactor
 
