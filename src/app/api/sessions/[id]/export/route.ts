@@ -5,6 +5,7 @@ import type {
   CouncilConclusion,
   CouncilEvidence,
   CouncilSeat,
+  CouncilSession,
   CouncilTurn,
 } from "@/lib/core/council-types";
 
@@ -19,15 +20,36 @@ function truncate(text: string | null | undefined, max = 1200) {
   return `${normalized.slice(0, max).trimEnd()}...`;
 }
 
-function formatSeatMarkdown(seats: CouncilSeat[]): string {
-  if (!seats.length) return "";
+const DECISION_EMOJI: Record<string, string> = {
+  "Accept": "✅",
+  "Minor Revision": "🟡",
+  "Major Revision": "🔴",
+  "Reject": "⛔",
+};
 
+function formatSeatMarkdown(session: CouncilSession): string {
+  if (!session.seats.length) return "";
+  const isAdversarial = session.debate_mode === "adversarial";
   const parts: string[] = ["## Reviewer Panel\n"];
-  for (const seat of seats) {
-    parts.push(`- **${seat.role}**`);
-    parts.push(`  - Model: \`${seat.model}\``);
-    if (seat.bias) parts.push(`  - Bias: ${seat.bias}`);
-    if (seat.tools?.length) parts.push(`  - Tools: ${seat.tools.join(", ")}`);
+
+  if (isAdversarial) {
+    const teams = new Map<string, CouncilSeat[]>();
+    for (const seat of session.seats) {
+      const key = seat.team ?? "unassigned";
+      if (!teams.has(key)) teams.set(key, []);
+      teams.get(key)!.push(seat);
+    }
+    for (const [team, seats] of teams) {
+      parts.push(`### Team: ${team}\n`);
+      for (const seat of seats) {
+        parts.push(`- **${seat.role}**`);
+      }
+      parts.push("");
+    }
+  } else {
+    for (const seat of session.seats) {
+      parts.push(`- **${seat.role}** — ${seat.bias ?? ""}`);
+    }
     parts.push("");
   }
   return parts.join("\n");
@@ -42,13 +64,9 @@ function formatTurnsMarkdown(turns: CouncilTurn[]): string {
 
   const parts: string[] = [];
   for (const [round, roundTurns] of [...byRound.entries()].sort((a, b) => a[0] - b[0])) {
-    parts.push(`## Round ${round}\n`);
+    parts.push(`### Round ${round}\n`);
     for (const turn of roundTurns) {
-      parts.push(`### ${turn.role}`);
-      parts.push(`- Model: \`${turn.model}\``);
-      if (turn.input_tokens || turn.output_tokens) {
-        parts.push(`- Tokens: ${turn.input_tokens} in / ${turn.output_tokens} out`);
-      }
+      parts.push(`#### ${turn.role}`);
       parts.push("");
       parts.push(turn.content.trim());
       parts.push("");
@@ -57,33 +75,116 @@ function formatTurnsMarkdown(turns: CouncilTurn[]): string {
   return parts.join("\n");
 }
 
-function formatConclusionMarkdown(conclusion: CouncilConclusion): string {
-  const lines: string[] = ["## Editorial Synthesis\n"];
-  if (conclusion.confidence) {
-    lines.push(
-      `**Confidence:** ${conclusion.confidence}${conclusion.confidence_reason ? ` (${conclusion.confidence_reason})` : ""}\n`,
-    );
+function formatCritiqueConclusion(conclusion: CouncilConclusion): string {
+  const lines: string[] = [];
+
+  // ── Editorial Decision ───────────────────────────────────────────────────────
+  if (conclusion.editorial_decision) {
+    const emoji = DECISION_EMOJI[conclusion.editorial_decision] ?? "";
+    lines.push(`## Editorial Decision\n`);
+    lines.push(`**${emoji} ${conclusion.editorial_decision}**\n`);
+    if (conclusion.editorial_rationale) {
+      lines.push(`${conclusion.editorial_rationale.trim()}\n`);
+    }
+    lines.push("---\n");
   }
-  lines.push(`### Summary Judgment\n\n${conclusion.summary.trim()}\n`);
-  if (conclusion.consensus) lines.push(`### Consensus View\n\n${conclusion.consensus.trim()}\n`);
-  if (conclusion.dissent?.length) {
-    lines.push("### Unresolved Disagreements\n");
-    for (const d of conclusion.dissent) {
-      lines.push(`**${d.question}**`);
-      for (const [seat, position] of Object.entries(d.seats)) {
-        lines.push(`- **${seat}:** ${position}`);
-      }
+
+  lines.push(`## Summary\n\n${conclusion.summary.trim()}\n`);
+
+  // ── Questions to Prepare ────────────────────────────────────────────────────
+  if (conclusion.questions?.length) {
+    lines.push("## Questions to Prepare Before Submission\n");
+    conclusion.questions.forEach((q, i) => {
+      lines.push(`### Q${i + 1}: ${q.question}\n`);
+      lines.push(`**Raised by:** ${q.raised_by}`);
+      if (q.literature) lines.push(`**Literature:** ${q.literature}`);
+      lines.push(`**Suggested action:** ${q.suggestion}`);
       lines.push("");
+    });
+  }
+
+  // ── Unresolved Disagreements ────────────────────────────────────────────────
+  if (conclusion.dissent?.length) {
+    lines.push("## Unresolved Disagreements\n");
+    for (const d of conclusion.dissent) {
+      lines.push(`### ${d.question}\n`);
+      if (Object.keys(d.seats).length) {
+        lines.push("| Seat | Position |");
+        lines.push("|---|---|");
+        for (const [seat, position] of Object.entries(d.seats)) {
+          lines.push(`| ${seat} | ${position} |`);
+        }
+        lines.push("");
+      }
+      if (d.resolution_path) {
+        lines.push(`**Resolution path:** ${d.resolution_path}\n`);
+      }
     }
   }
-  if (conclusion.veto) lines.push(`### Blocking Concern\n\n${conclusion.veto.trim()}\n`);
+
+  // ── Blocking Concern ─────────────────────────────────────────────────────────
+  if (conclusion.veto) {
+    lines.push(`## Blocking Concern\n\n> ${conclusion.veto.trim()}\n`);
+  }
+
+  // ── Revision Checklist ───────────────────────────────────────────────────────
   if (conclusion.action_items.length) {
-    lines.push("### Revision Checklist\n");
+    lines.push("## Revision Checklist\n");
+    for (const item of conclusion.action_items) {
+      const tag = item.priority === "blocking" ? "🔴" : item.priority === "recommended" ? "🟡" : "⚪";
+      lines.push(`- ${tag} ${item.action}`);
+    }
+    lines.push("");
+  }
+
+  // ── Confidence ───────────────────────────────────────────────────────────────
+  if (conclusion.confidence) {
+    lines.push(`---\n\n**Reviewer Confidence:** ${conclusion.confidence}${conclusion.confidence_reason ? ` — ${conclusion.confidence_reason}` : ""}\n`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatAdversarialConclusion(conclusion: CouncilConclusion): string {
+  const lines: string[] = [];
+
+  if (conclusion.winning_team) {
+    const isDraw = conclusion.winning_team === "draw";
+    lines.push(`## Verdict\n`);
+    lines.push(isDraw ? `**Draw** — Neither team established a clear advantage.\n` : `**Winner: ${conclusion.winning_team}**\n`);
+    lines.push(`${conclusion.summary.trim()}\n`);
+    lines.push("---\n");
+  } else {
+    lines.push(`## Summary\n\n${conclusion.summary.trim()}\n`);
+  }
+
+  if (conclusion.dissent?.length) {
+    lines.push("## Unresolved Points\n");
+    for (const d of conclusion.dissent) {
+      lines.push(`### ${d.question}\n`);
+      if (Object.keys(d.seats).length) {
+        lines.push("| Team / Seat | Position |");
+        lines.push("|---|---|");
+        for (const [seat, position] of Object.entries(d.seats)) {
+          lines.push(`| ${seat} | ${position} |`);
+        }
+        lines.push("");
+      }
+    }
+  }
+
+  if (conclusion.action_items.length) {
+    lines.push("## Follow-up Items\n");
     for (const item of conclusion.action_items) {
       lines.push(`- [${item.priority.toUpperCase()}] ${item.action}`);
     }
     lines.push("");
   }
+
+  if (conclusion.confidence) {
+    lines.push(`---\n\n**Moderator Confidence:** ${conclusion.confidence}${conclusion.confidence_reason ? ` — ${conclusion.confidence_reason}` : ""}\n`);
+  }
+
   return lines.join("\n");
 }
 
@@ -141,15 +242,17 @@ export async function GET(
     ? new Date(session.concluded_at).toISOString().slice(0, 10)
     : new Date(session.created_at).toISOString().slice(0, 10);
 
+  const isAdversarial = session.debate_mode === "adversarial";
+  const decisionLabel = conclusion?.editorial_decision
+    ? ` | ${DECISION_EMOJI[conclusion.editorial_decision] ?? ""} ${conclusion.editorial_decision}`
+    : "";
+
   const lines: string[] = [
     `# Council Review: ${session.title}`,
     "",
-    "Academic peer-review export optimized for Markdown-first research workflows.",
-    "",
-    `**Date:** ${date}  `,
-    `**Status:** ${session.status}  `,
+    `**Date:** ${date}${decisionLabel}  `,
+    `**Mode:** ${isAdversarial ? "Adversarial Debate" : "Peer Review"}  `,
     `**Rounds:** ${session.rounds}  `,
-    `**Shared:** ${session.is_public ? "public" : "private"}  `,
     "",
     "---",
     "",
@@ -159,15 +262,17 @@ export async function GET(
     lines.push(`## Topic\n\n${session.topic.trim()}\n`);
   }
 
-  lines.push(formatSeatMarkdown(session.seats));
+  lines.push(formatSeatMarkdown(session));
 
   if (conclusion) {
-    lines.push(formatConclusionMarkdown(conclusion));
+    lines.push(isAdversarial
+      ? formatAdversarialConclusion(conclusion)
+      : formatCritiqueConclusion(conclusion));
   }
 
   if (turns.length) {
     lines.push("---\n");
-    lines.push("## Debate Record\n");
+    lines.push("## Debate Record (Appendix)\n");
     lines.push(formatTurnsMarkdown(turns));
   }
 
