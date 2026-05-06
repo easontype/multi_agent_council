@@ -4,7 +4,7 @@ import { compressToolResult } from "../tool-compressor";
 import { createEvidenceEntry, finalizeEvidenceEntry, saveTurn } from "../db/council-db";
 import { sanitizeText } from "../utils/text";
 import { buildSeatRuntimePrompt, extractEvidenceSources } from "../prompts/council-prompts";
-import { normalizeSeatTurnContent } from "../prompts/council-turn-normalizer";
+import { normalizeSeatTurnContent, extractPositionChange } from "../prompts/council-turn-normalizer";
 import type {
   CouncilSeat,
   CouncilSession,
@@ -245,16 +245,27 @@ export async function runSeatTurn(
     throw error;
   }
 
+  const normalizedContent = runtimeResult.text.trim()
+    ? ensureTurnCitesEvidence(normalizeSeatTurnContent(runtimeResult.text, round), turnSourceRefs)
+    : ensureTurnCitesEvidence("[No final response]", turnSourceRefs);
+
+  let positionFields: { position_changed?: boolean | null; position_change_reason?: string | null } = {};
+  if (round === 2) {
+    const stanceMatch = normalizedContent.match(/\*\*Stance\*\*\n([\s\S]*?)(?=\n\*\*|$)/);
+    if (stanceMatch) {
+      positionFields = extractPositionChange(stanceMatch[1].trim());
+    }
+  }
+
   const turn = await saveTurn({
     session_id: session.id,
     round,
     role: seat.role,
     model: seat.model,
-    content: runtimeResult.text.trim()
-      ? ensureTurnCitesEvidence(normalizeSeatTurnContent(runtimeResult.text, round), turnSourceRefs)
-      : ensureTurnCitesEvidence("[No final response]", turnSourceRefs),
+    content: normalizedContent,
     input_tokens: runtimeResult.inputTokens,
     output_tokens: runtimeResult.outputTokens,
+    ...positionFields,
   });
 
   await touchHeartbeat();

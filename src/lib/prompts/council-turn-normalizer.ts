@@ -163,17 +163,36 @@ export function normalizeSeatTurnContent(content: string, round: number): string
 
     const normalized = [
       "**Challenge**",
-      clampWords(sections.challenge || "Not clearly stated.", 110),
+      clampWords(sections.challenge || "Not clearly stated.", 160),
       "",
       "**Stance**",
-      clampWords(sections.stance || "Not clearly stated.", 45),
+      clampWords(sections.stance || "Not clearly stated.", 60),
       "",
       "**Evidence**",
-      formatBullets(splitItems(sections.evidence, 4, 18), "None cited."),
+      formatBullets(splitItems(sections.evidence, 5, 20), "None cited."),
     ].join("\n");
 
-    return enforceWordBudget(normalized, 220);
+    return enforceWordBudget(normalized, 400);
   }
 
   return trimmed;
+}
+
+const POSITION_CHANGED_RE = /\b(position has changed|view has changed|i now agree|i have changed|moved by|updated my (position|view|stance)|no longer (hold|maintain)|revised my|i changed|立場已改變|我改變了|我現在同意|我更新了)\b/i;
+const POSITION_HELD_RE = /\b(maintain|unchanged|still hold|position (remains|has not changed)|not moved|no change to my|stand by|堅持|未改變|仍然認為)\b/i;
+
+export function extractPositionChange(stanceText: string): {
+  position_changed: boolean | null;
+  position_change_reason: string | null;
+} {
+  const text = stanceText.trim();
+  if (!text) return { position_changed: null, position_change_reason: null };
+
+  if (POSITION_CHANGED_RE.test(text)) {
+    return { position_changed: true, position_change_reason: clampWords(text, 40) };
+  }
+  if (POSITION_HELD_RE.test(text)) {
+    return { position_changed: false, position_change_reason: clampWords(text, 40) };
+  }
+  return { position_changed: null, position_change_reason: null };
 }

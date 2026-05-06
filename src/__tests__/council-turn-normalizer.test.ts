@@ -90,11 +90,11 @@ describe("normalizeSeatTurnContent — round 2", () => {
     expect(result).toContain("**Stance**");
   });
 
-  it("respects 220-word budget", () => {
-    const bigContent = `**Challenge**\n${"word ".repeat(300)}\n\n**Stance**\n${"word ".repeat(100)}`;
+  it("respects 400-word budget", () => {
+    const bigContent = `**Challenge**\n${"word ".repeat(500)}\n\n**Stance**\n${"word ".repeat(200)}`;
     const result = normalizeSeatTurnContent(bigContent, 2);
     const wordCount = result.trim().split(/\s+/).filter(Boolean).length;
-    expect(wordCount).toBeLessThanOrEqual(240);
+    expect(wordCount).toBeLessThanOrEqual(420);
   });
 
   it("falls back gracefully when sections are missing", () => {
