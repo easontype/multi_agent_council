@@ -14,7 +14,9 @@ import type {
   CouncilPlanInput,
   DissentItem,
   ActionItem,
+  QuestionItem,
 } from "../core/council-types";
+import { EXPERIMENTAL_SEAT_DEFINITIONS, BIOMEDICAL_SEAT_DEFINITIONS, PHYSICS_SEAT_DEFINITIONS } from "../core/council-academic";
 import { sanitizeText, clamp } from "../utils/text";
 import { buildBoundedModeratorTranscript, buildBoundedRound2Context } from "./council-turn-summary";
 
@@ -50,6 +52,65 @@ export function buildRound1Prompt(session: Pick<CouncilSession, "topic" | "conte
   ].filter(s => s !== "").join("\n");
 }
 
+// ─── Experimental science prompt variants ─────────────────────────────────────
+
+const EXPERIMENTAL_SEAT_ROLES = new Set([
+  ...EXPERIMENTAL_SEAT_DEFINITIONS,
+  ...BIOMEDICAL_SEAT_DEFINITIONS,
+  ...PHYSICS_SEAT_DEFINITIONS,
+].map((d) => d.role));
+
+export function isExperimentalTemplate(seats: CouncilSeat[]): boolean {
+  return seats.some((s) => EXPERIMENTAL_SEAT_ROLES.has(s.role));
+}
+
+export function buildExperimentalRound1Prompt(
+  session: Pick<CouncilSession, "topic" | "context" | "goal">,
+  preferredLanguage?: string,
+): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined;
+  return [
+    buildDebateBrief(session),
+    "",
+    "You are speaking in Round 1 as a specialized technical reviewer for an experimental science paper. Use tools (rag_query, search_papers, web_search) to retrieve evidence from the paper AND from external literature BEFORE writing your final assessment.",
+    "Ground every claim in specific data: cite figure numbers, exact values with units, section names, or paper titles. Do NOT make generic statements like 'the performance is good' — always compare to a benchmark.",
+    "",
+    "Follow EXACTLY the structure defined in your system prompt.",
+    "If your system prompt does not define a specific format, use these headings:",
+    "**Position** — Your core technical assessment in 1–2 sentences.",
+    "**Evidence Base** — Specific experimental data, figures, or literature that support your position (cite precisely: 'Fig. 3b shows a BET surface area of 142 m²/g, but no pore size distribution is provided').",
+    "**Comparison Standard** — What the field considers adequate for this claim type. Cite a reference paper if possible.",
+    "**Critical Gap** — The single most important missing piece that weakens the paper's central claim.",
+    "If you used tools, end with an **Evidence** section listing title + URL of each source.",
+    "Keep your final written response under 500 words. Prioritize specificity and numbers over breadth.",
+    langLabel ? `\nIMPORTANT: Write your entire response in ${langLabel}.` : "",
+  ].filter(s => s !== "").join("\n");
+}
+
+export function buildBoundedExperimentalRound2Prompt(
+  session: Pick<CouncilSession, "topic" | "context" | "goal">,
+  round1Turns: CouncilTurn[],
+  round2TurnsSoFar: CouncilTurn[] = [],
+  preferredLanguage?: string,
+): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined;
+  return [
+    buildDebateBrief(session),
+    "",
+    ...buildBoundedRound2Context(round1Turns, round2TurnsSoFar),
+    "",
+    "Now make your Round 2 argument as a direct technical rebuttal. You may use tools to verify disputed data or find additional evidence.",
+    "Write in concise Markdown with EXACTLY these sections:",
+    "**Challenge** — Name the specific seat and the exact claim or data point you contest. In 2–3 sentences, explain why their evidence or interpretation is insufficient. Be technical and cite specifics (e.g., 'Characterization Auditor claims XRD confirms phase purity, but the peak at 2θ = 31.2° is consistent with an impurity phase — the authors do not address this.').",
+    "**Proposed Resolution** — What specific experiment, measurement, or additional data would definitively resolve this dispute? Be concrete (e.g., 'XPS survey scan to quantify surface oxygen content, compared against a blank substrate.').",
+    "**Stance** — One sentence: has your Round 1 position changed? If yes, state what evidence moved you. If no, state what it would take to move you.",
+    "Update your position only if the evidence requires it. Do not capitulate to social pressure.",
+    "If you used tools, end with an **Evidence** section (title + URL only).",
+    "Keep your response under 400 words.",
+    langLabel ? `\nIMPORTANT: Write your entire response in ${langLabel}.` : "",
+  ].filter(s => s !== "").join("\n");
+}
+
 export function buildRound2Prompt(
   session: Pick<CouncilSession, "topic" | "context" | "goal">,
   round1Turns: CouncilTurn[],
@@ -80,7 +141,7 @@ export function buildRound2Prompt(
 
   parts.push(
     "",
-    "Now make your Round 2 argument as an academic rebuttal note. You may use tools to verify disputed claims. Keep your final written response under 220 words.",
+    "Now make your Round 2 argument as an academic rebuttal note. You may use tools to verify disputed claims. Keep your final written response under 300 words.",
     "Write in concise Markdown with exactly these sections:",
     "**Challenge** — Name the seat(s) and the specific claim you are contesting. State concisely why their evidence or logic is insufficient (2-3 sentences max).",
     "**Stance** — One sentence: state whether your Round 1 position has changed. If yes, cite the specific evidence that moved you. If no, state what it would take to move you.",
@@ -97,10 +158,87 @@ export function buildRound2Prompt(
   return parts.filter(Boolean).join("\n");
 }
 
+// ─── Adversarial debate prompts ────────────────────────────────────────────────
+
+export function buildAdversarialRound1Prompt(
+  session: Pick<CouncilSession, "topic" | "context" | "goal">,
+  preferredLanguage?: string,
+): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined;
+  return [
+    buildDebateBrief(session),
+    "",
+    "You are in a structured adversarial debate. Your system prompt defines your assigned position and team.",
+    "Round 1: Build the strongest possible case for your assigned position.",
+    "Use tools (rag_query, search_papers, web_search) to gather supporting evidence before writing.",
+    "Ground every claim in specific data: cite exact values, paper titles, or source URLs.",
+    "",
+    "Write in concise Markdown with EXACTLY these sections:",
+    "**Position** — Your team's core claim in 1–2 sentences.",
+    "**Arguments** — 2–3 distinct supporting arguments, each with evidence. Be specific: cite figures, metrics, or literature.",
+    "**Anticipated Objections** — The 1–2 strongest arguments the opposing side will raise. Preemptively address each.",
+    "**Confidence** — One sentence: how certain are you, and what evidence would most challenge your position?",
+    "If you used tools, end with an **Evidence** section (title + URL only).",
+    "Keep your response under 500 words.",
+    langLabel ? `\nIMPORTANT: Write your entire response in ${langLabel}.` : "",
+  ].filter(s => s !== "").join("\n");
+}
+
+export function buildAdversarialRound2Prompt(
+  session: Pick<CouncilSession, "topic" | "context" | "goal" | "seats">,
+  seat: CouncilSeat,
+  round1Turns: CouncilTurn[],
+  round2TurnsSoFar: CouncilTurn[],
+  preferredLanguage?: string,
+): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined;
+  const myTeam = seat.team ?? "default";
+
+  const teamMap = new Map(session.seats.map(s => [s.role, s.team ?? "default"]));
+  const alliedTurns = round1Turns.filter(t => (teamMap.get(t.role) ?? "default") === myTeam);
+  const opposingTurns = round1Turns.filter(t => (teamMap.get(t.role) ?? "default") !== myTeam);
+
+  const formatTurns = (turns: CouncilTurn[]) =>
+    turns.map(t => `### ${t.role}\n${t.content}`).join("\n\n");
+
+  const parts: string[] = [
+    buildDebateBrief(session),
+    "",
+  ];
+
+  if (alliedTurns.length) {
+    parts.push("=== Your Team's Round 1 Positions ===", formatTurns(alliedTurns), "");
+  }
+  if (opposingTurns.length) {
+    parts.push("=== Opposing Team's Round 1 Positions ===", formatTurns(opposingTurns), "");
+  }
+  if (round2TurnsSoFar.length) {
+    const r2Formatted = round2TurnsSoFar.map(t => {
+      const tTeam = teamMap.get(t.role) ?? "default";
+      const label = tTeam === myTeam ? "ally" : "opponent";
+      return `### ${t.role} [${label}]\n${t.content}`;
+    }).join("\n\n");
+    parts.push("=== Round 2 Rebuttals So Far ===", r2Formatted, "");
+  }
+
+  parts.push(
+    "Now write your Round 2 rebuttal. You may use tools to verify contested claims.",
+    "Write in concise Markdown with EXACTLY these sections:",
+    "**Challenge** — Name the opposing seat and the exact claim you are rebutting. Explain in 2–4 sentences why their evidence or reasoning is insufficient. Be specific: cite their exact wording and counter with data.",
+    "**New Argument** — One new supporting argument for your position that your team has not yet raised. Evidence required.",
+    "**Stance** — One sentence: has your Round 1 position changed? If yes, state what evidence moved you. If no, state what would be needed to move you.",
+    "If you used tools, end with an **Evidence** section (title + URL only).",
+    "Keep your response under 400 words.",
+    langLabel ? `\nIMPORTANT: Write your entire response in ${langLabel}.` : "",
+  );
+
+  return parts.filter(s => s !== "").join("\n");
+}
+
 // ─── Moderator prompt ──────────────────────────────────────────────────────────
 
 const MODERATOR_SYSTEM_PROMPT_BASE = [
-  "You are the council moderator. Your job is to synthesize a structured debate transcript into a final, actionable academic conclusion.",
+  "You are the council moderator. Your job is to synthesize a structured debate transcript into a final, actionable academic peer-review conclusion.",
   "",
   "## Evidence weighting",
   "Each seat is annotated with [cited URLs: N]. Use this to calibrate how much to trust each seat's claims.",
@@ -116,6 +254,12 @@ const MODERATOR_SYSTEM_PROMPT_BASE = [
   "  3. A single blocking concern belongs in veto only if it is specific, plausible, and unresolved.",
   "  4. If all seats align, set consensus and use dissent = null.",
   "",
+  "## Editorial decision rules",
+  '  "Accept"         = no blocking concerns, all major claims are supported',
+  '  "Minor Revision" = 1-2 fixable gaps, no fundamental validity issue',
+  '  "Major Revision" = 3+ blocking concerns, or one issue that requires new experiments/data',
+  '  "Reject"         = a fundamental validity flaw that cannot be fixed by revision alone',
+  "",
   "## Confidence calibration",
   '  "high"   = seats cite real URLs, claims are cross-verified, and no blocking concern remains',
   '  "medium" = some URL evidence but uneven support, or one meaningful unresolved disagreement',
@@ -124,33 +268,76 @@ const MODERATOR_SYSTEM_PROMPT_BASE = [
   "## Output format",
   "Return ONLY valid JSON - no prose, no markdown fences, no trailing text.",
   "Fill every field. Use null explicitly if a field does not apply.",
-  "Write the summary like an area-chair synthesis for researchers: concise, evidential, and decision-oriented.",
   "Be concise: summary = 2-4 sentences; each action item = one verb phrase; each dissent question = one sentence.",
   "",
   "action_items rules:",
   '  - Each item is an object: { "action": "Verb + specific thing", "priority": "blocking|recommended|optional" }',
   "  - blocking = must be resolved before proceeding",
   "  - recommended = should be done, but does not block progress",
-  "  - optional = nice to have",
   "  - Start with a verb and name the concrete revision.",
   "",
   "dissent rules:",
-  '  - Each item is { "question": "the open question", "seats": { "RoleName": "their position in one sentence" } }',
+  '  - Each item is { "question": "...", "seats": { "RoleName": "position" }, "resolution_path": "specific steps to resolve" }',
+  "  - resolution_path must name concrete experiments, measurements, or sections to add.",
   "  - Include only disagreements that remain unresolved after all rounds.",
-  "  - If all seats align, use null.",
+  "",
+  "questions rules:",
+  "  - One entry per blocking or recommended action item (max 6, blocking first).",
+  "  - question = the exact peer-review question a reviewer would ask at submission.",
+  "  - raised_by = the seat role that most prominently raised this concern.",
+  '  - literature = the single most relevant citation that seat provided: "Title (Year) | URL" or null.',
+  "  - suggestion = one concrete, specific fix (name the experiment, section, or comparison table).",
   "",
   "{",
   '  "summary": "2-4 sentences covering the core conclusion and most important academic tradeoff",',
-  '  "consensus": "the shared academic conclusion all or most seats agree on, or null",',
-  '  "dissent": [{"question": "...", "seats": {"RoleName": "one-sentence position"}}] or null,',
+  '  "editorial_decision": "Accept | Minor Revision | Major Revision | Reject",',
+  '  "editorial_rationale": "1-2 sentences: the decisive factor in this decision",',
+  '  "consensus": "the shared conclusion all or most seats agree on, or null",',
+  '  "dissent": [{"question": "...", "seats": {"RoleName": "position"}, "resolution_path": "..."}] or null,',
+  '  "questions": [{"question": "...", "raised_by": "RoleName", "literature": "Title (Year) | URL or null", "suggestion": "..."}],',
   '  "action_items": [{"action": "Verb + specific action.", "priority": "blocking|recommended|optional"}],',
-  '  "veto": "a specific blocking concern that must be resolved before proceeding or null",',
+  '  "veto": "a specific blocking concern or null",',
   '  "confidence": "high|medium|low",',
-  '  "confidence_reason": "one sentence explaining what evidence or uncertainty drives confidence"',
+  '  "confidence_reason": "one sentence explaining what drives confidence"',
   "}",
 ].join("\n");
 
 export const MODERATOR_SYSTEM_PROMPT = MODERATOR_SYSTEM_PROMPT_BASE;
+
+const ADVERSARIAL_MODERATOR_SYSTEM_PROMPT_BASE = [
+  "You are the debate moderator for an adversarial debate. Your job is to evaluate which team made stronger arguments, synthesize the key points of disagreement, and produce a structured verdict.",
+  "",
+  "## Evaluation criteria (in order of weight)",
+  "  1. Empirical evidence quality — cited URLs, specific data, reproducible benchmarks beat opinion.",
+  "  2. Rebuttal depth — did a team directly address their opponent's strongest evidence?",
+  "  3. Internal consistency — did a team's positions hold up across rounds without contradiction?",
+  "  4. Scope of coverage — did a team address all major sub-questions?",
+  "",
+  "## Verdict rules",
+  '  - "winning_team" must be the exact team name that appears in the debate (e.g. "pro", "con", "option_a") or "draw".',
+  "  - Use \"draw\" only when evidence strength is genuinely equal.",
+  "  - A team that consistently cites URLs beats a team with better prose but no citations.",
+  "",
+  "## Output format",
+  "Return ONLY valid JSON — no prose, no markdown fences.",
+  "",
+  "{",
+  '  "summary": "2-4 sentences covering what each team argued and why one won",',
+  '  "winning_team": "team_name or draw",',
+  '  "consensus": "any points both teams agreed on, or null",',
+  '  "dissent": [{"question": "...", "seats": {"RoleName": "one-sentence position"}}] or null,',
+  '  "action_items": [{"action": "Verb + specific follow-up.", "priority": "blocking|recommended|optional"}],',
+  '  "veto": null,',
+  '  "confidence": "high|medium|low",',
+  '  "confidence_reason": "one sentence: what evidence gap or tie drives uncertainty"',
+  "}",
+].join("\n");
+
+export function buildAdversarialModeratorSystemPrompt(preferredLanguage?: string): string {
+  const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined;
+  if (!langLabel) return ADVERSARIAL_MODERATOR_SYSTEM_PROMPT_BASE;
+  return ADVERSARIAL_MODERATOR_SYSTEM_PROMPT_BASE + `\n\nIMPORTANT: All string values in the JSON output must be written in ${langLabel}. JSON keys remain in English.`;
+}
 
 export function buildModeratorSystemPrompt(preferredLanguage?: string): string {
   const langLabel = preferredLanguage ? LANGUAGE_LABELS[preferredLanguage] : undefined
@@ -229,6 +416,9 @@ export function normalizeConclusion(raw: string): Omit<CouncilConclusion, "id" |
     veto: null,
     confidence: null as CouncilConclusion["confidence"],
     confidence_reason: null,
+    editorial_decision: null as CouncilConclusion["editorial_decision"],
+    editorial_rationale: null,
+    questions: null as QuestionItem[] | null,
   };
 
   try {
@@ -244,15 +434,26 @@ export function normalizeConclusion(raw: string): Omit<CouncilConclusion, "id" |
 
     const dissent = parseDissentField(parsed.dissent);
     const action_items = parseActionItemsField(parsed.action_items);
+    const questions = parseQuestionsField(parsed.questions);
+
+    const rawDecision = sanitizeText(parsed.editorial_decision);
+    const editorial_decision: CouncilConclusion["editorial_decision"] =
+      rawDecision === "Accept" || rawDecision === "Minor Revision" ||
+      rawDecision === "Major Revision" || rawDecision === "Reject"
+        ? rawDecision : null;
 
     return {
       summary: sanitizeText(parsed.summary) || fallback.summary,
+      editorial_decision,
+      editorial_rationale: sanitizeText(parsed.editorial_rationale) || null,
       consensus: sanitizeText(parsed.consensus) || null,
       dissent,
+      questions,
       action_items,
       veto: sanitizeText(parsed.veto) || null,
       confidence,
       confidence_reason: sanitizeText(parsed.confidence_reason) || null,
+      winning_team: sanitizeText(parsed.winning_team) || null,
     };
   } catch {
     return fallback;
@@ -276,7 +477,8 @@ function parseDissentField(raw: unknown): DissentItem[] | null {
             if (k && val) seats[k] = val;
           }
         }
-        return { question, seats };
+        const resolution_path = sanitizeText(obj.resolution_path) || null;
+        return { question, seats, resolution_path } as DissentItem;
       })
       .filter((item): item is DissentItem => item !== null);
     return items.length ? items : null;
@@ -285,6 +487,26 @@ function parseDissentField(raw: unknown): DissentItem[] | null {
   const text = sanitizeText(raw);
   if (!text) return null;
   return [{ question: text, seats: {} }];
+}
+
+function parseQuestionsField(raw: unknown): QuestionItem[] | null {
+  if (!Array.isArray(raw)) return null;
+  const items = raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const question = sanitizeText(obj.question);
+      const raised_by = sanitizeText(obj.raised_by);
+      if (!question || !raised_by) return null;
+      return {
+        question,
+        raised_by,
+        literature: sanitizeText(obj.literature) || null,
+        suggestion: sanitizeText(obj.suggestion) || "",
+      };
+    })
+    .filter((item): item is QuestionItem => item !== null);
+  return items.length ? items : null;
 }
 
 function parseActionItemsField(raw: unknown): ActionItem[] {
@@ -614,6 +836,34 @@ export function buildTemplateSeats(
         tools: ["list_documents", "read_document", "rag_query", "web_search", "fetch_url"],
       }),
     ],
+    experimental: EXPERIMENTAL_SEAT_DEFINITIONS.map((def) => ({
+      role: def.role,
+      model,
+      systemPrompt: def.systemPrompt,
+      bias: def.bias,
+      tools: def.tools,
+    })),
+    materials: EXPERIMENTAL_SEAT_DEFINITIONS.map((def) => ({
+      role: def.role,
+      model,
+      systemPrompt: def.systemPrompt,
+      bias: def.bias,
+      tools: def.tools,
+    })),
+    biomedical: BIOMEDICAL_SEAT_DEFINITIONS.map((def) => ({
+      role: def.role,
+      model,
+      systemPrompt: def.systemPrompt,
+      bias: def.bias,
+      tools: def.tools,
+    })),
+    physics: PHYSICS_SEAT_DEFINITIONS.map((def) => ({
+      role: def.role,
+      model,
+      systemPrompt: def.systemPrompt,
+      bias: def.bias,
+      tools: def.tools,
+    })),
   };
 
   return libraries[template].slice(0, clamp(seatCount, 2, libraries[template].length));
@@ -633,11 +883,19 @@ export function buildHeuristicPlan(input: CouncilPlanInput, defaultSeatModel: st
   const isArchitecture = /(repo|code|bug|api|database|postgres|schema|migration|deploy|infra|architecture|system design|typescript|next\.js|react|security|auth|latency|performance|sre|codebase|程式|程式碼|錯誤|除錯|架構|系統設計|資料庫|遷移|部署|基礎設施|權限|驗證|效能|延遲|監控|可觀測性|資安|維運|可靠性)/.test(text);
   const isGrowth = /(seo|content|traffic|ads|facebook|threads|pinterest|landing page|funnel|distribution|viral|lead|audience|social post|gumroad|growth|成長|增長|流量|廣告|社群|貼文|漏斗|轉換|受眾|導流|內容行銷|自然流量|擴散)/.test(text);
   const isBusiness = /(pricing|sales|offer|market|customer|product|roadmap|launch|subscription|revenue|margin|monetize|business model|定價|銷售|報價|市場|客戶|產品|路線圖|上線|訂閱|營收|毛利|獲利|商業模式|變現)/.test(text);
+  const isMaterials = /(synthesis|synthesize|characterization|characterize|xrd|sem|tem|xps|bet|ftir|raman|electrochemical|electrochem|catalysis|catalyst|nanoparticle|nanomaterial|nanotube|graphene|mxene|electrode|electrolyte|capacitor|supercapacitor|battery|fuel cell|membrane|polymer|composite|coating|thin film|crystal|crystalline|morphology|yield|conversion rate|selectivity|reaction mechanism|activation energy|thermodynamic|kinetic|precursor|calcination|hydrothermal|solvothermal|chemical vapor|pvd|cvd|sol-gel|sintering|doping|defect|band gap|photocatalysis|electrocatalysis|oxygen reduction|hydrogen evolution|co2 reduction|materials science|energy storage|energy conversion|合成|表徵|表面積|奈米|電化學|催化|電極|電解質|電容|超級電容|電池|燃料電池|薄膜|高分子|複合材料|塗層|晶體|型態|產率|轉化率|選擇性|反應機制|活化能|前驅物|水熱|溶熱|化學氣相|摻雜|缺陷|能隙|光催化|電催化|材料)/.test(text);
+  const isBiomedical = /(drug delivery|scaffold|in vitro|in vivo|cytotoxicity|ic50|biocompatibility|cell viability|hemolysis|apoptosis|tumor|cancer|oncology|therapeutic|nanocarrier|liposome|hydrogel|biosensor|diagnostic|clinical trial|patient|immunogenicity|pharmacokinetics|pharmacodynamics|toxicology|histology|organ|tissue engineering|wound healing|antibacterial|antimicrobial|infection|bacteria|virus|gene therapy|rna|dna|crispr|protein|receptor|antibody|immunotherapy|regenerative|stem cell|translational|生醫|藥物|支架|細胞|毒性|腫瘤|癌症|治療|診斷|生物感測|臨床|免疫|基因|蛋白質|再生醫學|幹細胞)/.test(text);
+  const isPhysics = /(transistor|mosfet|semiconductor|photovoltaic|solar cell|perovskite|led|oled|laser|photodetector|sensor|mems|nems|quantum dot|quantum well|spintronics|magnetics|ferroelectric|piezoelectric|thermoelectric|rf|microwave|antenna|dielectric|capacitance|inductance|resonator|waveguide|optical fiber|photonic|plasmonic|metamaterial|2d material|graphene device|silicon|gaas|gan|power device|integrated circuit|pcb|pce|eqe|responsivity|detectivity|endurance|retention|fabrication|lithography|etching|deposition|sputtering|device integration|reliability|lifetime|degradation|光伏|太陽能|半導體|電晶體|光電|雷射|感測器|量子|磁性|壓電|熱電|微機電|奈米機電|積體電路|元件|物理)/.test(text);
+  const isExperimental = isMaterials || isBiomedical || isPhysics || /(experimental science|experimental study|experimental paper|實驗|物理|化學|生物)/.test(text);
   const highStake = /(security|auth|incident|outage|migration|payment|pricing|legal|compliance|production|customer data|revenue|資安|安全|權限|事故|停機|遷移|付款|金流|法務|合規|正式環境|客戶資料|營收)/.test(text);
   const comparison = /(compare|choose|tradeoff|debate|versus|\bvs\b|option a|option b|review|strategy|比較|選擇|取捨|辯論|對比|方案a|方案b|評估|審查|策略|是否|該不該|值不值得|可不可行)/.test(text);
 
   let template: CouncilPlan["template"] = "general";
   if (isArchitecture) template = "architecture";
+  else if (isPhysics) template = "physics";
+  else if (isBiomedical) template = "biomedical";
+  else if (isMaterials) template = "materials";
+  else if (isExperimental) template = "experimental";
   else if (isGrowth) template = "growth";
   else if (isBusiness) template = "business";
 
@@ -709,7 +967,11 @@ export async function classifyPlanWithLLM(
   const prompt = [
     "Classify whether this topic should escalate into a multi-agent council.",
     "Return JSON only with this exact shape:",
-    '{ "template": "architecture|growth|business|general", "complexity": "low|medium|high", "shouldUseCouncil": true, "reasoning": ["short signal"] }',
+    '{ "template": "architecture|growth|business|general|experimental|materials|biomedical|physics", "complexity": "low|medium|high", "shouldUseCouncil": true, "reasoning": ["short signal"] }',
+    'Use "materials" for materials science, chemistry, synthesis, characterization, electrochemistry, catalysis, or energy storage/conversion papers.',
+    'Use "biomedical" for drug delivery, in vitro/in vivo studies, clinical research, diagnostics, therapeutic devices, or any life sciences paper with translational intent.',
+    'Use "physics" for device physics, semiconductors, photovoltaics, optoelectronics, MEMS, quantum devices, or any paper reporting device efficiency or reliability.',
+    'Use "experimental" only as a catch-all for experimental science papers that do not clearly fit materials, biomedical, or physics.',
     "",
     `Topic: ${topic}`,
     input.context ? `Context: ${sanitizeText(input.context)}` : "",
@@ -721,7 +983,7 @@ export async function classifyPlanWithLLM(
     const jsonText = extractFirstJsonObject(raw);
     if (!jsonText) return null;
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
-    const template = ["architecture", "growth", "business", "general"].includes(String(parsed.template))
+    const template = ["architecture", "growth", "business", "general", "experimental", "materials", "biomedical", "physics"].includes(String(parsed.template))
       ? String(parsed.template) as CouncilPlan["template"]
       : null;
     const complexity = ["low", "medium", "high"].includes(String(parsed.complexity))
@@ -760,7 +1022,7 @@ export function buildBoundedRound2Prompt(
     "",
     ...buildBoundedRound2Context(round1Turns, round2TurnsSoFar),
     "",
-    "Now make your Round 2 argument as an academic rebuttal note. You may use tools to verify disputed claims. Keep your final written response under 220 words.",
+    "Now make your Round 2 argument as an academic rebuttal note. You may use tools to verify disputed claims. Keep your final written response under 300 words.",
     "Write in concise Markdown with exactly these sections:",
     "**Challenge** - Name the seat(s) and the specific claim you are contesting. State concisely why their evidence or logic is insufficient (2-3 sentences max).",
     "**Stance** - One sentence: state whether your Round 1 position has changed. If yes, cite the specific evidence that moved you. If no, state what it would take to move you.",

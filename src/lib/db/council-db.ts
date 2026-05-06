@@ -130,6 +130,13 @@ export async function ensureCouncilSchema() {
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS section_heading TEXT;
         ALTER TABLE IF EXISTS document_chunks ADD COLUMN IF NOT EXISTS char_offset INTEGER;
         ALTER TABLE council_turns ADD COLUMN IF NOT EXISTS responds_to_turn_id TEXT REFERENCES council_turns(id) ON DELETE SET NULL;
+        ALTER TABLE council_turns ADD COLUMN IF NOT EXISTS position_changed BOOLEAN;
+        ALTER TABLE council_turns ADD COLUMN IF NOT EXISTS position_change_reason TEXT;
+        ALTER TABLE council_sessions ADD COLUMN IF NOT EXISTS debate_mode TEXT NOT NULL DEFAULT 'critique';
+        ALTER TABLE council_conclusions ADD COLUMN IF NOT EXISTS winning_team TEXT;
+        ALTER TABLE council_conclusions ADD COLUMN IF NOT EXISTS editorial_decision TEXT;
+        ALTER TABLE council_conclusions ADD COLUMN IF NOT EXISTS editorial_rationale TEXT;
+        ALTER TABLE council_conclusions ADD COLUMN IF NOT EXISTS questions JSONB NOT NULL DEFAULT '[]'::jsonb;
 
         CREATE TABLE IF NOT EXISTS paper_assets (
           id                        TEXT PRIMARY KEY,
@@ -214,6 +221,7 @@ export function normalizeSeat(raw: unknown, fallbackModel: string): CouncilSeat 
   const bias = sanitizeText((raw as Record<string, unknown>).bias) || undefined;
   const tools = normalizeToolRefs((raw as Record<string, unknown>).tools);
   const library_id = sanitizeText((raw as Record<string, unknown>).library_id) || undefined;
+  const team = sanitizeText((raw as Record<string, unknown>).team) || undefined;
   if (!role || !systemPrompt) return null;
   return {
     role,
@@ -222,6 +230,7 @@ export function normalizeSeat(raw: unknown, fallbackModel: string): CouncilSeat 
     bias,
     tools: tools.length ? tools : undefined,
     library_id,
+    team,
   };
 }
 
@@ -259,6 +268,7 @@ export function mapSessionRow(row: Record<string, unknown>, defaultModeratorMode
     updated_at: row.updated_at ? String(row.updated_at) : null,
     divergence_level: row.divergence_level ? String(row.divergence_level) : null,
     is_public: Boolean(row.is_public ?? false),
+    debate_mode: row.debate_mode === "adversarial" ? "adversarial" : "critique",
   };
 }
 
@@ -279,6 +289,10 @@ export function mapConclusionRow(row: Record<string, unknown>): CouncilConclusio
     veto: row.veto ? String(row.veto) : null,
     confidence,
     confidence_reason: row.confidence_reason ? String(row.confidence_reason) : null,
+    winning_team: row.winning_team ? String(row.winning_team) : null,
+    editorial_decision: parseEditorialDecision(row.editorial_decision),
+    editorial_rationale: row.editorial_rationale ? String(row.editorial_rationale) : null,
+    questions: parseStoredQuestions(row.questions),
     created_at: String(row.created_at ?? ""),
   };
 }
@@ -304,12 +318,43 @@ function parseStoredDissent(raw: unknown): DissentItem[] | null {
             if (k && val) seats[k] = val;
           }
         }
-        return { question, seats };
+        const resolution_path = sanitizeText((item as Record<string, unknown>).resolution_path) || null;
+        return { question, seats, resolution_path } as DissentItem;
       })
       .filter((item): item is DissentItem => item !== null);
     return items.length ? items : null;
   }
   return null;
+}
+
+function parseEditorialDecision(raw: unknown): CouncilConclusion["editorial_decision"] {
+  const val = sanitizeText(raw);
+  if (val === "Accept" || val === "Minor Revision" || val === "Major Revision" || val === "Reject") return val;
+  return null;
+}
+
+function parseStoredQuestions(raw: unknown): import("../core/council-types").QuestionItem[] | null {
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try { parsed = JSON.parse(raw); } catch { return null; }
+  }
+  if (!Array.isArray(parsed)) return null;
+  const items = (parsed as unknown[])
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const question = sanitizeText(obj.question);
+      const raised_by = sanitizeText(obj.raised_by);
+      if (!question || !raised_by) return null;
+      return {
+        question,
+        raised_by,
+        literature: sanitizeText(obj.literature) || null,
+        suggestion: sanitizeText(obj.suggestion) || "",
+      };
+    })
+    .filter((item): item is import("../core/council-types").QuestionItem => item !== null);
+  return items.length ? items : null;
 }
 
 function parseStoredActionItems(raw: unknown): ActionItem[] {
@@ -389,6 +434,8 @@ export function mapTurnRow(row: Record<string, unknown>): CouncilTurn {
     output_tokens: Number(row.output_tokens ?? 0),
     created_at: String(row.created_at ?? ""),
     responds_to_turn_id: row.responds_to_turn_id != null ? String(row.responds_to_turn_id) : null,
+    position_changed: row.position_changed != null ? Boolean(row.position_changed) : null,
+    position_change_reason: row.position_change_reason != null ? String(row.position_change_reason) : null,
   };
 }
 
@@ -505,10 +552,14 @@ export async function finalizeEvidenceEntry(
 export async function saveTurn(turn: Omit<CouncilTurn, "id" | "created_at">): Promise<CouncilTurn> {
   const id = nanoid();
   const { rows } = await db.query(
-    `INSERT INTO council_turns (id, session_id, round, role, model, content, input_tokens, output_tokens, responds_to_turn_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO council_turns (id, session_id, round, role, model, content, input_tokens, output_tokens, responds_to_turn_id, position_changed, position_change_reason)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
-    [id, turn.session_id, turn.round, turn.role, turn.model, turn.content, turn.input_tokens, turn.output_tokens, turn.responds_to_turn_id ?? null]
+    [
+      id, turn.session_id, turn.round, turn.role, turn.model, turn.content,
+      turn.input_tokens, turn.output_tokens, turn.responds_to_turn_id ?? null,
+      turn.position_changed ?? null, turn.position_change_reason ?? null,
+    ]
   );
   return mapTurnRow(rows[0] as Record<string, unknown>);
 }
@@ -523,8 +574,8 @@ export async function updateTurnRespondsTo(turnId: string, respondsToTurnId: str
 export async function saveConclusion(data: Omit<CouncilConclusion, "id" | "created_at">): Promise<CouncilConclusion> {
   const id = nanoid();
   const { rows } = await db.query(
-    `INSERT INTO council_conclusions (id, session_id, summary, consensus, dissent, action_items, veto, confidence, confidence_reason)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO council_conclusions (id, session_id, summary, consensus, dissent, action_items, veto, confidence, confidence_reason, winning_team, editorial_decision, editorial_rationale, questions)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      ON CONFLICT (session_id) DO UPDATE
      SET summary = EXCLUDED.summary,
          consensus = EXCLUDED.consensus,
@@ -532,9 +583,19 @@ export async function saveConclusion(data: Omit<CouncilConclusion, "id" | "creat
          action_items = EXCLUDED.action_items,
          veto = EXCLUDED.veto,
          confidence = EXCLUDED.confidence,
-         confidence_reason = EXCLUDED.confidence_reason
+         confidence_reason = EXCLUDED.confidence_reason,
+         winning_team = EXCLUDED.winning_team,
+         editorial_decision = EXCLUDED.editorial_decision,
+         editorial_rationale = EXCLUDED.editorial_rationale,
+         questions = EXCLUDED.questions
      RETURNING *`,
-    [id, data.session_id, data.summary, data.consensus, data.dissent, JSON.stringify(data.action_items), data.veto, data.confidence ?? null, data.confidence_reason ?? null]
+    [
+      id, data.session_id, data.summary, data.consensus, data.dissent,
+      JSON.stringify(data.action_items), data.veto, data.confidence ?? null,
+      data.confidence_reason ?? null, data.winning_team ?? null,
+      data.editorial_decision ?? null, data.editorial_rationale ?? null,
+      JSON.stringify(data.questions ?? []),
+    ]
   );
   return mapConclusionRow(rows[0] as Record<string, unknown>);
 }

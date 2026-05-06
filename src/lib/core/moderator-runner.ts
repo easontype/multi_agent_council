@@ -4,6 +4,7 @@ import { saveTurn, saveConclusion } from "../db/council-db";
 import {
   buildBoundedModeratorPrompt,
   buildModeratorSystemPrompt,
+  buildAdversarialModeratorSystemPrompt,
   extractFirstJsonObject,
   normalizeConclusion,
 } from "../prompts/council-prompts";
@@ -11,7 +12,7 @@ import { MODERATOR_ROUND } from "./council-types";
 import type { OllamaMessage } from "../llm/ollama";
 import type { CouncilSession, CouncilTurn, CouncilConclusion, CouncilEventHandler } from "./council-types";
 
-const MODERATOR_MAX_TOKENS = 1_200;
+const MODERATOR_MAX_TOKENS = 1_800;
 const MODERATOR_JSON_RETRY_MAX_TOKENS = 900;
 
 export async function runModeratorTurn(
@@ -44,7 +45,9 @@ export async function runModeratorTurn(
     // Non-fatal — proceed without evidence counts
   }
 
-  const moderatorSystemPrompt = buildModeratorSystemPrompt(preferredLanguage);
+  const moderatorSystemPrompt = session.debate_mode === "adversarial"
+    ? buildAdversarialModeratorSystemPrompt(preferredLanguage)
+    : buildModeratorSystemPrompt(preferredLanguage);
   const prompt = buildBoundedModeratorPrompt(session, allTurns, evidenceCounts);
   const messages: OllamaMessage[] = [
     { role: "system", content: moderatorSystemPrompt },
@@ -79,7 +82,7 @@ export async function runModeratorTurn(
         "Output ONLY the JSON object, no prose, no markdown fences.",
         "",
         "Required shape:",
-        '{ "summary": "...", "consensus": "...", "dissent": [{"question": "...", "seats": {"RoleName": "position"}}], "action_items": [{"action": "...", "priority": "blocking|recommended|optional"}], "veto": "...", "confidence": "high|medium|low", "confidence_reason": "..." }',
+        '{ "summary": "...", "editorial_decision": "Accept|Minor Revision|Major Revision|Reject", "editorial_rationale": "...", "consensus": "...", "dissent": [{"question": "...", "seats": {"RoleName": "position"}, "resolution_path": "..."}], "questions": [{"question": "...", "raised_by": "RoleName", "literature": "...", "suggestion": "..."}], "action_items": [{"action": "...", "priority": "blocking|recommended|optional"}], "veto": "...", "confidence": "high|medium|low", "confidence_reason": "..." }',
         "",
         "Text to convert:",
         raw.trim(),
@@ -120,6 +123,7 @@ export async function runModeratorTurn(
     veto: parsed.veto,
     confidence: parsed.confidence,
     confidence_reason: parsed.confidence_reason,
+    winning_team: parsed.winning_team ?? null,
   });
 
   await touchHeartbeat();

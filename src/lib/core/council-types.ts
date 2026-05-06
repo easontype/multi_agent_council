@@ -16,6 +16,7 @@ export interface CouncilSeat {
   bias?: string;
   tools?: string[];
   library_id?: string;
+  team?: string;
 }
 
 export interface DivergenceReport {
@@ -50,6 +51,7 @@ export interface CouncilSession {
   updated_at: string | null;
   divergence_level?: string | null;
   is_public: boolean;
+  debate_mode?: "critique" | "adversarial" | null;
 }
 
 export interface CouncilTurn {
@@ -63,11 +65,21 @@ export interface CouncilTurn {
   output_tokens: number;
   created_at: string;
   responds_to_turn_id?: string | null;
+  position_changed?: boolean | null;
+  position_change_reason?: string | null;
 }
 
 export interface DissentItem {
   question: string;
   seats: Record<string, string>;
+  resolution_path?: string | null;
+}
+
+export interface QuestionItem {
+  question: string;
+  raised_by: string;
+  literature: string | null;
+  suggestion: string;
 }
 
 export interface ActionItem {
@@ -85,6 +97,10 @@ export interface CouncilConclusion {
   veto: string | null;
   confidence: "high" | "medium" | "low" | null;
   confidence_reason: string | null;
+  editorial_decision?: "Accept" | "Minor Revision" | "Major Revision" | "Reject" | null;
+  editorial_rationale?: string | null;
+  questions?: QuestionItem[] | null;
+  winning_team?: string | null;
   created_at: string;
 }
 
@@ -128,8 +144,9 @@ export interface CouncilPlanInput {
 
 export interface CouncilPlan {
   shouldUseCouncil: boolean;
-  template: "architecture" | "growth" | "business" | "general";
+  template: "architecture" | "growth" | "business" | "general" | "experimental" | "materials" | "biomedical" | "physics";
   complexity: "low" | "medium" | "high";
+  debate_mode?: "critique" | "adversarial";
   title: string;
   rounds: number;
   moderator_model: string;
@@ -155,6 +172,7 @@ export interface CouncilCreateInput {
   ownerApiKeyId?: string;
   ownerUserEmail?: string;
   accessTokenHash?: string;
+  debate_mode?: "critique" | "adversarial";
 }
 
 export interface CouncilRunOptions {
