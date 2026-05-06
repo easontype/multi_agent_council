@@ -157,12 +157,14 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
   const accessTokenHash = sanitizeText(input.accessTokenHash) || null;
   const id = nanoid();
 
+  const debateMode = input.debate_mode ?? "critique";
+
   const { rows } = await db.query(
     `INSERT INTO council_sessions (
        id, title, topic, context, goal, paper_asset_id, rounds, moderator_model, seats, workspace_id,
-       created_by_user_id, owner_agent_id, owner_api_key_id, owner_user_email, access_token_hash
+       created_by_user_id, owner_agent_id, owner_api_key_id, owner_user_email, access_token_hash, debate_mode
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING *`,
     [
       id,
@@ -180,6 +182,7 @@ export async function createCouncilSession(input: CouncilCreateInput): Promise<C
       ownerApiKeyId,
       ownerUserEmail,
       accessTokenHash,
+      debateMode,
     ],
   );
 

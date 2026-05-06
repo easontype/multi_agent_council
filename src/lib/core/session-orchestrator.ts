@@ -11,7 +11,7 @@ import {
   isSessionStale,
   updateTurnRespondsTo,
 } from "../db/council-db";
-import { buildRound1Prompt, buildBoundedRound2Prompt } from "../prompts/council-prompts";
+import { selectDebateStrategy, groupSeatsByTeam } from "../prompts/debate-strategy";
 import { DEFAULT_GEMMA_MODEL } from "../llm/gemma-models";
 import { runSeatTurn, runWithConcurrency } from "./turn-executor";
 import { runModeratorTurn } from "./moderator-runner";
@@ -150,13 +150,14 @@ export async function runCouncilSession(
       forceRestart || !resume ? null : await fetchSessionConclusion(sessionId);
 
     const allTurns: CouncilTurn[] = existingTurns.filter((turn) => turn.round !== MODERATOR_ROUND);
+    const strategy = selectDebateStrategy(session);
 
     // ── Round 1 ──────────────────────────────────────────────────────────────────
     const round1Existing = existingTurns.filter((turn) => turn.round === 1);
     if (round1Existing.length < session.seats.length) {
       emitEvent({ type: "round_start", round: 1 });
       const doneRoles = new Set(round1Existing.map((turn) => turn.role));
-      const round1Prompt = buildRound1Prompt(session, preferredLanguage);
+      const round1Prompt = strategy.round1Prompt(session, preferredLanguage);
       const newRound1Turns = await runWithConcurrency(
         session.seats
           .filter((seat) => !doneRoles.has(seat.role))
@@ -213,18 +214,17 @@ export async function runCouncilSession(
             (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
           );
 
-          // Sequential: each seat sees all Round 2 turns that came before it.
           const allRoles = session.seats.map((s) => s.role);
-          for (const seat of session.seats) {
-            if (doneRoles.has(seat.role)) continue;
-            const round2Prompt = buildBoundedRound2Prompt(
-              session, round1Turns, round2TurnsSoFar, preferredLanguage,
+
+          // Helper: run one seat's R2 turn and persist the challenge link.
+          const runR2Seat = async (seat: (typeof session.seats)[0]) => {
+            if (doneRoles.has(seat.role)) return;
+            const round2Prompt = strategy.round2Prompt(
+              session, seat, round1Turns, round2TurnsSoFar, preferredLanguage,
             );
             const turn = await runSeatTurn(
               session, seat, 2, round2Prompt, emitEvent, touchHeartbeat, preferredLanguage,
             );
-
-            // Persist which Round 1 turn this seat primarily responds to.
             const targetRole = findChallengeTargetRole(turn.content, allRoles, seat.role);
             if (targetRole) {
               const r1Turn = round1Turns.find((t) => t.role === targetRole);
@@ -233,9 +233,26 @@ export async function runCouncilSession(
                 turn.responds_to_turn_id = r1Turn.id;
               }
             }
-
             round2TurnsSoFar.push(turn);
             allTurns.push(turn);
+          };
+
+          if (session.debate_mode === "adversarial") {
+            // Interleaved: A₁ → B₁ → A₂ → B₂ → ...
+            // Each seat sees opponents' latest rebuttal before writing its own.
+            const teams = groupSeatsByTeam(session.seats);
+            const maxLen = Math.max(...teams.map((t) => t.length));
+            for (let i = 0; i < maxLen; i++) {
+              for (const teamSeats of teams) {
+                const seat = teamSeats[i];
+                if (seat) await runR2Seat(seat);
+              }
+            }
+          } else {
+            // Sequential critique: each seat sees all prior R2 turns.
+            for (const seat of session.seats) {
+              await runR2Seat(seat);
+            }
           }
 
           if (divergence.level === "high") {
