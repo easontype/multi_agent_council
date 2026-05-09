@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runCouncilSession, type CouncilEvent } from "@/lib/core/council";
+import { runCouncilSession } from "@/lib/core/council";
+import type { CouncilEvent } from "@/lib/core/council-types";
 import { isCouncilSessionOwner } from "@/lib/core/council-access";
-import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
+import { getSessionJob, registerSessionJob } from "@/lib/session-job-registry";
 import { db } from "@/lib/db/db";
 
 const EMBED_POLL_MS = 3_500;
@@ -37,63 +39,87 @@ export async function POST(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const quota = await enforceAnonymousWebQuota(req, "review_run", [
-    { limit: 10, windowSeconds: 10 * 60, label: "10 minutes" },
-  ]);
-  if (!quota.ok) {
-    return NextResponse.json(
-      { error: quota.error },
-      {
-        status: 429,
-        headers: quota.retryAfterSeconds
-          ? { "Retry-After": String(quota.retryAfterSeconds) }
-          : undefined,
-      },
-    );
+  const existingJob = getSessionJob(id);
+
+  // Only consume quota + parse body when not already running.
+  let options: {
+    resume?: boolean;
+    forceRestart?: boolean;
+    staleAfterMs?: number;
+    preferredLanguage?: string;
+  } = {};
+
+  if (!existingJob) {
+    const quota = await checkEntitlement(req, "review_run");
+    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+
+    const accountCtx = await resolveAuthAccountContext();
+    const preferredLanguage =
+      accountCtx?.preferredLanguage && accountCtx.preferredLanguage !== "en"
+        ? accountCtx.preferredLanguage
+        : undefined;
+
+    try {
+      const body = await req.json();
+      const staleAfterMinutes =
+        typeof body?.staleAfterMinutes === "number"
+          ? body.staleAfterMinutes
+          : Number(body?.staleAfterMinutes ?? 0) || undefined;
+      options = {
+        resume: body?.resume,
+        forceRestart: body?.forceRestart,
+        staleAfterMs: staleAfterMinutes ? staleAfterMinutes * 60_000 : undefined,
+        preferredLanguage,
+      };
+    } catch {
+      options = { preferredLanguage };
+    }
   }
 
-  const accountCtx = await resolveAuthAccountContext()
-  const preferredLanguage = accountCtx?.preferredLanguage && accountCtx.preferredLanguage !== 'en'
-    ? accountCtx.preferredLanguage
-    : undefined
+  // Get or start the background job — execution is decoupled from this HTTP connection.
+  const job = existingJob ?? registerSessionJob(id, async (emit) => {
+    const embedStart = Date.now();
+    while (!(await isSessionEmbeddingReady(id))) {
+      if (Date.now() - embedStart > EMBED_TIMEOUT_MS) break;
+      emit({ type: "embedding_pending", elapsed: Math.round((Date.now() - embedStart) / 1000) });
+      await new Promise<void>((r) => setTimeout(r, EMBED_POLL_MS));
+    }
+    await runCouncilSession(id, emit, options);
+  });
 
-  let options: { resume?: boolean; forceRestart?: boolean; staleAfterMs?: number; preferredLanguage?: string } = {};
-  try {
-    const body = await req.json();
-    const staleAfterMinutes = typeof body?.staleAfterMinutes === "number"
-      ? body.staleAfterMinutes
-      : Number(body?.staleAfterMinutes ?? 0) || undefined;
-    options = {
-      resume: body?.resume,
-      forceRestart: body?.forceRestart,
-      staleAfterMs: staleAfterMinutes ? staleAfterMinutes * 60_000 : undefined,
-      preferredLanguage,
-    };
-  } catch {
-    options = { preferredLanguage };
-  }
+  // SSE stream — subscribes to the background job's emitter.
+  // When the client disconnects, the listener is removed but the job keeps running.
+  const encoder = new TextEncoder();
+  let activeSend: ((event: CouncilEvent) => void) | null = null;
 
-  const stream = new ReadableStream({
-    async start(controller) {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
       function send(event: CouncilEvent) {
-        const data = `data: ${JSON.stringify(event)}\n\n`;
-        controller.enqueue(new TextEncoder().encode(data));
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          // Client already disconnected; ignore write errors.
+        }
+      }
+      activeSend = send;
+      job.emitter.on("event", send);
+
+      function cleanup() {
+        job.emitter.off("event", send);
+        activeSend = null;
+        try { controller.close(); } catch { /* already closed */ }
       }
 
-      try {
-        // Wait for embedding to be ready before starting debate
-        const embedStart = Date.now();
-        while (!(await isSessionEmbeddingReady(id))) {
-          if (Date.now() - embedStart > EMBED_TIMEOUT_MS) break;
-          send({ type: "embedding_pending", elapsed: Math.round((Date.now() - embedStart) / 1000) });
-          await new Promise<void>((r) => setTimeout(r, EMBED_POLL_MS));
-        }
+      job.emitter.once("close", cleanup);
+      void job.promise.then(cleanup);
+    },
 
-        await runCouncilSession(id, send, options);
-      } catch {
-        // runCouncilSession already emits a typed error event before rethrowing.
-      } finally {
-        controller.close();
+    cancel() {
+      // Client disconnected — remove the event listener so we don't leak it.
+      // The background job continues running and will be available for the next reconnect.
+      if (activeSend) {
+        job.emitter.off("event", activeSend);
+        activeSend = null;
       }
     },
   });

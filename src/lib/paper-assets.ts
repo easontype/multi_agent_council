@@ -146,26 +146,37 @@ async function createPaperAsset(input: {
   checksumSha256?: string | null;
   status?: PaperAssetStatus;
 }): Promise<PaperAsset> {
-  const { rows } = await db.query(
-    `INSERT INTO paper_assets (
-       id, workspace_id, canonical_title, abstract, authors, year, arxiv_id,
-       canonical_checksum_sha256, status, processing_error, marker_processed,
-       document_id, primary_library_id
-     )
-     VALUES ($1,$2,$3,$4,'{}',$5,$6,$7,$8,NULL,false,NULL,NULL)
-     RETURNING *`,
-    [
-      nanoid(),
-      input.workspaceId ?? null,
-      input.title.trim() || "Untitled Paper",
-      input.abstract?.trim() || null,
-      null,
-      normalizeArxivId(input.arxivId),
-      input.checksumSha256 ?? null,
-      input.status ?? "pending",
-    ],
-  );
-  return mapPaperAssetRow(rows[0] as Record<string, unknown>);
+  const normalizedArxivId = normalizeArxivId(input.arxivId);
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO paper_assets (
+         id, workspace_id, canonical_title, abstract, authors, year, arxiv_id,
+         canonical_checksum_sha256, status, processing_error, marker_processed,
+         document_id, primary_library_id
+       )
+       VALUES ($1,$2,$3,$4,'{}',$5,$6,$7,$8,NULL,false,NULL,NULL)
+       RETURNING *`,
+      [
+        nanoid(),
+        input.workspaceId ?? null,
+        input.title.trim() || "Untitled Paper",
+        input.abstract?.trim() || null,
+        null,
+        normalizedArxivId,
+        input.checksumSha256 ?? null,
+        input.status ?? "pending",
+      ],
+    );
+    return mapPaperAssetRow(rows[0] as Record<string, unknown>);
+  } catch (err) {
+    // PostgreSQL unique_violation (23505): concurrent request already created this asset.
+    // Re-fetch and return the winner instead of propagating the error.
+    if ((err as { code?: string }).code === "23505" && normalizedArxivId) {
+      const existing = await findPaperAssetByArxivId(normalizedArxivId);
+      if (existing) return existing;
+    }
+    throw err;
+  }
 }
 
 async function ensurePaperAssetSource(input: {

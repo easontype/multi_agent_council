@@ -6,7 +6,7 @@ import type { ReviewDomain } from "@/lib/prompts/review-presets";
 import { createCouncilSession } from "@/lib/core/council";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/core/council-access";
-import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 import type { CouncilSeat } from "@/lib/core/council-types";
@@ -68,15 +68,8 @@ function buildPhysicsSeats(model: string): CouncilSeat[] {
  * Output: { sessionId, paperTitle, paperAbstract }
  */
 export async function POST(req: NextRequest) {
-  const quota = await enforceAnonymousWebQuota(req, "review_run", [
-    { limit: 10, windowSeconds: 10 * 60, label: "10 minutes" },
-  ]);
-  if (!quota.ok) {
-    return NextResponse.json({ error: quota.error }, {
-      status: 429,
-      headers: quota.retryAfterSeconds ? { "Retry-After": String(quota.retryAfterSeconds) } : undefined,
-    });
-  }
+  const quota = await checkEntitlement(req, "review_run");
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
 
   let body: Record<string, unknown>;
   try {

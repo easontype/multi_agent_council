@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { enforceAnonymousWebQuota } from '@/lib/web-quota'
+import { checkEntitlement, quotaDenied } from '@/lib/entitlements'
 import { generateTeamWithAI } from '@/lib/team-builder'
 import type { TeamBuilderBrief } from '@/lib/prompts/review-presets'
 
@@ -16,19 +16,8 @@ function isValidBrief(value: unknown): value is TeamBuilderBrief {
 }
 
 export async function POST(req: NextRequest) {
-  const quota = await enforceAnonymousWebQuota(req, 'team_builder', [
-    { limit: 6, windowSeconds: 10 * 60, label: '10 minutes' },
-    { limit: 30, windowSeconds: 24 * 60 * 60, label: 'day' },
-  ])
-  if (!quota.ok) {
-    return NextResponse.json(
-      { error: quota.error },
-      {
-        status: 429,
-        headers: quota.retryAfterSeconds ? { 'Retry-After': String(quota.retryAfterSeconds) } : undefined,
-      },
-    )
-  }
+  const quota = await checkEntitlement(req, 'team_builder')
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds)
 
   const body = await req.json().catch(() => ({}))
   const request = typeof body.request === 'string' ? body.request.trim() : ''

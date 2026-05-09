@@ -2,27 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
 import { recordUploadedFile } from "@/lib/uploaded-files";
-import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   try {
-    const quota = await enforceAnonymousWebQuota(req, "paper_ingest", [
-      { limit: 6, windowSeconds: 10 * 60, label: "10 minutes" },
-      { limit: 15, windowSeconds: 24 * 60 * 60, label: "day" },
-    ]);
-    if (!quota.ok) {
-      return NextResponse.json(
-        { error: quota.error },
-        {
-          status: 429,
-          headers: quota.retryAfterSeconds
-            ? { "Retry-After": String(quota.retryAfterSeconds) }
-            : undefined,
-        },
-      );
-    }
+    const quota = await checkEntitlement(req, "paper_ingest");
+    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
 
     const contentType = req.headers.get("content-type") ?? "";
 

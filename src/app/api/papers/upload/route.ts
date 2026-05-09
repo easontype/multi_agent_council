@@ -3,7 +3,7 @@ import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/pa
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/core/council-academic";
 import { createCouncilSession } from "@/lib/core/council";
-import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/core/council-access";
 import type { CouncilSeat } from "@/lib/core/council-types";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
@@ -21,16 +21,8 @@ const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   // Rate limit
-  const quota = await enforceAnonymousWebQuota(req, "web_analyze", [
-    { limit: 3, windowSeconds: 10 * 60, label: "10 minutes" },
-    { limit: 10, windowSeconds: 24 * 60 * 60, label: "day" },
-  ]);
-  if (!quota.ok) {
-    return NextResponse.json({ error: quota.error }, {
-      status: 429,
-      headers: quota.retryAfterSeconds ? { "Retry-After": String(quota.retryAfterSeconds) } : undefined,
-    });
-  }
+  const quota = await checkEntitlement(req, "web_analyze");
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
 
   const contentType = req.headers.get("content-type") ?? "";
   let arxivId: string | undefined;
