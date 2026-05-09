@@ -253,6 +253,167 @@ function WaitingState() {
   )
 }
 
+function EmbeddingBubble({ text, agent, index }: { text: string; agent?: Agent; index: number }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: 8,
+        animation: 'bubble-in 420ms cubic-bezier(0.34,1.56,0.64,1) both',
+        animationDelay: `${index * 40}ms`,
+      }}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '999px',
+          background: agent?.color ?? '#a1a1aa',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 11,
+          fontWeight: 700,
+          flexShrink: 0,
+        }}
+      >
+        {agent?.avatar ?? '?'}
+      </div>
+      <div
+        style={{
+          maxWidth: 340,
+          padding: '9px 13px',
+          borderRadius: '16px 16px 16px 4px',
+          background: '#fff',
+          border: '1px solid #e4e4e7',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          fontSize: 13,
+          color: '#3f3f46',
+          lineHeight: 1.45,
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  )
+}
+
+function TypingIndicator({ agent }: { agent?: Agent }) {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 500)
+    return () => clearInterval(t)
+  }, [])
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '999px',
+          background: agent?.color ?? '#d4d4d8',
+          opacity: 0.5,
+          flexShrink: 0,
+        }}
+      />
+      <div
+        style={{
+          padding: '10px 14px',
+          borderRadius: '16px 16px 16px 4px',
+          background: '#fff',
+          border: '1px solid #e4e4e7',
+          display: 'flex',
+          gap: 4,
+          alignItems: 'center',
+        }}
+      >
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: agent?.color ?? '#a1a1aa',
+              opacity: tick % 3 === i ? 0.9 : 0.2,
+              transition: 'opacity 200ms ease',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const MAX_VISIBLE_BUBBLES = 6
+
+function EmbeddingBubbles({ messages, agents }: { messages: string[]; agents: Agent[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const nonModAgents = agents.filter((a) => a.seatRole !== 'Moderator')
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages.length])
+
+  const visible = messages.slice(-MAX_VISIBLE_BUBBLES)
+  const nextAgentIndex = messages.length % Math.max(nonModAgents.length, 1)
+  const typingAgent = nonModAgents[nextAgentIndex]
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        padding: '32px 32px 28px',
+        gap: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.08em',
+          color: '#d4d4d8',
+          textTransform: 'uppercase',
+          marginBottom: 16,
+        }}
+      >
+        委員會準備中
+      </div>
+      <div
+        ref={scrollRef}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          overflowY: 'auto',
+        }}
+      >
+        {visible.map((text, i) => {
+          const agentIdx = (messages.length - visible.length + i) % Math.max(nonModAgents.length, 1)
+          return (
+            <EmbeddingBubble
+              key={messages.length - visible.length + i}
+              text={text}
+              agent={nonModAgents[agentIdx]}
+              index={i}
+            />
+          )
+        })}
+        <TypingIndicator agent={typingAgent} />
+      </div>
+    </div>
+  )
+}
+
 function ConclusionBanner() {
   return (
     <div
@@ -307,18 +468,28 @@ function SessionAlerts({ alerts }: { alerts: import('@/types/council').SessionAl
 export function DiscussionTimeline({ session, onSourceClick, onLocateInDocument }: DiscussionTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [viewMode, setViewMode] = useState<'timeline' | 'compare' | 'map'>('timeline')
+  const prevModeratorCountRef = useRef(0)
 
   const activeMessage = session.messages.find((message) => !message.isComplete)
   const activeAgentId = activeMessage?.agentId
   const visibleAgents = session.agents.filter((agent) => agent.seatRole !== 'Moderator')
   const agentMap = new Map(session.agents.map((agent) => [agent.id, agent]))
   const hasRound2 = session.messages.some((m) => m.round === 2 && m.isComplete)
+  const moderatorMessages = session.messages.filter((m) => m.round === 99)
+  const debateMessages = session.messages.filter((m) => m.round !== 99)
+  const moderatorAgent = session.agents.find((a) => a.seatRole === 'Moderator')
 
   useEffect(() => {
-    if (viewMode === 'timeline' && scrollRef.current) {
+    if (viewMode !== 'timeline' || !scrollRef.current) return
+    const prevCount = prevModeratorCountRef.current
+    const currCount = moderatorMessages.length
+    prevModeratorCountRef.current = currCount
+    if (currCount > 0 && prevCount === 0) {
+      scrollRef.current.scrollTop = 0
+    } else if (currCount === 0) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [session.messages, viewMode])
+  }, [session.messages, viewMode, moderatorMessages.length])
 
   const hasMessages = session.messages.some((message) => message.isComplete)
 
@@ -399,13 +570,58 @@ export function DiscussionTimeline({ session, onSourceClick, onLocateInDocument 
       ) : (
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px 32px' }}>
           {session.status === 'waiting' && session.messages.length === 0 ? (
-            <WaitingState />
+            (session.embeddingMessages?.length ?? 0) > 0
+              ? <EmbeddingBubbles messages={session.embeddingMessages!} agents={session.agents} />
+              : <WaitingState />
           ) : (
             <>
               <SessionAlerts alerts={session.alerts ?? []} />
-              {groupByRound(session.messages).map(({ round, messages }) => (
+
+              {/* Moderator conclusion pinned at top */}
+              {moderatorMessages.length > 0 && moderatorAgent && (
+                <div>
+                  <div style={{ padding: '24px 0 16px', display: 'flex', alignItems: 'flex-end', gap: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#15803d', textTransform: 'uppercase' }}>
+                        Conclusion
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, height: 1, background: '#bbf7d0' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {moderatorMessages.map((message) => {
+                      const agentRefs = session.sourceRefs.filter((ref) => ref.agentId === moderatorAgent.id && ref.round === message.round)
+                      return (
+                        <AgentMessage
+                          key={message.id}
+                          message={message}
+                          agent={moderatorAgent}
+                          sourceRefs={agentRefs}
+                          onSourceClick={onSourceClick}
+                          onLocateInDocument={onLocateInDocument}
+                        />
+                      )
+                    })}
+                  </div>
+                  {debateMessages.length > 0 && (
+                    <div style={{ padding: '32px 0 0', display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#a1a1aa', textTransform: 'uppercase', flexShrink: 0 }}>
+                        Reviewer Debate
+                      </span>
+                      <div style={{ flex: 1, height: 1, background: '#ececf1' }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Debate rounds */}
+              {groupByRound(debateMessages).map(({ round, messages }) => (
                 <div key={round}>
-                  <RoundDivider round={round === 99 ? 'Synthesis' : round} />
+                  <RoundDivider round={round} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {messages.map((message) => {
                       const agent = agentMap.get(message.agentId)
@@ -446,6 +662,10 @@ export function DiscussionTimeline({ session, onSourceClick, onLocateInDocument 
         @keyframes between-turn-in {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+        @keyframes bubble-in {
+          from { opacity: 0; transform: translateY(10px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)   scale(1); }
         }
       `}</style>
     </div>

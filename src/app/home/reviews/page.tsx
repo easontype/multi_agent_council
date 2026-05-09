@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { PaperCompareTable, type CompareSessionData } from "@/components/council/paper-compare-table";
 
 interface SessionItem {
   id: string;
@@ -10,6 +11,7 @@ interface SessionItem {
   created_at: string;
   has_veto?: boolean;
   rounds?: number;
+  seats?: Array<{ role: string }>;
 }
 
 const STATUS_CONFIG: Record<string, { dot: string; label: string; bg: string; text: string }> = {
@@ -63,6 +65,14 @@ function TrashIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 export default function ReviewsPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -72,6 +82,13 @@ export default function ReviewsPage() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Compare mode state
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [compareView, setCompareView] = useState(false);
+  const [comparedSessions, setComparedSessions] = useState<CompareSessionData[]>([]);
+  const [compareLoading, setCompareLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -102,10 +119,9 @@ export default function ReviewsPage() {
     setDeleteError(null);
     try {
       const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        throw new Error("Delete failed");
-      }
+      if (!res.ok) throw new Error("Delete failed");
       setSessions(prev => prev.filter(s => s.id !== id));
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
     } catch {
       setDeleteError("Could not delete that review. Please try again.");
     } finally {
@@ -113,20 +129,124 @@ export default function ReviewsPage() {
     }
   }
 
-  return (
-    <div style={{ padding: "40px 48px 60px", maxWidth: 860, margin: "0 auto" }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{
-          fontSize: 24, fontWeight: 800, color: "#1a1a1a",
-          letterSpacing: "-0.04em", margin: "0 0 4px",
-          fontFamily: "'Georgia', 'Times New Roman', serif",
-        }}>
-          Reviews
-        </h1>
-        <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
-          {sessions.length} total review{sessions.length !== 1 ? "s" : ""}
-        </p>
+  function toggleCompareMode() {
+    setCompareMode(v => !v);
+    setSelectedIds(new Set());
+    setCompareView(false);
+  }
+
+  function toggleSelect(e: React.MouseEvent, id: string, status: string) {
+    if (!compareMode) return;
+    e.stopPropagation();
+    if (status !== "concluded") return;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < 4) {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function handleCompare() {
+    if (selectedIds.size < 2) return;
+    setCompareLoading(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const results = await Promise.all(ids.map(id => fetch(`/api/sessions/${id}`).then(r => r.json())));
+      const compared: CompareSessionData[] = results.map((data, i) => {
+        const sess = data.session ?? {};
+        const conc = data.conclusion ?? null;
+        const seats: Array<{ role: string }> = Array.isArray(sess.seats) ? sess.seats : [];
+        const isGap = seats.some((s: { role: string }) =>
+          ['Gap Finder', 'Hostile Reviewer', 'Methods Auditor', 'Related Work Scout', 'Supportive Mentor'].includes(s.role)
+        );
+        return {
+          id: ids[i]!,
+          title: sess.title ?? 'Unknown',
+          mode: isGap ? 'gap' : 'critique',
+          confidence: (conc?.confidence as CompareSessionData['confidence']) ?? null,
+          confidenceReason: conc?.confidence_reason ?? null,
+          summary: conc?.summary ?? null,
+          consensus: conc?.consensus ?? null,
+          veto: conc?.veto ?? null,
+          actionItems: Array.isArray(conc?.action_items) ? conc.action_items : [],
+          rounds: sess.rounds ?? 1,
+          createdAt: sess.created_at ?? '',
+        };
+      });
+      setComparedSessions(compared);
+      setCompareView(true);
+    } finally {
+      setCompareLoading(false);
+    }
+  }
+
+  // Show comparison table view
+  if (compareView && comparedSessions.length > 0) {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <PaperCompareTable
+          sessions={comparedSessions}
+          onClose={() => setCompareView(false)}
+          onOpenSession={(id) => router.push(`/review/${encodeURIComponent(id)}`)}
+        />
       </div>
+    );
+  }
+
+  const selectedCount = selectedIds.size;
+  const concludedCount = sessions.filter(s => s.status === "concluded").length;
+
+  return (
+    <div style={{ padding: "40px 48px 80px", maxWidth: 860, margin: "0 auto", position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+        <div>
+          <h1 style={{
+            fontSize: 24, fontWeight: 800, color: "#1a1a1a",
+            letterSpacing: "-0.04em", margin: "0 0 4px",
+            fontFamily: "'Georgia', 'Times New Roman', serif",
+          }}>
+            Reviews
+          </h1>
+          <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
+            {sessions.length} total review{sessions.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        {concludedCount >= 2 && (
+          <button
+            onClick={toggleCompareMode}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: `1px solid ${compareMode ? "#111827" : "#e4e4e7"}`,
+              background: compareMode ? "#111827" : "#fff",
+              color: compareMode ? "#fff" : "#52525b",
+              cursor: "pointer", transition: "all 120ms",
+              marginTop: 2,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            </svg>
+            {compareMode ? "Exit Compare" : "Compare Papers"}
+          </button>
+        )}
+      </div>
+
+      {compareMode && (
+        <div style={{
+          marginBottom: 16, padding: "9px 14px",
+          background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8,
+          fontSize: 12, color: "#92400e",
+        }}>
+          Select 2–4 concluded reviews to compare. {concludedCount < 2 && "You need at least 2 concluded reviews."}
+          {concludedCount >= 2 && `${selectedCount} selected${selectedCount > 0 ? ` — click a row to ${selectedIds.size > 0 ? 'add or remove' : 'select'}` : " — click concluded rows to select"}.`}
+        </div>
+      )}
 
       {/* Search + filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
@@ -148,7 +268,6 @@ export default function ReviewsPage() {
           />
         </div>
 
-        {/* Filter chips */}
         <div style={{ display: "flex", gap: 6 }}>
           {(["all", "concluded", "running", "pending", "failed"] as FilterStatus[]).map(f => {
             const active = filter === f;
@@ -171,23 +290,14 @@ export default function ReviewsPage() {
       </div>
 
       {deleteError && (
-        <div
-          role="alert"
-          style={{
-            marginBottom: 14,
-            border: "1px solid #fecaca",
-            borderRadius: 8,
-            background: "#fef2f2",
-            color: "#b91c1c",
-            fontSize: 12,
-            padding: "8px 10px",
-          }}
-        >
+        <div role="alert" style={{
+          marginBottom: 14, border: "1px solid #fecaca", borderRadius: 8,
+          background: "#fef2f2", color: "#b91c1c", fontSize: 12, padding: "8px 10px",
+        }}>
           {deleteError}
         </div>
       )}
 
-      {/* Table */}
       {loading ? (
         <div style={{ padding: "32px 0", color: "#ccc", fontSize: 13 }}>Loading…</div>
       ) : filtered.length === 0 ? (
@@ -199,14 +309,15 @@ export default function ReviewsPage() {
         </div>
       ) : (
         <div style={{ border: "1px solid #f0f0f2", borderRadius: 10, overflow: "hidden" }}>
-          {/* Header */}
           <div style={{
-            display: "grid", gridTemplateColumns: "1fr 110px 80px 48px",
+            display: "grid",
+            gridTemplateColumns: compareMode ? "28px 1fr 110px 80px 48px" : "1fr 110px 80px 48px",
             padding: "9px 16px", background: "#fafafa",
             borderBottom: "1px solid #f0f0f2",
             fontSize: 10, fontWeight: 700, letterSpacing: "0.07em",
             color: "#bbb", textTransform: "uppercase",
           }}>
+            {compareMode && <span />}
             <span>Title</span>
             <span>Status</span>
             <span>When</span>
@@ -217,20 +328,52 @@ export default function ReviewsPage() {
             const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.pending;
             const isHovered = hoveredId === s.id;
             const isDeleting = deletingId === s.id;
+            const isSelected = selectedIds.has(s.id);
+            const isSelectableInCompare = compareMode && s.status === "concluded";
+            const isDisabledInCompare = compareMode && s.status !== "concluded";
 
             return (
-              <div key={s.id}
-                onClick={() => router.push(`/review/${encodeURIComponent(s.id)}`)}
+              <div
+                key={s.id}
+                onClick={(e) => {
+                  if (compareMode) {
+                    toggleSelect(e, s.id, s.status);
+                  } else {
+                    router.push(`/review/${encodeURIComponent(s.id)}`);
+                  }
+                }}
                 onMouseEnter={() => setHoveredId(s.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 style={{
-                  display: "grid", gridTemplateColumns: "1fr 110px 80px 48px",
+                  display: "grid",
+                  gridTemplateColumns: compareMode ? "28px 1fr 110px 80px 48px" : "1fr 110px 80px 48px",
                   alignItems: "center", padding: "11px 16px",
                   borderBottom: i < filtered.length - 1 ? "1px solid #f5f5f7" : "none",
-                  cursor: "pointer", transition: "background 120ms",
-                  background: isHovered ? "#fafafa" : "transparent",
+                  cursor: isDisabledInCompare ? "default" : "pointer",
+                  transition: "background 120ms",
+                  background: isSelected
+                    ? "#f0f9ff"
+                    : isHovered && !isDisabledInCompare
+                      ? "#fafafa"
+                      : "transparent",
+                  opacity: isDisabledInCompare ? 0.5 : 1,
+                  borderLeft: isSelected ? "2px solid #3b82f6" : compareMode ? "2px solid transparent" : "none",
                 }}
               >
+                {compareMode && (
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{
+                      width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                      border: `1.5px solid ${isSelected ? "#3b82f6" : isSelectableInCompare ? "#d4d4d8" : "#e4e4e7"}`,
+                      background: isSelected ? "#3b82f6" : "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: "#fff",
+                    }}>
+                      {isSelected && <CheckIcon />}
+                    </span>
+                  </div>
+                )}
+
                 {/* Title */}
                 <div style={{ overflow: "hidden", paddingRight: 16 }}>
                   <div style={{
@@ -273,7 +416,7 @@ export default function ReviewsPage() {
 
                 {/* Actions */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                  {isHovered && !isDeleting ? (
+                  {!compareMode && isHovered && !isDeleting ? (
                     <button
                       onClick={(e) => handleDelete(e, s.id)}
                       aria-label={`Delete ${s.title.replace(/^Review:\s*/i, "")}`}
@@ -289,16 +432,16 @@ export default function ReviewsPage() {
                     >
                       <TrashIcon />
                     </button>
-                  ) : isDeleting ? (
+                  ) : !compareMode && isDeleting ? (
                     <span style={{
                       width: 13, height: 13, border: "1.5px solid #d4d4d8",
                       borderTopColor: "#888", borderRadius: "50%",
                       display: "inline-block",
                       animation: "spin 0.7s linear infinite",
                     }} />
-                  ) : (
+                  ) : !compareMode ? (
                     <span style={{ color: "#e5e7eb", display: "flex" }}><ExternalIcon /></span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
@@ -306,7 +449,71 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* Sticky compare bar */}
+      {compareMode && selectedCount > 0 && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          display: "flex", alignItems: "center", gap: 12,
+          background: "#111827", borderRadius: 12,
+          padding: "12px 20px",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+          zIndex: 50,
+          animation: "bar-in 200ms ease both",
+        }}>
+          <span style={{ fontSize: 12, color: "#d1d5db" }}>
+            {selectedCount} paper{selectedCount !== 1 ? "s" : ""} selected
+            {selectedCount < 2 && " — select one more"}
+          </span>
+          <button
+            onClick={handleCompare}
+            disabled={selectedCount < 2 || compareLoading}
+            style={{
+              padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: selectedCount >= 2 ? "#fff" : "#374151",
+              color: selectedCount >= 2 ? "#111827" : "#9ca3af",
+              border: "none", cursor: selectedCount >= 2 ? "pointer" : "default",
+              display: "flex", alignItems: "center", gap: 6,
+              transition: "all 120ms",
+            }}
+          >
+            {compareLoading ? (
+              <>
+                <span style={{
+                  width: 10, height: 10, border: "1.5px solid #6b7280",
+                  borderTopColor: "#111827", borderRadius: "50%",
+                  display: "inline-block", animation: "spin 0.7s linear infinite",
+                }} />
+                Loading…
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                </svg>
+                Compare {selectedCount} papers
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "#9ca3af", fontSize: 11, padding: "4px 6px",
+              transition: "color 100ms",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#fff" }}
+            onMouseLeave={e => { e.currentTarget.style.color = "#9ca3af" }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes bar-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+      `}</style>
     </div>
   );
 }

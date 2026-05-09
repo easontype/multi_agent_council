@@ -146,10 +146,21 @@ export async function* streamGeminiText(
       const json = line.slice(6).trim();
       if (json === "[DONE]") return;
       try {
-        const event = JSON.parse(json);
-        const text = event.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+        const event = JSON.parse(json) as Record<string, unknown>;
+        // Surface in-stream error payloads so callers can retry/fallback
+        if (event.error) {
+          const apiErr = event.error as Record<string, unknown>;
+          const code = Number(apiErr.code ?? 0);
+          const msg = String(apiErr.message ?? "Gemini stream error");
+          throw new Error(`Gemini error ${code}: ${msg}`);
+        }
+        const text = (event as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
+          .candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) yield text;
-      } catch { /* skip */ }
+      } catch (parseErr) {
+        // Rethrow genuine API errors; ignore malformed SSE lines
+        if (parseErr instanceof Error && parseErr.message.startsWith("Gemini error")) throw parseErr;
+      }
     }
   }
 }

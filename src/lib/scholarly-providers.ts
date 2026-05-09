@@ -138,9 +138,21 @@ interface S2Paper {
   openAccessPdf?: { url: string };
 }
 
-export async function searchSemanticScholar(query: string, limit: number): Promise<PaperResult[]> {
+export async function searchSemanticScholar(
+  query: string,
+  limit: number,
+  opts?: { fieldsOfStudy?: string; sortByCitations?: boolean },
+): Promise<PaperResult[]> {
   const fields = "title,abstract,year,authors,externalIds,citationCount,openAccessPdf";
-  const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=${fields}`;
+  const params = new URLSearchParams({
+    query,
+    limit: String(limit),
+    fields,
+  });
+  if (opts?.fieldsOfStudy) params.set("fieldsOfStudy", opts.fieldsOfStudy);
+  if (opts?.sortByCitations) params.set("sort", "citationCount:desc");
+
+  const url = `https://api.semanticscholar.org/graph/v1/paper/search?${params}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": UA },

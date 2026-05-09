@@ -16,7 +16,7 @@ const NAV = [
   { href: '/home', label: 'Dashboard', match: (pathname: string) => pathname === '/home', Icon: DashboardIcon },
   { href: '/home/reviews', label: 'Reviews', match: (pathname: string) => pathname.startsWith('/home/reviews'), Icon: ReviewsIcon },
   { href: '/home/papers', label: 'Papers', match: (pathname: string) => pathname.startsWith('/home/papers'), Icon: PapersIcon },
-  { href: '/review/new', label: 'New Review', match: (pathname: string) => pathname === '/review/new', Icon: PlusSquareIcon },
+  { href: '/home/compare', label: 'Compare', match: (pathname: string) => pathname.startsWith('/home/compare'), Icon: CompareIcon },
   { href: '/keys', label: 'API Keys', match: (pathname: string) => pathname.startsWith('/keys'), Icon: KeyIcon },
 ]
 
@@ -122,6 +122,15 @@ function PlusIcon() {
   )
 }
 
+function CompareIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="18" rx="1" />
+      <rect x="14" y="3" width="7" height="18" rx="1" />
+    </svg>
+  )
+}
+
 function PlusSquareIcon({ active }: { active: boolean }) {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
@@ -211,7 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div style={{ padding: '12px 10px', flexShrink: 0 }}>
           <button
-            onClick={() => router.push('/review/new')}
+            onClick={() => router.push('/home')}
             style={{
               width: '100%',
               height: 34,
@@ -233,7 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onMouseLeave={(event) => { event.currentTarget.style.background = '#111' }}
           >
             <PlusIcon />
-            {!collapsed && 'New Review'}
+            {!collapsed && 'New Analysis'}
           </button>
         </div>
 

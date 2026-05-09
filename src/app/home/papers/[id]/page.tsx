@@ -149,8 +149,8 @@ export default function PaperDetailPage() {
   const { asset, sessions } = detail;
   const paperStatus = PAPER_STATUS_STYLE[asset.status] ?? PAPER_STATUS_STYLE.pending;
   const newReviewHref = asset.arxiv_id
-    ? `/review/new?arxiv=${encodeURIComponent(asset.arxiv_id)}`
-    : "/review/new";
+    ? `/home?arxiv=${encodeURIComponent(asset.arxiv_id)}`
+    : "/home";
 
   return (
     <div style={{ padding: "40px 48px 72px", maxWidth: 920, margin: "0 auto" }}>

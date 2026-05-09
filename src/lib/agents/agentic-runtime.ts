@@ -76,7 +76,7 @@ const SAFE_PLATFORM_TOOL_DOCS: Record<string, string> = {
   read_document: "args: { documentId } - Read a saved platform document.",
   web_search: "args: { query, count? } - Search the web for current information.",
   fetch_url: "args: { url, selector? } - Fetch a URL and extract readable text.",
-  search_papers: "args: { query, source?, limit? } - Search academic databases. source: 'openalex'|'arxiv'|'semantic_scholar'|'both' (default both = OpenAlex + arXiv).",
+  search_papers: "args: { query, source?, limit?, fields_of_study?, sort_by_citations? } - Search academic databases. source: 'openalex'|'arxiv'|'semantic_scholar'|'both' (default both = OpenAlex + arXiv + Semantic Scholar). fields_of_study: e.g. 'Medicine', 'Computer Science' (Semantic Scholar only). sort_by_citations: true to rank by citation count.",
   fetch_paper: "args: { identifier } - Fetch a paper by arXiv ID (e.g. '2301.07041'), DOI, or arXiv URL and ingest it into the session library for rag_query.",
   rag_query: "args: { question, limit?, tag? } - Query the internal RAG knowledge base.",
   semantic_search: "args: { query, limit?, tag? } - Search similar internal knowledge chunks.",

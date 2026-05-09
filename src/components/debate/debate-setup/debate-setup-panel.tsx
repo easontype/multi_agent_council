@@ -21,6 +21,7 @@ interface DebateSetupPanelProps {
   context: string
   domain: ReviewDomain
   selectedRoleIds: string[]
+  customPrompts: Record<string, string>
   arxivId: string | null
   hasPendingFile: boolean
   phase: string
@@ -31,6 +32,7 @@ interface DebateSetupPanelProps {
   onContextChange: (v: string) => void
   onDomainChange: (d: ReviewDomain) => void
   onSelectedRoleIdsChange: (ids: string[]) => void
+  onCustomPromptsChange: (prompts: Record<string, string>) => void
   onArxivIdChange: (id: string | null) => void
   onFileSelect: (file: File) => void
   onStart: () => void
@@ -149,6 +151,7 @@ export function DebateSetupPanel({
   context,
   domain,
   selectedRoleIds,
+  customPrompts,
   arxivId,
   hasPendingFile,
   phase,
@@ -159,6 +162,7 @@ export function DebateSetupPanel({
   onContextChange,
   onDomainChange,
   onSelectedRoleIdsChange,
+  onCustomPromptsChange,
   onArxivIdChange,
   onFileSelect,
   onStart,
@@ -432,6 +436,10 @@ export function DebateSetupPanel({
                   optionB={optionB}
                   onToggle={toggleRole}
                   maxSelect={3}
+                  customPrompts={customPrompts}
+                  onPromptChange={(id, prompt) =>
+                    onCustomPromptsChange({ ...customPrompts, [id]: prompt })
+                  }
                 />
               </ReviewSectionFrame>
             )}

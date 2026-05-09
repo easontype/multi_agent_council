@@ -13,8 +13,9 @@ type Handler = (agentId: string, args: Record<string, unknown>, depth: number) =
 export const handlers: Record<string, Handler> = {
 
   // ── search_papers ───────────────────────────────────────────────────────────
-  // Sources: openalex (primary), arxiv (supplement), semantic_scholar (secondary)
-  // Default "both" = openalex + arxiv
+  // Sources: openalex (primary), arxiv + semantic_scholar (supplement)
+  // Default "both" = openalex + arxiv + semantic_scholar (deduplicated by title)
+  // Optional: source="semantic_scholar", fields_of_study="Medicine", sort_by_citations=true
 
   async search_papers(_agentId, args) {
     const rateLimitErr = checkSearchRateLimit();
@@ -25,6 +26,8 @@ export const handlers: Record<string, Handler> = {
 
     const source = typeof args.source === "string" ? args.source : "both";
     const limit = Math.min(Math.max(1, Number(args.limit ?? 5)), 10);
+    const fieldsOfStudy = typeof args.fields_of_study === "string" ? args.fields_of_study.trim() : undefined;
+    const sortByCitations = args.sort_by_citations === true || args.sort_by_citations === "true";
 
     const sections: string[] = [];
     const tip = "\n\n> Tip: use fetch_paper with an arXiv ID to load the full text into the session library.";
@@ -49,13 +52,16 @@ export const handlers: Record<string, Handler> = {
       }
     }
 
-    // ── Semantic Scholar (explicit only) ──────────────────────────────────
-    if (source === "semantic_scholar") {
+    // ── Semantic Scholar ──────────────────────────────────────────────────
+    if (source === "semantic_scholar" || source === "both") {
       try {
-        const papers = await searchSemanticScholar(query, limit);
+        const papers = await searchSemanticScholar(query, limit, { fieldsOfStudy, sortByCitations });
         sections.push(formatPaperResults(papers, "## Semantic Scholar"));
       } catch (e) {
-        sections.push(`## Semantic Scholar\nError: ${e instanceof Error ? e.message : String(e)}`);
+        // Non-fatal in "both" mode — S2 free tier can rate-limit
+        if (source === "semantic_scholar") {
+          sections.push(`## Semantic Scholar\nError: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
     }
 

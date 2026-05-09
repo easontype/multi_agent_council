@@ -19,14 +19,14 @@ export default function HomePage() {
     e.preventDefault();
     if (!arxivId.trim()) return;
     setLoading(true);
-    router.push(`/review/new?arxiv=${encodeURIComponent(arxivId.trim())}`);
+    router.push(`/home?arxiv=${encodeURIComponent(arxivId.trim())}`);
   }
 
   function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setPendingUpload(file);
-    router.push("/review/new");
+    router.push("/home");
   }
 
   return (
@@ -268,7 +268,7 @@ export default function HomePage() {
                 ))}
               </div>
               <a
-                href="/debate/new"
+                href="/home"
                 className="mt-2 inline-flex w-fit items-center gap-2 rounded-[10px] bg-[#25493d] px-5 py-3 text-[14px] font-bold text-white no-underline transition-colors hover:bg-[#1e3d32]"
               >
                 Start a debate →
@@ -307,13 +307,13 @@ export default function HomePage() {
               who: "PhD Students",
               what: "Get hostile reviewer feedback before your advisor sees the draft. Find the weaknesses you missed.",
               cta: "Critique a paper",
-              href: "/review/new",
+              href: "/home",
             },
             {
               who: "Postdocs & PIs",
               what: "Pre-submission gut-check before journal submission. Identify the arguments reviewers will use to reject.",
               cta: "Start review",
-              href: "/review/new",
+              href: "/home",
             },
             {
               who: "Research Teams",
@@ -350,7 +350,7 @@ export default function HomePage() {
               per="forever"
               features={["10 reviews per day", "Full 5-reviewer committee", "2-round debate", "Moderator verdict", "arXiv + PDF support"]}
               cta="Start for free"
-              ctaHref="/review/new"
+              ctaHref="/home"
               highlight={false}
             />
             <PricingCard
@@ -370,8 +370,8 @@ export default function HomePage() {
       <footer className="border-t border-border px-8 py-10 text-center text-[13px] text-muted-foreground">
         <div className="mb-3 text-base font-bold text-[#6366f1]">Council</div>
         <div className="mb-4 flex justify-center gap-6">
-          <a href="/review/new" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Try it free</a>
-          <a href="/debate/new" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Compare & Debate</a>
+          <a href="/home" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Try it free</a>
+          <a href="/home" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Compare & Debate</a>
           <a href="/keys" className="text-muted-foreground no-underline hover:text-foreground transition-colors">API Keys</a>
           <a href="#pricing" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Pricing</a>
         </div>

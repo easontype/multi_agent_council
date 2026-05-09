@@ -3,6 +3,29 @@ import { runCouncilSession, type CouncilEvent } from "@/lib/core/council";
 import { isCouncilSessionOwner } from "@/lib/core/council-access";
 import { enforceAnonymousWebQuota } from "@/lib/web-quota";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
+import { db } from "@/lib/db/db";
+
+const EMBED_POLL_MS = 3_500;
+const EMBED_TIMEOUT_MS = 120_000;
+
+async function isSessionEmbeddingReady(sessionId: string): Promise<boolean> {
+  const { rows } = await db.query(
+    `SELECT
+       CASE
+         WHEN cs.paper_asset_id IS NULL THEN true
+         WHEN d.id IS NULL THEN false
+         ELSE COALESCE(d.done, false)
+       END AS ready
+     FROM council_sessions cs
+     LEFT JOIN paper_assets pa ON pa.id = cs.paper_asset_id
+     LEFT JOIN documents d ON d.id = pa.document_id
+     WHERE cs.id = $1
+     LIMIT 1`,
+    [sessionId],
+  );
+  if (!rows.length) return true;
+  return Boolean((rows[0] as { ready: boolean }).ready);
+}
 
 export async function POST(
   req: NextRequest,
@@ -58,6 +81,14 @@ export async function POST(
       }
 
       try {
+        // Wait for embedding to be ready before starting debate
+        const embedStart = Date.now();
+        while (!(await isSessionEmbeddingReady(id))) {
+          if (Date.now() - embedStart > EMBED_TIMEOUT_MS) break;
+          send({ type: "embedding_pending", elapsed: Math.round((Date.now() - embedStart) / 1000) });
+          await new Promise<void>((r) => setTimeout(r, EMBED_POLL_MS));
+        }
+
         await runCouncilSession(id, send, options);
       } catch {
         // runCouncilSession already emits a typed error event before rethrowing.

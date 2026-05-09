@@ -24,6 +24,7 @@ export function makeEmptySession(
     messages: [],
     sourceRefs: [],
     alerts: [],
+    embeddingMessages: [],
     startedAt: new Date(),
   }
 }

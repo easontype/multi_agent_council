@@ -197,6 +197,7 @@ export type CouncilEvent =
   | { type: "divergence_check"; level: DivergenceReport["level"]; summary: string; proceed_to_round2: boolean }
   | { type: "round2_skipped"; reason: string }
   | { type: "high_divergence_warning"; message: string }
+  | { type: "embedding_pending"; elapsed: number }
   | { type: "error"; message: string };
 
 export type CouncilEventHandler = (event: CouncilEvent) => void;

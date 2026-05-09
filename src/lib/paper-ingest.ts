@@ -146,7 +146,9 @@ export async function ingestPaper(params: {
   );
   const insertedId: string = (insertRes.rows[0] as Record<string, string>).id;
 
-  await embedDocument(insertedId);
+  void embedDocument(insertedId).catch((err) => {
+    console.error(`[ingest] background embedding failed for ${insertedId}:`, err);
+  });
   queueMarkerEnrichment(insertedId, params.pdfBuffer, {
     markerProcessed: false,
     markerAttempts: 0,

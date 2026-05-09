@@ -100,7 +100,7 @@ export default function PapersPage() {
         />
         <button
           type="button"
-          onClick={() => router.push("/review/new")}
+          onClick={() => router.push("/home")}
           style={{
             border: "none",
             borderRadius: 8,

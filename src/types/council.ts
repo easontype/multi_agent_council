@@ -15,11 +15,19 @@ export type { AgentUI } from "./agent";
 export type { AgentUI as Agent } from "./agent";
 
 export const DEFAULT_AGENTS: AgentUI[] = [
+  // Critique mode
   { id: 'methods', name: 'Methods Critic', role: 'Methodology', seatRole: 'Methods Critic', color: '#43506b', avatar: 'M' },
   { id: 'literature', name: 'Literature Auditor', role: 'Related Work', seatRole: 'Literature Auditor', color: '#65505f', avatar: 'L' },
   { id: 'replication', name: 'Replication Skeptic', role: 'Reproducibility', seatRole: 'Replication Skeptic', color: '#466671', avatar: 'R' },
   { id: 'contribution', name: 'Contribution Evaluator', role: 'Novelty', seatRole: 'Contribution Evaluator', color: '#8a5f3b', avatar: 'C' },
   { id: 'advocate', name: 'Constructive Advocate', role: 'Best Case', seatRole: 'Constructive Advocate', color: '#59674b', avatar: 'A' },
+  // Gap analysis mode
+  { id: 'gap', name: 'Gap Finder', role: 'Missing Pieces', seatRole: 'Gap Finder', color: '#46536f', avatar: 'G' },
+  { id: 'hostile', name: 'Hostile Reviewer', role: 'Reject Case', seatRole: 'Hostile Reviewer', color: '#7a4c54', avatar: 'H' },
+  { id: 'methods2', name: 'Methods Auditor', role: 'Methods Audit', seatRole: 'Methods Auditor', color: '#4a6b73', avatar: 'A' },
+  { id: 'scout', name: 'Related Work Scout', role: 'Search Sweep', seatRole: 'Related Work Scout', color: '#8b6740', avatar: 'S' },
+  { id: 'mentor', name: 'Supportive Mentor', role: 'Revision Plan', seatRole: 'Supportive Mentor', color: '#5f7154', avatar: 'M' },
+  // Shared
   { id: 'moderator', name: 'Moderator', role: 'Synthesis', seatRole: 'Moderator', color: '#6b7280', avatar: 'M' },
 ]
 
@@ -90,4 +98,5 @@ export interface DiscussionSession {
   alerts?: SessionAlert[]
   startedAt: Date
   concludedAt?: Date
+  embeddingMessages?: string[]
 }

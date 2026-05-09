@@ -15,6 +15,7 @@ export interface AdversarialDebateConfig {
   context?: string
   domain: ReviewDomain
   selectedRoleIds: string[]
+  customSeatPrompts?: Record<string, string>
 }
 
 function seatsForDomain(domain: ReviewDomain): SeatDefinition[] {
@@ -71,7 +72,11 @@ const ADVERSARIAL_MODERATOR: CouncilSeat = {
 
 export function buildAdversarialTeam(config: AdversarialDebateConfig): CouncilSeat[] {
   const allSeats = seatsForDomain(config.domain)
-  const selected = allSeats.filter((def) => config.selectedRoleIds.includes(def.id))
+  const selected = allSeats
+    .filter((def) => config.selectedRoleIds.includes(def.id))
+    .map((def) => config.customSeatPrompts?.[def.id]
+      ? { ...def, systemPrompt: config.customSeatPrompts[def.id] }
+      : def)
   const context = config.context?.trim() || `Compare the advantages and disadvantages of ${config.optionA} vs ${config.optionB}`
 
   const teamA = selected.map((def) => buildMirrorSeat(def, config.optionA, config.optionB, context, 'option_a'))

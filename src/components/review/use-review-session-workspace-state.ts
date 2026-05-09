@@ -16,7 +16,7 @@ interface UseReviewSessionWorkspaceStateArgs {
   session: DiscussionSession
   phase: ReviewPhase
   isRestoring: boolean
-  resumeSession: (sessionId: string) => void
+  resumeSession: (sessionId: string) => Promise<boolean>
   loadSession: (sessionId: string) => Promise<boolean>
   rerunSession: (sessionId: string) => Promise<void>
 }
@@ -71,10 +71,10 @@ export function useReviewSessionWorkspaceState({
     if (mode !== 'session' || !forcedSessionId || requestedSessionIdRef.current === forcedSessionId) return
     requestedSessionIdRef.current = forcedSessionId
     setRestoreSource('url')
-    loadSession(forcedSessionId).then((ok) => {
+    resumeSession(forcedSessionId).then((ok) => {
       if (!ok) clearLastOpenedCouncilSessionId()
     })
-  }, [forcedSessionId, loadSession, mode])
+  }, [forcedSessionId, resumeSession, mode])
 
   useEffect(() => {
     if (!session.id || session.id === 'demo-session') return

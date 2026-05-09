@@ -235,7 +235,7 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
           {/* Try free without account */}
           <Button
             variant="outline"
-            onClick={() => router.push("/review/new")}
+            onClick={() => router.push("/home")}
             className="mt-[18px] h-11 w-full text-sm font-medium text-muted-foreground"
           >
             Try free without an account

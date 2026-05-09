@@ -10,6 +10,36 @@ import type { DiscussionSession, AgentMessage, ContentBlock, SourceRef, SessionA
 import { sanitizeToolTextForDisplay } from '@/lib/tools/display'
 import { makeEmptySession } from '@/lib/council-session-factory'
 
+// ─── Embedding pending message pool ──────────────────────────────────────────
+
+const EMBEDDING_MESSAGE_POOL = [
+  '正在掃描論文核心主張...',
+  'Methods Critic 正在磨亮挑剔之刀...',
+  '委員們正在各自備戰中...',
+  'Literature Auditor 正在翻閱 10 年引文記錄...',
+  '研究缺口偵測系統啟動中...',
+  'Replication Skeptic 已嗅到一些可疑之處...',
+  '正在召集頂尖評審學者入場...',
+  '統計模型正在接受第三度審視...',
+  'Contribution Evaluator 正在估算實際影響力...',
+  '各位評審正在細讀您的論文...',
+  'Constructive Advocate 試圖找出論文亮點...',
+  '引用文獻網絡分析進行中...',
+  'Moderator 正在制定評審議程與裁判標準...',
+  '正方陣營正在準備開場陳述...',
+  '反方陣營正在備齊反駁彈藥...',
+  '實驗設計正在被放大鏡仔細檢視...',
+  '正在比對最新 arXiv 相似研究...',
+  '論文關鍵段落已標記完成，分配給各評審...',
+  '評審委員們正在暗中協商辯論策略...',
+  '文獻資料庫查詢中，範圍廣達 10 年...',
+  '委員會正在研議辯論順序與發言規則...',
+  '正在為每位評審配置專屬論文視角...',
+  '辯論場地準備就緒，評審即將登場...',
+  'Performance Benchmarker 調出所有對比基準線...',
+  '所有席位正在校準論文語境，辯論即將開始...',
+]
+
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 function findAgentByRole(agents: AgentUI[], role: string): AgentUI | undefined {
@@ -93,6 +123,15 @@ export function applyCouncilServerEvent(
   const agents = session.agents
   const sessionId = session.id
 
+  if (type === 'embedding_pending') {
+    const pool = EMBEDDING_MESSAGE_POOL
+    const next = pool[(session.embeddingMessages?.length ?? 0) % pool.length]
+    return {
+      ...session,
+      embeddingMessages: [...(session.embeddingMessages ?? []), next],
+    }
+  }
+
   if (type === 'session_start') {
     return {
       ...session,
@@ -101,6 +140,7 @@ export function applyCouncilServerEvent(
       status: 'discussing',
       startedAt: new Date(),
       currentRound: 1,
+      embeddingMessages: [],
     }
   }
 

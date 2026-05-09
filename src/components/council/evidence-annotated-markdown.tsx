@@ -28,12 +28,14 @@ type Block =
   | { type: 'heading'; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'list'; items: string[] }
+  | { type: 'ordered_list'; items: string[] }
 
 function parseBlocks(content: string): Block[] {
   const blocks: Block[] = []
   const lines = content.replace(/\r\n/g, '\n').split('\n')
   let paragraph: string[] = []
   let listItems: string[] = []
+  let orderedItems: string[] = []
 
   const flushParagraph = () => {
     if (!paragraph.length) return
@@ -47,33 +49,51 @@ function parseBlocks(content: string): Block[] {
     listItems = []
   }
 
+  const flushOrdered = () => {
+    if (!orderedItems.length) return
+    blocks.push({ type: 'ordered_list', items: orderedItems })
+    orderedItems = []
+  }
+
   for (const rawLine of lines) {
     const line = rawLine.trim()
     if (!line) {
       flushParagraph()
       flushList()
+      flushOrdered()
       continue
     }
 
     if (/^\*\*[^*]+\*\*$/.test(line) || /^#{1,3}\s+/.test(line)) {
       flushParagraph()
       flushList()
+      flushOrdered()
       blocks.push({ type: 'heading', text: line.replace(/^#{1,3}\s+/, '').replace(/\*\*/g, '').trim() })
       continue
     }
 
     if (/^-\s+/.test(line)) {
       flushParagraph()
+      flushOrdered()
       listItems.push(line.replace(/^-\s+/, '').trim())
       continue
     }
 
+    if (/^\d+\.\s+/.test(line)) {
+      flushParagraph()
+      flushList()
+      orderedItems.push(line.replace(/^\d+\.\s+/, '').trim())
+      continue
+    }
+
     flushList()
+    flushOrdered()
     paragraph.push(line)
   }
 
   flushParagraph()
   flushList()
+  flushOrdered()
 
   return blocks
 }
@@ -412,6 +432,23 @@ export function EvidenceAnnotatedMarkdown({
                 </li>
               ))}
             </ul>
+          )
+        }
+
+        if (block.type === 'ordered_list') {
+          return (
+            <ol key={`ol-${index}`} style={{ margin: '8px 0 10px', paddingLeft: 20 }}>
+              {block.items.map((item, itemIndex) => (
+                <li key={`ol-item-${index}-${itemIndex}`} style={{ marginBottom: 4 }}>
+                  <AnnotatedInlineText
+                    text={item}
+                    sourceRefs={sourceRefs}
+                    onCitationClick={handleCitationClick}
+                    color={color}
+                  />
+                </li>
+              ))}
+            </ol>
           )
         }
 

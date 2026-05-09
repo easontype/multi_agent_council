@@ -1,3 +1,4 @@
+/* LEGACY — entry point superseded by /home flow (Phase C). Keep for backwards-compat. */
 'use client'
 
 import { Suspense, useState } from 'react'
@@ -20,6 +21,7 @@ function DebateNewContent() {
   const [context, setContext] = useState('')
   const [domain, setDomain] = useState<ReviewDomain>('materials')
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
+  const [customPrompts, setCustomPrompts] = useState<Record<string, string>>({})
 
   const { start, phase, error } = useCouncilReview(arxivId)
 
@@ -40,6 +42,7 @@ function DebateNewContent() {
       context: context.trim() || undefined,
       domain,
       selectedRoleIds,
+      customSeatPrompts: Object.keys(customPrompts).length ? customPrompts : undefined,
     }
 
     const seats = buildAdversarialTeam(config)
@@ -85,6 +88,8 @@ function DebateNewContent() {
         onContextChange={setContext}
         onDomainChange={setDomain}
         onSelectedRoleIdsChange={setSelectedRoleIds}
+        customPrompts={customPrompts}
+        onCustomPromptsChange={setCustomPrompts}
         onArxivIdChange={handleArxivIdChange}
         onFileSelect={handleFileSelect}
         onStart={handleStart}

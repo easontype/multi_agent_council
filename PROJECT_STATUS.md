@@ -7,9 +7,9 @@ Single source of truth for current project state. Supersedes all older roadmap a
 
 ## Current State
 
-**Branch:** `main` (7 commits ahead of origin/main)  
+**Branch:** `main` (local, not yet pushed)  
 **Build:** passing  
-**Last commit:** `8e87088` — feat(phase-4): domain-aware review setup + adversarial debate wizard
+**Last completed work:** Phase 6-4 multi-paper comparison table
 
 ---
 
@@ -19,29 +19,52 @@ Council is a production-grade Next.js app for AI-assisted academic paper review 
 
 **Tech stack:** Next.js (App Router), React 19, PostgreSQL (Docker `cap_postgres` port 5433), SSE streaming, Tailwind v4, shadcn/ui.
 
-### Core Review Flow (`/review/new`)
+### New Unified Entry Flow (`/home`)
 
-- Step 0: Research domain picker (General / Materials / Biomedical / Physics)
-- Step 1: arXiv ID input or PDF upload, paper preview
-- Step 2 (team setup): mode selection, rounds, per-seat prompt editing, team templates
-- Domain-aware seat initialisation via `buildDomainTeam()` — each domain loads its specialist seats
-- Launch → SSE streaming multi-agent debate (Round 1 + conditional Round 2)
-- Moderator synthesis: Editorial Decision (Accept / Major / Minor / Reject), action items, consensus/dissent, Questions to Prepare
+- `DomainPicker` — 4 domains, persisted to localStorage
+- `PaperInputBox` — inline state machine: idle → arxiv_fetching → preview → confirming → confirmed
+- Confirmed state expands two mode cards: Review (`/review/setup/[assetId]`) and Debate (`/debate/setup/[assetId]`)
+- `POST /api/papers/asset` — creates paper asset without building a session; fires background embedding
+- `GET /api/papers/preview?arxiv=ID` — instant title/abstract fetch, no embedding
 
-### Adversarial Debate Flow (`/debate/new`) ← New in Phase 4B
+### Review Setup Flow (`/review/setup/[assetId]`)
 
-- 4-step wizard: paper upload → topic (A vs B) → domain → role selection
-- Mirror-team builder: each selected role duplicated for Option A and Option B
-- Live seat preview (Team A / Team B / Moderator count)
-- Submits to existing `/api/papers/upload` + session stream — zero backend changes
+- Mode selector: Critique vs Gap Analysis
+- Rounds: 1 or 2
+- `POST /api/sessions/from-asset` → redirect to `/review/[sessionId]`
+
+### Debate Setup Flow (`/debate/setup/[assetId]`)
+
+- Option A / Option B / Context inputs
+- Role selector with per-seat system prompt editing (collapsible textarea, reset to default)
+- `POST /api/sessions/from-asset` with `sessionType: 'debate'`
+
+### Legacy Flows (still accessible, not in nav)
+
+- `/review/new` — old step wizard (kept for backwards-compat)
+- `/debate/new` — old 4-step debate wizard (kept for backwards-compat)
 
 ### Session Workspace (`/review/[id]`)
 
 - View switching: Timeline / Compare / Map
+- Adversarial sessions: verdict banner (`VerdictBanner`) showing winning team (teal = Side A, red = Side B, gray = Draw) with trophy/draw icon
 - Evidence citations: inline hover tooltips, source panel scroll, clickable source chips
 - Agent thinking indicators, between-turn status, honest ingest progress stepper
 - Session restore, resume, rerun, duplicate-as-new
 - Share (public/private), Markdown export (Meeting Prep Report format)
+
+### Multi-Paper Comparison (`/home/compare`)
+
+- 2–4 arXiv ID inputs with add/remove
+- `POST /api/compare/papers` — fetches abstracts in parallel, runs single LLM call, returns structured JSON
+- Comparison table: Methodology / Data & Experiments / Contributions / Limitations / Novelty per paper
+- Synthesis verdict paragraph below table
+- Sidebar nav entry "Compare" added
+
+### Academic Search (`search_papers` tool)
+
+- Sources: OpenAlex + arXiv + Semantic Scholar (all three in "both" mode, S2 non-fatal)
+- Semantic Scholar: `fieldsOfStudy` filter, `sort_by_citations` option
 
 ### Platform
 
@@ -52,68 +75,67 @@ Council is a production-grade Next.js app for AI-assisted academic paper review 
 
 ---
 
-## Recently Completed
+## Completed Phases
 
-### Phase 4B — Adversarial Debate Wizard (`8e87088`, 2026-05-09)
-
-New files:
-- `src/lib/prompts/debate-presets.ts` — `AdversarialDebateConfig` + `buildAdversarialTeam()` (mirror seats)
-- `src/app/debate/new/page.tsx` — 4-step wizard page
-- `src/components/debate/debate-setup/debate-setup-panel.tsx` — wizard container with step header, progress bar
-- `src/components/debate/debate-setup/role-selector.tsx` — checkbox grid + live A/B preview
-- `src/components/debate/debate-setup/topic-input.tsx` — Option A vs Option B form
-
-Modified:
-- `src/app/page.tsx` — "Compare & Debate" feature card + footer link
-
-### Phase 4A — Critique Domain Selector (`8e87088`, 2026-05-09)
-
-- `src/lib/prompts/review-presets.ts` — `ReviewDomain` type, `REVIEW_DOMAIN_OPTIONS`, `buildDomainTeam()`
-- `src/components/review/new/review-draft-layout.tsx` — Step 0 domain picker (2×2 radio cards)
-- `src/components/review/use-review-draft-state.ts` — `domain` state, passes via URL param
-- `src/components/review/review-surface.tsx` — wires domain props through
-- `src/components/review/new/team-setup-surface.tsx` — reads `domain` param, initialises seats
-- `src/components/council/review-setup-panel.tsx` — optional `domainLabel` badge
-
-### Phase 3 — Quality, DebateStrategy, Adversarial Backend
-
-- `DebateStrategy` abstraction (`debate-strategy.ts`)
-- Adversarial mode: `debate_mode` field, `team` field per seat, interleaved Round 2, `winning_team` verdict
-- Position tracking: `position_changed`, `position_change_reason` on `council_turns`
-- Round 2 word-limit relaxation (experimental 400w, general 300w)
-
-### Phase 2 — Report Export Format
-
-- `editorial_decision` (Accept / Minor Revision / Major Revision / Reject) in moderator output
-- `questions` array (raised_by, literature, suggestion) in moderator output
-- Export route rewritten as "Meeting Prep Report" Markdown format
-
-### Phase 1 — Seat Definitions
-
-- 4 domain seat sets in `council-academic.ts`
-- Heuristic + LLM classifier for 8 templates
+| Phase | 說明 | 狀態 |
+|---|---|---|
+| 1 | 席位定義（4 套域 + heuristic 分類器） | ✅ |
+| 2 | Editorial Decision + Meeting 前準備報告 Export | ✅ |
+| 3 | DebateStrategy 重構 + Adversarial 後端 + Position tracking | ✅ |
+| 4A | Critique 域選擇 UI（`/review/new` Step 0） | ✅ |
+| 4B | Adversarial Debate Wizard（`/debate/new`） | ✅ |
+| Flow A | 拆依賴、封存舊入口、更新 sidebar | ✅ |
+| Flow B | `POST /api/papers/asset` + `GET /api/papers/preview` | ✅ |
+| Flow C | `/home` 重設計：DomainPicker + PaperInputBox + mode cards | ✅ |
+| Flow D | `/review/setup/[assetId]` + `POST /api/sessions/from-asset` | ✅ |
+| Flow E | `/debate/setup/[assetId]` 含角色選擇 | ✅ |
+| 5-1 | Background embedding pipeline（ingest 非同步） | ✅ |
+| 5-2 | Gemini 503 retry + fallback to claude-haiku-4-5 | ✅ |
+| 6-1 | Debate 結果頁 `VerdictBanner`（winning_team 顯示） | ✅ |
+| 6-2 | Debate wizard per-seat system prompt 編輯 | ✅ |
+| 6-3 | Semantic Scholar 整合（fieldsOfStudy + citation sort） | ✅ |
+| 6-4 | 多論文比較表（`/home/compare` + `/api/compare/papers`） | ✅ |
 
 ---
 
-## Known Remaining Work
+## Roadmap
 
-**P0 — stability**
-- Async/background embedding pipeline (first ingest currently blocks the request path ~30–60s)
-- Gemini 503 retry/fallback (currently shows error banner, no auto-retry)
+---
 
-**P1 — product**
-- Adversarial result page: highlight `winning_team` prominently
-- Debate wizard: per-seat system prompt editing (currently uses preset only)
-- Semantic Scholar search integration upgrade
-- Multi-paper comparison table (`paper-compare-table.tsx` has skeleton)
+### Phase 7 — Infrastructure（P2）
 
-**P2 — infrastructure**
-- Canonical paper asset model (`paper_assets / libraries / library_documents`)
-- Background job execution (move debate off frontend-owned SSE lifecycle)
-- Billing entitlement model
+目標：讓架構能支撐後續功能擴展，不留技術債地雷。
 
-**P3 — i18n**
-- Full UI internationalisation (`next-intl`); currently only agent output is dynamic
+| # | 項目 | 說明 | 影響 |
+|---|---|---|---|
+| 7-1 | **Paper asset canonical model** | 統一 `paper_assets / libraries / library_documents` 資料模型，避免相同 paper 在不同路徑重複 ingest。 | 資料一致性 |
+| 7-2 | **Background job（脫離 SSE 生命週期）** | 目前辯論 session 生命週期綁定前端 SSE 連線，斷線就中斷。改用 server-side job queue（可用 pg-boss 或 BullMQ），前端輪詢或重連後繼續。 | 長 session 可靠性 |
+| 7-3 | **Billing entitlement model** | quota 邏輯目前散落在 `/api` 各 route。集中成 `lib/entitlements.ts`，統一管理 free / pro tier 判斷，便於之後加新方案。 | 可維護性 |
+
+**完成標準：** 同一篇 paper 不再重複 embed；關掉瀏覽器重開後 session 能繼續；quota check 只在一個地方。
+
+---
+
+### Phase 8 — i18n（P3）
+
+目標：讓 UI 介面本身也支援多語言。
+
+| # | 項目 | 說明 | 影響 |
+|---|---|---|---|
+| 8-1 | **UI 全面多語言（next-intl）** | 目前 agent output 可輸出多語，但 UI label / 按鈕 / 說明文字仍全英文。導入 `next-intl`，優先支援 zh-TW + en，其他語言 follow 用戶需求。 | 國際化 |
+
+**完成標準：** 切換語言後 UI label 也跟著切換，不只是 agent 輸出。
+
+---
+
+## Deferred（刻意延後）
+
+| 項目 | 原因 |
+|---|---|
+| Evidence weighting 品質評分 | 需額外 LLM call，成本高，MVP 後再做 |
+| 超過 3 個角色的鏡像（>6 席） | 成本控制，有需求再開放 |
+| Adversarial Round 3+（多輪對決） | 2 輪已足夠 |
+| 報告 PDF 匯出 | Markdown 目前足夠 |
 
 ---
 
@@ -122,7 +144,6 @@ Modified:
 | File | Purpose |
 |---|---|
 | `README.md` | Project overview, setup, dev guide |
-| `SAAS_PLAN.md` | Product strategy, phase roadmap, what's next |
 | `CLAUDE.md` | Agent context for Claude Code sessions |
 | `COMMIT_GUIDE.md` | Commit message conventions |
 
@@ -132,6 +153,7 @@ Completed plans and one-time specs moved to `docs/archive/`:
 
 | File | Notes |
 |---|---|
+| `SAAS_PLAN.md` | Product strategy v0.4 — superseded by this document (2026-05-09) |
 | `PHASE4_SPEC.md` | Phase 4A/4B implementation spec — fully implemented |
 | `REFACTOR_PLAN.md` | Architecture review from 2026-05-01 — superseded |
 | `PRODUCT_SPEC.md` | Early product spec from 2026-04-14 — superseded |

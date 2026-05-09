@@ -26,9 +26,11 @@ const ROUND2_DIMS: DimensionConfig[] = [
 
 function parseSections(text: string): Map<string, string> {
   const sections = new Map<string, string>()
-  const chunks = text.split(/\n\n(?=\*\*[A-Z])/)
+  // Split on any newlines before a **Heading** — handles both single and double newlines
+  const chunks = text.split(/\n+(?=\*\*[A-Za-z])/)
   for (const chunk of chunks) {
-    const match = chunk.match(/^\*\*([^*\n]+)\*\*\s*[-]?\s*([\s\S]*)$/)
+    // Match **Section** with optional em-dash, en-dash, hyphen, or colon separator
+    const match = chunk.match(/^\*\*([^*\n]+)\*\*\s*[—–\-:]?\s*([\s\S]*)$/)
     if (match) sections.set(match[1].trim(), match[2].trim())
   }
   return sections

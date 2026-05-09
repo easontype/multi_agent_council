@@ -24,6 +24,79 @@ function tryParseConclusion(raw: string): CouncilConclusion | null {
   }
 }
 
+function formatTeamName(raw: string): string {
+  if (raw === 'draw') return 'Draw'
+  if (raw === 'option_a') return 'Side A'
+  if (raw === 'option_b') return 'Side B'
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function VerdictBanner({ winningTeam }: { winningTeam: string }) {
+  const isDraw = winningTeam === 'draw'
+  const label = formatTeamName(winningTeam)
+
+  if (isDraw) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '14px 18px', borderRadius: 10,
+        background: '#f5f5f4', border: '1.5px solid #d6d3d1',
+      }}>
+        <DrawIcon />
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#78716c', textTransform: 'uppercase', marginBottom: 2 }}>
+            Verdict
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#44403c', letterSpacing: '-0.02em', fontFamily: "'Georgia', serif" }}>
+            Draw — No clear winner
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const isA = winningTeam === 'option_a'
+  const accent = isA ? '#1e3a8a' : '#7f1d1d'
+  const bg = isA ? '#eff6ff' : '#fff1f2'
+  const border = isA ? '#bfdbfe' : '#fecdd3'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '14px 18px', borderRadius: 10,
+      background: bg, border: `1.5px solid ${border}`,
+    }}>
+      <TrophyIcon color={accent} />
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: accent, textTransform: 'uppercase', marginBottom: 2, opacity: 0.7 }}>
+          Council Verdict
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: accent, letterSpacing: '-0.02em', fontFamily: "'Georgia', serif" }}>
+          {label} wins the debate
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TrophyIcon({ color }: { color: string }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M9 3h10v9a5 5 0 01-10 0V3z" stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
+      <path d="M9 6H5a2 2 0 000 4h4M19 6h4a2 2 0 010 4h-4" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M14 17v4M10 21h8" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function DrawIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M5 14h18M14 5v18" stroke="#78716c" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 const CONFIDENCE_STYLES = {
   high: { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', dot: '#16a34a', label: 'High Confidence' },
   medium: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', dot: '#d97706', label: 'Medium Confidence' },
@@ -62,8 +135,8 @@ export function ModeratorConclusion({ raw, isStreaming, agentColor }: ModeratorC
 
   if (!parsed) {
     return (
-      <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {raw}
+      <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75, wordBreak: 'break-word' }}>
+        <EvidenceAnnotatedMarkdown content={raw} sourceRefs={[]} color="#3f3f46" fontSize={14} />
         {isStreaming && (
           <span style={{
             display: 'inline-block', width: 2, height: 14,
@@ -82,6 +155,9 @@ export function ModeratorConclusion({ raw, isStreaming, agentColor }: ModeratorC
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* Verdict banner — adversarial debate only */}
+      {parsed.winning_team && <VerdictBanner winningTeam={parsed.winning_team} />}
 
       {/* Confidence badge */}
       {conf && (

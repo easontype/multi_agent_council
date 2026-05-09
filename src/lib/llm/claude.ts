@@ -5,6 +5,7 @@ import { runGemini, streamGeminiText, isGeminiModel } from "./gemini";
 import { runOpenAI, streamOpenAIText, isOpenAIModel, type OpenAIMessage } from "./openai";
 
 const ANTHROPIC_VISION_FALLBACK_MODEL = "claude-3-5-sonnet-latest";
+const GEMINI_FALLBACK_MODEL = "claude-haiku-4-5-20251001";
 
 export interface TokenUsage {
   inputTokens: number;
@@ -121,8 +122,20 @@ export async function runLLM(
 ): Promise<string> {
   const resolvedModel = resolveModel(model);
   if (isOllamaModel(resolvedModel)) return runOllama(prompt, systemPrompt, resolvedModel, maxTokens);
-  if (isGeminiModel(resolvedModel)) return runGemini(prompt, systemPrompt, resolvedModel, undefined, maxTokens);
   if (isOpenAIModel(resolvedModel)) return runOpenAI(prompt, systemPrompt, resolvedModel, undefined, maxTokens);
+
+  if (isGeminiModel(resolvedModel)) {
+    try {
+      return await runGemini(prompt, systemPrompt, resolvedModel, undefined, maxTokens);
+    } catch (err) {
+      if (process.env.ANTHROPIC_API_KEY) {
+        console.warn(`[runLLM] Gemini exhausted retries (${resolvedModel}), falling back to ${GEMINI_FALLBACK_MODEL}:`, err instanceof Error ? err.message : err);
+        return runAnthropic(prompt, systemPrompt, GEMINI_FALLBACK_MODEL, maxTokens);
+      }
+      throw err;
+    }
+  }
+
   return runAnthropic(prompt, systemPrompt, resolvedModel, maxTokens);
 }
 
@@ -150,7 +163,21 @@ export async function* streamLLM(
     const history = messages
       ?.filter((message) => message.role === "user" || message.role === "assistant")
       .map((message) => ({ role: message.role, content: message.content }));
-    yield* streamGeminiText(prompt, systemPrompt, resolvedModel, history, maxTokens);
+
+    let yielded = false;
+    try {
+      for await (const chunk of streamGeminiText(prompt, systemPrompt, resolvedModel, history, maxTokens)) {
+        yielded = true;
+        yield chunk;
+      }
+    } catch (err) {
+      if (!yielded && process.env.ANTHROPIC_API_KEY) {
+        console.warn(`[streamLLM] Gemini exhausted retries (${resolvedModel}), falling back to ${GEMINI_FALLBACK_MODEL}:`, err instanceof Error ? err.message : err);
+        yield* streamAnthropicText(prompt, systemPrompt, GEMINI_FALLBACK_MODEL, messages, onUsage, maxTokens);
+      } else {
+        throw err;
+      }
+    }
     return;
   }
 

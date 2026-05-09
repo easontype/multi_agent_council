@@ -257,17 +257,11 @@ function CollapsibleText({
   const [expanded, setExpanded] = useState(false)
   const isLong = content.length > TEXT_COLLAPSE_THRESHOLD
   const visible = isLong && !expanded ? content.slice(0, TEXT_COLLAPSE_THRESHOLD) : content
-  const preview = visible
-    .replace(/\*\*/g, '')
-    .replace(/^#+\s*/gm, '')
-    .replace(/^\s*[-*]\s*/gm, '- ')
 
   return (
     <div>
       <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75 }}>
-        {isLong && !expanded ? preview : (
-          <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} onSourceClick={onSourceClick} onLocateInDocument={onLocateInDocument} />
-        )}
+        <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} onSourceClick={onSourceClick} onLocateInDocument={onLocateInDocument} />
         {isLong && !expanded && '...'}
         {isStreaming && !isLong && (
           <span
