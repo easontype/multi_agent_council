@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
+import { UiLocaleProvider } from '@/lib/i18n/ui-locale-context'
+import { getTranslations } from '@/lib/i18n/translations'
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -12,26 +14,19 @@ const LANGUAGES = [
   { value: 'ko', label: '한국어' },
 ]
 
-const NAV = [
-  { href: '/home', label: 'Dashboard', match: (pathname: string) => pathname === '/home', Icon: DashboardIcon },
-  { href: '/home/reviews', label: 'Reviews', match: (pathname: string) => pathname.startsWith('/home/reviews'), Icon: ReviewsIcon },
-  { href: '/home/papers', label: 'Papers', match: (pathname: string) => pathname.startsWith('/home/papers'), Icon: PapersIcon },
-  { href: '/home/compare', label: 'Compare', match: (pathname: string) => pathname.startsWith('/home/compare'), Icon: CompareIcon },
-  { href: '/keys', label: 'API Keys', match: (pathname: string) => pathname.startsWith('/keys'), Icon: KeyIcon },
-]
-
-function LanguageSelector({ collapsed }: { collapsed: boolean }) {
-  const [lang, setLang] = useState('en')
+function LanguageSelector({
+  collapsed,
+  lang,
+  onLangChange,
+}: {
+  collapsed: boolean
+  lang: string
+  onLangChange: (next: string) => void
+}) {
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    fetch('/api/me').then((response) => response.json()).then((data) => {
-      if (data?.preferredLanguage) setLang(data.preferredLanguage)
-    }).catch(() => {})
-  }, [])
-
   const handleChange = async (next: string) => {
-    setLang(next)
+    onLangChange(next)
     setSaving(true)
     await fetch('/api/me', {
       method: 'PATCH',
@@ -146,6 +141,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [collapsed, setCollapsed] = useState(false)
+  const [lang, setLang] = useState('en')
+
+  useEffect(() => {
+    fetch('/api/me').then((r) => r.json()).then((data) => {
+      if (data?.preferredLanguage) setLang(data.preferredLanguage)
+    }).catch(() => {})
+  }, [])
+
+  const t = getTranslations(lang)
+
+  const NAV = [
+    { href: '/home', label: t.nav_dashboard, match: (p: string) => p === '/home', Icon: DashboardIcon },
+    { href: '/home/reviews', label: t.nav_reviews, match: (p: string) => p.startsWith('/home/reviews'), Icon: ReviewsIcon },
+    { href: '/home/papers', label: t.nav_papers, match: (p: string) => p.startsWith('/home/papers'), Icon: PapersIcon },
+    { href: '/home/compare', label: t.nav_compare, match: (p: string) => p.startsWith('/home/compare'), Icon: CompareIcon },
+    { href: '/keys', label: t.nav_api_keys, match: (p: string) => p.startsWith('/keys'), Icon: KeyIcon },
+  ]
 
   const user = {
     name: session?.user?.name || session?.user?.email || 'Researcher',
@@ -154,6 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
+    <UiLocaleProvider locale={lang}>
     <div style={{
       display: 'flex',
       height: '100vh',
@@ -242,7 +255,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onMouseLeave={(event) => { event.currentTarget.style.background = '#111' }}
           >
             <PlusIcon />
-            {!collapsed && 'New Analysis'}
+            {!collapsed && t.nav_new_analysis}
           </button>
         </div>
 
@@ -327,11 +340,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }}>
                   {user.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>Free plan</div>
+                <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>{t.nav_free_plan}</div>
               </div>
             </div>
           )}
-          <LanguageSelector collapsed={collapsed} />
+          <LanguageSelector collapsed={collapsed} lang={lang} onLangChange={setLang} />
           <button
             onClick={() => { void signOut({ redirectTo: '/login' }) }}
             style={{
@@ -363,7 +376,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            {!collapsed && 'Sign out'}
+            {!collapsed && t.nav_sign_out}
           </button>
         </div>
       </aside>
@@ -372,5 +385,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
     </div>
+    </UiLocaleProvider>
   )
 }

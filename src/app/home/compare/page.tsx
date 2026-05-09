@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { reviewTheme } from '@/components/review/review-theme'
+import { useUiLocale } from '@/lib/i18n/ui-locale-context'
 import type { PaperMeta, PaperComparison } from '@/app/api/compare/papers/route'
 
 type Phase = 'idle' | 'loading' | 'done' | 'error'
@@ -169,6 +170,7 @@ function PaperCard({ paper, index }: { paper: PaperMeta; index: number }) {
 }
 
 function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison: PaperComparison }) {
+  const t = useUiLocale()
   const n = papers.length
   const colWidth = n <= 2 ? 280 : n === 3 ? 220 : 175
 
@@ -289,7 +291,7 @@ function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison:
           color: reviewTheme.colors.accent,
           marginBottom: 8,
         }}>
-          Synthesis Verdict
+          {t.compare_verdict}
         </div>
         <p style={{
           fontSize: 13,
@@ -305,6 +307,7 @@ function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison:
 }
 
 export default function ComparePage() {
+  const t = useUiLocale()
   const [ids, setIds] = useState<string[]>(['', ''])
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -398,7 +401,7 @@ export default function ComparePage() {
             lineHeight: 1.2,
             fontFamily: reviewTheme.fonts.display,
           }}>
-            Compare Papers
+            {t.compare_title}
           </h1>
           <p style={{
             margin: '8px 0 0',
@@ -406,7 +409,7 @@ export default function ComparePage() {
             color: reviewTheme.colors.muted,
             lineHeight: 1.55,
           }}>
-            Enter 2–4 arXiv IDs. The AI will compare methodology, contributions, and limitations side by side.
+            {t.compare_subtitle}
           </p>
         </div>
 
@@ -455,7 +458,7 @@ export default function ComparePage() {
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.border; e.currentTarget.style.color = reviewTheme.colors.muted }}
               >
                 <PlusIcon />
-                Add paper
+                {t.compare_add_paper}
               </button>
             )}
 
@@ -476,7 +479,7 @@ export default function ComparePage() {
                   fontWeight: 500,
                 }}
               >
-                New comparison
+                {t.compare_new}
               </button>
             )}
 
@@ -500,7 +503,7 @@ export default function ComparePage() {
               }}
             >
               {phase === 'loading' ? <SpinnerIcon /> : null}
-              {phase === 'loading' ? 'Comparing…' : 'Compare'}
+              {phase === 'loading' ? t.compare_running : t.compare_run}
             </button>
           </div>
         </div>

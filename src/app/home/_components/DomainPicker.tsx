@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useUiLocale } from '@/lib/i18n/ui-locale-context'
 
 export type Domain = 'general' | 'materials' | 'biomedical' | 'physics'
 
-const DOMAINS: { value: Domain; label: string; sub: string }[] = [
-  { value: 'general',   label: 'General',    sub: 'Multidisciplinary' },
-  { value: 'materials', label: 'Materials',  sub: 'Chemistry & Engineering' },
-  { value: 'biomedical',label: 'Biomedical', sub: 'Life Sciences' },
-  { value: 'physics',   label: 'Physics',    sub: 'Devices & Systems' },
-]
+const DOMAIN_SUBS: Record<Domain, string> = {
+  general: 'Multidisciplinary',
+  materials: 'Chemistry & Engineering',
+  biomedical: 'Life Sciences',
+  physics: 'Devices & Systems',
+}
 
 const LS_KEY = 'council.preferred-domain'
 
@@ -18,7 +19,7 @@ export function useDomain(): [Domain, (d: Domain) => void] {
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY) as Domain | null
-    if (saved && DOMAINS.some(d => d.value === saved)) setDomainState(saved)
+    if (saved && saved in DOMAIN_SUBS) setDomainState(saved)
   }, [])
 
   const setDomain = (d: Domain) => {
@@ -35,13 +36,21 @@ interface Props {
 }
 
 export function DomainPicker({ value, onChange }: Props) {
+  const t = useUiLocale()
+  const DOMAINS: { value: Domain; label: string; sub: string }[] = [
+    { value: 'general',    label: t.domain_general,    sub: DOMAIN_SUBS.general },
+    { value: 'materials',  label: t.domain_materials,  sub: DOMAIN_SUBS.materials },
+    { value: 'biomedical', label: t.domain_biomedical, sub: DOMAIN_SUBS.biomedical },
+    { value: 'physics',    label: t.domain_physics,    sub: DOMAIN_SUBS.physics },
+  ]
+
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{
         fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
         color: '#bbb', textTransform: 'uppercase', marginBottom: 10,
       }}>
-        Research Domain
+        {t.home_domain_label}
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {DOMAINS.map(({ value: v, label, sub }) => {
