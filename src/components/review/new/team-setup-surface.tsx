@@ -6,10 +6,13 @@ import { useCouncilReview } from '@/hooks/use-council-review'
 import { peekPendingUpload } from '@/lib/pending-upload'
 import {
   buildDiscussionAgents,
+  buildDomainTeam,
   buildEditableTeam,
   buildSeatsFromEditableAgents,
   createCustomEditableAgent,
+  REVIEW_DOMAIN_OPTIONS,
   type EditableReviewAgent,
+  type ReviewDomain,
   type ReviewMode,
 } from '@/lib/prompts/review-presets'
 import { consumeTeamDraftPrefill } from '@/lib/review-draft-prefill'
@@ -45,6 +48,8 @@ function TeamSetupSurfaceContent() {
   const customTopic = searchParams.get('customTopic') ?? ''
   const customGoal = searchParams.get('customGoal') ?? ''
   const paperTitleParam = searchParams.get('paperTitle')
+  const domainParam = (searchParams.get('domain') ?? 'general') as ReviewDomain
+  const domainLabel = REVIEW_DOMAIN_OPTIONS.find((o) => o.value === domainParam)?.label ?? 'General Academic'
 
   const [pendingFile] = useState(() => peekPendingUpload())
 
@@ -57,7 +62,9 @@ function TeamSetupSurfaceContent() {
 
   const [modeSelection, setModeSelection] = useState<ReviewMode>('critique')
   const [rounds, setRounds] = useState<1 | 2>(1)
-  const [teamAgents, setTeamAgents] = useState<EditableReviewAgent[]>(() => buildEditableTeam('critique'))
+  const [teamAgents, setTeamAgents] = useState<EditableReviewAgent[]>(() =>
+    domainParam !== 'general' ? buildDomainTeam(domainParam) : buildEditableTeam('critique'),
+  )
   const [savedTemplates, setSavedTemplates] = useState<SavedTeamTemplate[]>([])
   const [saveChecked, setSaveChecked] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -251,6 +258,7 @@ function TeamSetupSurfaceContent() {
                 paperTitle={paperLabel}
                 paperSummary=""
                 sourceLabel={arxivId ? `arXiv ${arxivId}` : (pendingFile?.name ?? 'Upload')}
+                domainLabel={domainLabel}
                 mode={modeSelection}
                 rounds={rounds}
                 agents={teamAgents}
@@ -422,6 +430,7 @@ function TeamSetupSurfaceContent() {
 
               <ReviewRailCard eyebrow="Team Summary">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <ReviewSummaryItem label="Domain" value={domainLabel} />
                   <ReviewSummaryItem label="Paper" value={paperLabel} />
                   <ReviewSummaryItem label="Focus" value={topicDisplayLabel} />
                   <ReviewSummaryItem

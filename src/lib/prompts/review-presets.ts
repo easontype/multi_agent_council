@@ -1,4 +1,11 @@
-import { CRITIQUE_SEAT_DEFINITIONS, GAP_SEAT_DEFINITIONS } from '../core/council-academic'
+import {
+  CRITIQUE_SEAT_DEFINITIONS,
+  GAP_SEAT_DEFINITIONS,
+  EXPERIMENTAL_SEAT_DEFINITIONS,
+  BIOMEDICAL_SEAT_DEFINITIONS,
+  PHYSICS_SEAT_DEFINITIONS,
+  type SeatDefinition,
+} from '../core/council-academic'
 import type { CouncilSeat } from '../core/council-types'
 import type { Agent } from '@/types/council'
 import { DEFAULT_GEMMA_MODEL } from '../llm/gemma-models'
@@ -494,4 +501,42 @@ export function buildDiscussionAgents(agents: EditableReviewAgent[]): Agent[] {
 
 export function getModeratorAgent(): Agent {
   return MODERATOR_AGENT
+}
+
+// ─── Phase 4A: Domain-aware team builder ─────────────────────────────────────
+
+export type ReviewDomain = 'general' | 'materials' | 'biomedical' | 'physics'
+
+export const REVIEW_DOMAIN_OPTIONS: { value: ReviewDomain; label: string; subtitle: string }[] = [
+  { value: 'general', label: 'General Academic', subtitle: 'Methods, literature, reproducibility, contribution & advocacy' },
+  { value: 'materials', label: 'Materials & Chemistry', subtitle: 'Material selection, characterization, performance, synthesis & commercial' },
+  { value: 'biomedical', label: 'Biomedical & Life Sci', subtitle: 'Safety, translational potential, regulatory, competing therapies & clinical' },
+  { value: 'physics', label: 'Physics & Devices', subtitle: 'Device integration, efficiency, fabrication, reliability & system benchmarks' },
+]
+
+function domainDefs(domain: ReviewDomain): SeatDefinition[] {
+  switch (domain) {
+    case 'materials': return EXPERIMENTAL_SEAT_DEFINITIONS
+    case 'biomedical': return BIOMEDICAL_SEAT_DEFINITIONS
+    case 'physics': return PHYSICS_SEAT_DEFINITIONS
+    default: return CRITIQUE_SEAT_DEFINITIONS
+  }
+}
+
+export function buildDomainTeam(domain: ReviewDomain): EditableReviewAgent[] {
+  if (domain === 'general') return buildEditableTeam('critique')
+  return domainDefs(domain).map((def) => ({
+    id: def.id,
+    seatRole: def.role,
+    name: def.role,
+    focus: def.focus,
+    avatar: def.avatar,
+    color: def.color,
+    description: def.description,
+    systemPrompt: def.systemPrompt,
+    bias: def.bias,
+    tools: def.tools,
+    model: def.modelOverride ?? DEFAULT_GEMMA_MODEL,
+    enabled: true,
+  }))
 }

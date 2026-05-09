@@ -2,6 +2,7 @@
 
 import { PaperPreview } from '@/components/council/paper-preview'
 import { PAPER_TOPIC_PRESETS } from '@/lib/paper-topics'
+import { REVIEW_DOMAIN_OPTIONS, type ReviewDomain } from '@/lib/prompts/review-presets'
 import {
   ReviewActionButton,
   ReviewPageBody,
@@ -31,10 +32,76 @@ interface ReviewDraftLayoutProps {
   customGoal: string
   topicError: string | null
   canContinue: boolean
+  domain: ReviewDomain
+  onDomainChange: (domain: ReviewDomain) => void
   onTopicPresetChange: (presetId: string) => void
   onCustomTopicChange: (value: string) => void
   onCustomGoalChange: (value: string) => void
   onContinue: () => void
+}
+
+function DomainPickerStep({
+  domain,
+  onDomainChange,
+}: {
+  domain: ReviewDomain
+  onDomainChange: (domain: ReviewDomain) => void
+}) {
+  return (
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {REVIEW_DOMAIN_OPTIONS.map((opt) => {
+          const active = domain === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onDomainChange(opt.value)}
+              style={{
+                textAlign: 'left',
+                padding: '14px 14px',
+                borderRadius: 13,
+                border: `1.5px solid ${active ? reviewTheme.colors.accent : reviewTheme.colors.border}`,
+                background: active ? `${reviewTheme.colors.accent}0d` : '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 5,
+              }}>
+                <div style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  border: `2px solid ${active ? reviewTheme.colors.accent : reviewTheme.colors.borderStrong}`,
+                  background: active ? reviewTheme.colors.accent : '#fff',
+                  flexShrink: 0,
+                }} />
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: active ? reviewTheme.colors.accent : reviewTheme.colors.ink,
+                }}>
+                  {opt.label}
+                </div>
+              </div>
+              <div style={{
+                fontSize: 11,
+                lineHeight: 1.55,
+                color: active ? reviewTheme.colors.muted : reviewTheme.colors.softMuted,
+                paddingLeft: 22,
+              }}>
+                {opt.subtitle}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function PaperSourceStep({
@@ -269,11 +336,15 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
     customGoal,
     topicError,
     canContinue,
+    domain,
+    onDomainChange,
     onTopicPresetChange,
     onCustomTopicChange,
     onCustomGoalChange,
     onContinue,
   } = props
+
+  const domainLabel = REVIEW_DOMAIN_OPTIONS.find((o) => o.value === domain)?.label ?? 'General Academic'
 
   const draftStatus = !hasSource
     ? 'Select a paper source to continue.'
@@ -293,6 +364,14 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
           alignItems: 'start',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+            <ReviewSectionFrame
+              eyebrow="Step 0"
+              title="Research domain"
+              description="Choose the domain so the right specialist seats are pre-loaded for your panel."
+            >
+              <DomainPickerStep domain={domain} onDomainChange={onDomainChange} />
+            </ReviewSectionFrame>
+
             <ReviewSectionFrame
               eyebrow="Step 1a"
               title="Paper source"
@@ -395,6 +474,7 @@ export function ReviewDraftLayout(props: ReviewDraftLayoutProps) {
 
               <ReviewRailCard eyebrow="Draft Summary">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <ReviewSummaryItem label="Domain" value={domainLabel} />
                   <ReviewSummaryItem label="Paper" value={hasSource ? sourceLabel : 'Not selected'} tone={hasSource ? '#18181b' : '#b45309'} />
                   <ReviewSummaryItem
                     label="Focus"

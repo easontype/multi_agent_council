@@ -10,6 +10,7 @@ interface ReviewSetupPanelProps {
   paperTitle: string
   paperSummary: string
   sourceLabel: string
+  domainLabel?: string
   mode: ReviewMode
   rounds: 1 | 2
   agents: EditableReviewAgent[]
@@ -29,6 +30,7 @@ export function ReviewSetupPanel({
   paperTitle,
   paperSummary,
   sourceLabel,
+  domainLabel,
   mode,
   rounds,
   agents,
@@ -94,8 +96,23 @@ export function ReviewSetupPanel({
           }}>
             {paperTitle}
           </div>
-          <div style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 10 }}>
-            {sourceLabel}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 12, color: '#a1a1aa' }}>{sourceLabel}</span>
+            {domainLabel && (
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                color: '#25493d',
+                background: '#edf4f1',
+                border: '1px solid #c4dcd5',
+                borderRadius: 999,
+                padding: '2px 7px',
+              }}>
+                {domainLabel}
+              </span>
+            )}
           </div>
           <p style={{ fontSize: 13, color: '#71717a', lineHeight: 1.7, margin: 0 }}>
             {paperSummary}

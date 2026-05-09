@@ -10,6 +10,7 @@ import {
 import {
   consumeReviewDraftPrefill,
 } from '@/lib/review-draft-prefill'
+import type { ReviewDomain } from '@/lib/prompts/review-presets'
 
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
@@ -40,6 +41,7 @@ export function useReviewDraftState({
   const [customGoal, setCustomGoal] = useState('')
   const [cacheStatus, setCacheStatus] = useState<'ready' | 'processing' | 'failed' | 'unknown' | null>(null)
   const [cacheTitle, setCacheTitle] = useState<string | null>(null)
+  const [domain, setDomain] = useState<ReviewDomain>('general')
 
   useEffect(() => {
     setArxivDraft(routeArxivId ?? '')
@@ -129,6 +131,7 @@ export function useReviewDraftState({
     }
     const title = cacheTitle || (pendingFile ? fileNameToTitle(pendingFile.name) : null)
     if (title) params.set('paperTitle', title)
+    params.set('domain', domain)
     router.push(`/review/new/team?${params.toString()}`)
   }
 
@@ -170,6 +173,7 @@ export function useReviewDraftState({
     cacheStatus,
     customGoal,
     customTopic,
+    domain,
     draftNotice,
     isUpload,
     paperSummary,
@@ -184,6 +188,7 @@ export function useReviewDraftState({
     setArxivDraft,
     setCustomGoal,
     setCustomTopic,
+    setDomain,
     setTopicPresetId,
     handleArxivSubmit,
     handleContinue,

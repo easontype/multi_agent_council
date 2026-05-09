@@ -245,6 +245,57 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Compare & Debate */}
+      <section className="mx-auto max-w-[800px] px-8 py-16">
+        <div className="overflow-hidden rounded-2xl border border-[#c4dcd5] bg-[#edf4f1]">
+          <div className="flex flex-col gap-0 md:flex-row">
+            <div className="flex flex-1 flex-col justify-center gap-4 p-8">
+              <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#b0ccd3] bg-[#d9ecea] px-3 py-1 text-[11px] font-bold tracking-[0.07em] text-[#25493d]">
+                NEW — ADVERSARIAL DEBATE
+              </div>
+              <h2 className="text-[24px] font-extrabold leading-[1.15] tracking-[-0.025em] text-[#1e1b18]">
+                Compare two options with AI debate
+              </h2>
+              <p className="text-[14px] leading-[1.7] text-[#3d6b5f]">
+                Pick any two materials, methods, or approaches — MXene vs Graphene, CRISPR vs TALENs, ResNet vs ViT.
+                Specialist reviewers argue both sides simultaneously, then a moderator delivers a verdict.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["Mirror Teams", "Domain Specialists", "Evidence-Based Verdict"].map((tag) => (
+                  <span key={tag} className="rounded-full border border-[#b0ccd3] bg-white px-3 py-1 text-[12px] font-semibold text-[#25493d]">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+              <a
+                href="/debate/new"
+                className="mt-2 inline-flex w-fit items-center gap-2 rounded-[10px] bg-[#25493d] px-5 py-3 text-[14px] font-bold text-white no-underline transition-colors hover:bg-[#1e3d32]"
+              >
+                Start a debate →
+              </a>
+            </div>
+            <div className="hidden flex-shrink-0 items-center justify-center border-l border-[#c4dcd5] bg-[#e0efec] p-8 md:flex" style={{ minWidth: 220 }}>
+              <div className="flex flex-col gap-3 text-center">
+                <div className="rounded-xl border border-[#b0ccd3] bg-white p-4 shadow-sm">
+                  <div className="mb-1 text-[10px] font-bold tracking-[0.07em] text-[#4a6b73]">TEAM A</div>
+                  <div className="text-[15px] font-bold text-[#1e1b18]">Option A</div>
+                  <div className="text-[11px] text-[#4a6b73]">2–3 specialists</div>
+                </div>
+                <div className="text-[13px] font-bold text-[#6b7280]">⟵ vs ⟶</div>
+                <div className="rounded-xl border border-[#d3b0b6] bg-white p-4 shadow-sm">
+                  <div className="mb-1 text-[10px] font-bold tracking-[0.07em] text-[#7a4c54]">TEAM B</div>
+                  <div className="text-[15px] font-bold text-[#1e1b18]">Option B</div>
+                  <div className="text-[11px] text-[#7a4c54]">2–3 specialists</div>
+                </div>
+                <div className="rounded-xl border border-[#d4d4d8] bg-white p-3 shadow-sm">
+                  <div className="text-[11px] font-bold text-[#6b7280]">+ Moderator</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Use cases */}
       <section className="mx-auto max-w-[800px] px-8 py-20">
         <h2 className="mb-12 text-center text-[26px] font-bold tracking-[-0.02em]">
@@ -320,6 +371,7 @@ export default function HomePage() {
         <div className="mb-3 text-base font-bold text-[#6366f1]">Council</div>
         <div className="mb-4 flex justify-center gap-6">
           <a href="/review/new" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Try it free</a>
+          <a href="/debate/new" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Compare & Debate</a>
           <a href="/keys" className="text-muted-foreground no-underline hover:text-foreground transition-colors">API Keys</a>
           <a href="#pricing" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Pricing</a>
         </div>

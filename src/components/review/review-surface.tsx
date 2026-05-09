@@ -85,7 +85,7 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
       )}
 
       <SessionRestoreBanner
-        isVisible={!showSetup && Boolean(session.id) && sessionState.restoreSource !== null}
+        isVisible={!showSetup && Boolean(session.id) && sessionState.restoreSource !== null && phase !== 'running' && phase !== 'concluded'}
         isResuming={isRestoring && canResume}
         canResume={canResume}
         restoredFrom={sessionState.restoreSource}
@@ -114,8 +114,10 @@ function ReviewSurfaceContent({ mode, forcedSessionId }: ReviewSurfaceProps) {
             selectedTopicLabel={draftState.selectedPreset.label}
             customGoal={draftState.customGoal}
             customTopic={draftState.customTopic}
+            domain={draftState.domain}
             onCustomGoalChange={draftState.setCustomGoal}
             onCustomTopicChange={draftState.setCustomTopic}
+            onDomainChange={draftState.setDomain}
             onTopicPresetChange={draftState.setTopicPresetId}
             canContinue={draftState.canContinue}
             onContinue={draftState.handleContinue}
