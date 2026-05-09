@@ -95,36 +95,16 @@ Council is a production-grade Next.js app for AI-assisted academic paper review 
 | 6-2 | Debate wizard per-seat system prompt 編輯 | ✅ |
 | 6-3 | Semantic Scholar 整合（fieldsOfStudy + citation sort） | ✅ |
 | 6-4 | 多論文比較表（`/home/compare` + `/api/compare/papers`） | ✅ |
+| 7-1 | Paper asset 重複 ingest 競態條件修復（23505 catch + re-fetch） | ✅ |
+| 7-2 | Session job registry — 背景執行，SSE 斷線後可重連繼續接收 | ✅ |
+| 7-3 | Entitlements 集中管理（`lib/entitlements.ts`，7 個 route 更新） | ✅ |
+| 8-1 | UI i18n — 5 語言翻譯系統（`lib/i18n/`），AppShell + DomainPicker + Compare | ✅ |
 
 ---
 
 ## Roadmap
 
----
-
-### Phase 7 — Infrastructure（P2）
-
-目標：讓架構能支撐後續功能擴展，不留技術債地雷。
-
-| # | 項目 | 說明 | 影響 |
-|---|---|---|---|
-| 7-1 | **Paper asset canonical model** | 統一 `paper_assets / libraries / library_documents` 資料模型，避免相同 paper 在不同路徑重複 ingest。 | 資料一致性 |
-| 7-2 | **Background job（脫離 SSE 生命週期）** | 目前辯論 session 生命週期綁定前端 SSE 連線，斷線就中斷。改用 server-side job queue（可用 pg-boss 或 BullMQ），前端輪詢或重連後繼續。 | 長 session 可靠性 |
-| 7-3 | **Billing entitlement model** | quota 邏輯目前散落在 `/api` 各 route。集中成 `lib/entitlements.ts`，統一管理 free / pro tier 判斷，便於之後加新方案。 | 可維護性 |
-
-**完成標準：** 同一篇 paper 不再重複 embed；關掉瀏覽器重開後 session 能繼續；quota check 只在一個地方。
-
----
-
-### Phase 8 — i18n（P3）
-
-目標：讓 UI 介面本身也支援多語言。
-
-| # | 項目 | 說明 | 影響 |
-|---|---|---|---|
-| 8-1 | **UI 全面多語言（next-intl）** | 目前 agent output 可輸出多語，但 UI label / 按鈕 / 說明文字仍全英文。導入 `next-intl`，優先支援 zh-TW + en，其他語言 follow 用戶需求。 | 國際化 |
-
-**完成標準：** 切換語言後 UI label 也跟著切換，不只是 agent 輸出。
+*All planned phases (1–8) are complete. See Deferred for items intentionally postponed.*
 
 ---
 
