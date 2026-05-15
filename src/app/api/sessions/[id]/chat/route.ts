@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { canAccessCouncilSession } from '@/lib/core/council-access'
 import { answerCouncilPaperQuestion } from '@/lib/core/council-paper-chat'
-import { checkEntitlement, quotaDenied } from '@/lib/entitlements'
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from '@/lib/entitlements'
 import { toSafeError } from '@/lib/utils/text'
+import { ensureAnonymousVisitorIdentity } from '@/lib/anonymous-access'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const quota = await checkEntitlement(req, 'review_run')
-  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds)
+  const anonymousVisitor = ensureAnonymousVisitorIdentity(req)
+  const quota = await checkEntitlement(req, 'review_run', anonymousVisitor)
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet)
 
   const { id } = await params
   const allowed = await canAccessCouncilSession(req, id)
@@ -25,8 +27,11 @@ export async function POST(
 
   try {
     const result = await answerCouncilPaperQuestion(id, question)
-    return NextResponse.json(result)
+    return applyEntitlementResponse(NextResponse.json(result), quota)
   } catch (error) {
-    return NextResponse.json({ error: toSafeError(error, 'chat answer') }, { status: 500 })
+    return applyEntitlementResponse(
+      NextResponse.json({ error: toSafeError(error, 'chat answer') }, { status: 500 }),
+      quota,
+    )
   }
 }

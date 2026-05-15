@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createCouncilSession, listSessions } from "@/lib/core/council";
 import { ensureAccountContextForAuthUser, resolveAuthAccountContext } from "@/lib/auth-account";
+import { getPaperAssetByIdForOwner } from "@/lib/paper-assets";
 import {
   attachCouncilSessionCookie,
   createCouncilAnonymousAccess,
 } from "@/lib/core/council-access";
-import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { validateUserSystemPrompt, sanitizeUserInput, toSafeError } from "@/lib/utils/text";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 export const GET = auth(async (req) => {
   if (!req.auth?.user) {
@@ -29,11 +31,12 @@ export const GET = auth(async (req) => {
 
 export async function POST(req: NextRequest) {
   try {
-    const quota = await checkEntitlement(req, "review_create");
-    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+    const account = await resolveAuthAccountContext();
+    const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req);
+    const quota = await checkEntitlement(req, "review_create", anonymousVisitor ?? undefined);
+    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 
     const raw = await req.json() as Record<string, unknown>;
-    const account = await resolveAuthAccountContext();
     const anonymousAccess = account ? null : createCouncilAnonymousAccess();
 
     // Whitelist only safe client-supplied fields — never trust model, moderator_model, or preferredModel from client
@@ -77,6 +80,20 @@ export async function POST(req: NextRequest) {
         : undefined,
     };
 
+    if (safeInput.paperAssetId) {
+      const asset = await getPaperAssetByIdForOwner(safeInput.paperAssetId, {
+        workspaceId: account?.workspaceId,
+        ownerUserEmail: account?.email ?? undefined,
+        anonymousIdHash: anonymousVisitor?.idHash,
+      });
+      if (!asset) {
+        return applyEntitlementResponse(
+          NextResponse.json({ error: "Paper asset not found" }, { status: 404 }),
+          quota,
+        );
+      }
+    }
+
     const session = await createCouncilSession({
       ...safeInput,
       workspaceId:      account?.workspaceId,
@@ -90,7 +107,7 @@ export async function POST(req: NextRequest) {
       attachCouncilSessionCookie(response, session.id, anonymousAccess.plaintextToken);
     }
 
-    return response;
+    return applyEntitlementResponse(response, quota);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message.startsWith("Invalid seat")) {

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runLLM } from "@/lib/llm/claude";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
-import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { toSafeError } from "@/lib/utils/text";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 export interface PaperMeta {
   arxivId: string;
@@ -46,8 +47,8 @@ async function fetchArxivMeta(arxivId: string): Promise<PaperMeta | null> {
 }
 
 export async function POST(req: NextRequest) {
-  const quota = await checkEntitlement(req, "web_analyze");
-  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+  const quota = await checkEntitlement(req, "web_analyze", ensureAnonymousVisitorIdentity(req));
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 
   let body: unknown;
   try {
@@ -102,8 +103,11 @@ ${sections}`;
       return NextResponse.json({ error: "LLM returned unparseable JSON", raw }, { status: 500 });
     }
 
-    return NextResponse.json({ papers, comparison });
+    return applyEntitlementResponse(NextResponse.json({ papers, comparison }), quota);
   } catch (err) {
-    return NextResponse.json({ error: toSafeError(err, 'paper compare') }, { status: 500 });
+    return applyEntitlementResponse(
+      NextResponse.json({ error: toSafeError(err, 'paper compare') }, { status: 500 }),
+      quota,
+    );
   }
 }

@@ -154,7 +154,7 @@ describe("backfillPaperAssetsForSessions", () => {
     // Verify locator used is library-based, not plain "upload"
     expect(mockedDbQuery).toHaveBeenCalledWith(
       expect.stringContaining("source_locator"),
-      ["upload", "library:lib-old"],
+      ["upload", "library:lib-old", "ws-1"],
     );
     expect(mockedDbQuery).toHaveBeenLastCalledWith(
       expect.stringContaining("UPDATE council_sessions"),

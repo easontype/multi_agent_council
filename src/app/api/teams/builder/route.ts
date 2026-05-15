@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkEntitlement, quotaDenied } from '@/lib/entitlements'
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from '@/lib/entitlements'
 import { generateTeamWithAI } from '@/lib/team-builder'
 import type { TeamBuilderBrief } from '@/lib/prompts/review-presets'
 import { toSafeError } from '@/lib/utils/text'
+import { ensureAnonymousVisitorIdentity } from '@/lib/anonymous-access'
 
 function isValidBrief(value: unknown): value is TeamBuilderBrief {
   if (!value || typeof value !== 'object') return false
@@ -17,8 +18,8 @@ function isValidBrief(value: unknown): value is TeamBuilderBrief {
 }
 
 export async function POST(req: NextRequest) {
-  const quota = await checkEntitlement(req, 'team_builder')
-  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds)
+  const quota = await checkEntitlement(req, 'team_builder', ensureAnonymousVisitorIdentity(req))
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet)
 
   const body = await req.json().catch(() => ({}))
   const request = typeof body.request === 'string' ? body.request.trim() : ''
@@ -30,8 +31,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await generateTeamWithAI({ request, brief })
-    return NextResponse.json(result)
+    return applyEntitlementResponse(NextResponse.json(result), quota)
   } catch (error) {
-    return NextResponse.json({ error: toSafeError(error, 'team builder') }, { status: 500 })
+    return applyEntitlementResponse(
+      NextResponse.json({ error: toSafeError(error, 'team builder') }, { status: 500 }),
+      quota,
+    )
   }
 }

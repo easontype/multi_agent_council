@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { runCouncilSession } from "@/lib/core/council";
 import type { CouncilEvent } from "@/lib/core/council-types";
 import { isCouncilSessionOwner } from "@/lib/core/council-access";
-import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { getSessionJob, registerSessionJob } from "@/lib/session-job-registry";
 import { db } from "@/lib/db/db";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 const EMBED_POLL_MS = 3_500;
 const EMBED_TIMEOUT_MS = 120_000;
@@ -48,10 +49,13 @@ export async function POST(
     staleAfterMs?: number;
     preferredLanguage?: string;
   } = {};
+  let anonymousVisitorIdToSet: string | undefined;
 
   if (!existingJob) {
-    const quota = await checkEntitlement(req, "review_run");
-    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+    const anonymousVisitor = ensureAnonymousVisitorIdentity(req);
+    const quota = await checkEntitlement(req, "review_run", anonymousVisitor);
+    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
+    anonymousVisitorIdToSet = quota.anonymousVisitorIdToSet;
 
     const accountCtx = await resolveAuthAccountContext();
     const preferredLanguage =
@@ -124,11 +128,11 @@ export async function POST(
     },
   });
 
-  return new Response(stream, {
+  return applyEntitlementResponse(new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     },
-  });
+  }), { anonymousVisitorIdToSet });
 }

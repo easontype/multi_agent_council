@@ -31,6 +31,12 @@ export interface ResolvedPaperAsset {
   reusedAsset: boolean;
 }
 
+export interface PaperAssetOwnerScope {
+  workspaceId?: string | null;
+  ownerUserEmail?: string | null;
+  anonymousIdHash?: string | null;
+}
+
 export interface PaperAssetBackfillSummary {
   scanned: number;
   updated: number;
@@ -77,6 +83,43 @@ function normalizeArxivId(value?: string | null): string | null {
   return trimmed.replace(/^arxiv:/i, "");
 }
 
+function normalizeOwnerScope(input: PaperAssetOwnerScope = {}) {
+  return {
+    workspaceId: input.workspaceId?.trim() || null,
+    ownerUserEmail: input.ownerUserEmail?.trim().toLowerCase() || null,
+    anonymousIdHash: input.anonymousIdHash?.trim() || null,
+  };
+}
+
+function buildOwnerScopeClause(
+  scope: PaperAssetOwnerScope,
+  alias: string,
+  startIndex: number,
+): { clause: string; params: string[] } {
+  const normalized = normalizeOwnerScope(scope);
+  const clauses: string[] = [];
+  const params: string[] = [];
+
+  if (normalized.workspaceId) {
+    clauses.push(`${alias}.workspace_id = $${startIndex + params.length}`);
+    params.push(normalized.workspaceId);
+  }
+  if (normalized.ownerUserEmail) {
+    clauses.push(`${alias}.owner_user_email = $${startIndex + params.length}`);
+    params.push(normalized.ownerUserEmail);
+  }
+  if (normalized.anonymousIdHash) {
+    clauses.push(`${alias}.owner_anon_id_hash = $${startIndex + params.length}`);
+    params.push(normalized.anonymousIdHash);
+  }
+
+  if (!clauses.length) {
+    return { clause: "1 = 0", params: [] };
+  }
+
+  return { clause: `(${clauses.join(" OR ")})`, params };
+}
+
 function extractSourceUrlFromContext(context?: string | null): string | null {
   if (!context) return null;
   const match = context.match(/Source:\s*(.*)\. Library:\s*/i);
@@ -96,10 +139,14 @@ export function computeBufferChecksum(buffer: Buffer | undefined): string | null
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-async function findPaperAssetByArxivId(arxivId: string): Promise<PaperAsset | null> {
+async function findPaperAssetByArxivId(
+  arxivId: string,
+  scope: PaperAssetOwnerScope,
+): Promise<PaperAsset | null> {
+  const owner = buildOwnerScopeClause(scope, "paper_assets", 2);
   const { rows } = await db.query(
-    `SELECT * FROM paper_assets WHERE arxiv_id = $1 LIMIT 1`,
-    [arxivId],
+    `SELECT * FROM paper_assets WHERE arxiv_id = $1 AND ${owner.clause} LIMIT 1`,
+    [arxivId, ...owner.params],
   );
   return rows[0] ? mapPaperAssetRow(rows[0] as Record<string, unknown>) : null;
 }
@@ -107,16 +154,19 @@ async function findPaperAssetByArxivId(arxivId: string): Promise<PaperAsset | nu
 async function findPaperAssetBySourceChecksum(
   sourceKind: PaperAssetSourceKind,
   checksum: string,
+  scope: PaperAssetOwnerScope,
 ): Promise<PaperAsset | null> {
+  const owner = buildOwnerScopeClause(scope, "a", 3);
   const { rows } = await db.query(
     `SELECT a.*
      FROM paper_asset_sources s
      JOIN paper_assets a ON a.id = s.paper_asset_id
      WHERE s.source_kind = $1
        AND s.checksum_sha256 = $2
+       AND ${owner.clause}
      ORDER BY s.created_at ASC
      LIMIT 1`,
-    [sourceKind, checksum],
+    [sourceKind, checksum, ...owner.params],
   );
   return rows[0] ? mapPaperAssetRow(rows[0] as Record<string, unknown>) : null;
 }
@@ -124,22 +174,27 @@ async function findPaperAssetBySourceChecksum(
 async function findPaperAssetByLocator(
   sourceKind: PaperAssetSourceKind,
   locator: string,
+  scope: PaperAssetOwnerScope,
 ): Promise<PaperAsset | null> {
+  const owner = buildOwnerScopeClause(scope, "a", 3);
   const { rows } = await db.query(
     `SELECT a.*
      FROM paper_asset_sources s
      JOIN paper_assets a ON a.id = s.paper_asset_id
      WHERE s.source_kind = $1
        AND s.source_locator = $2
+       AND ${owner.clause}
      ORDER BY s.created_at ASC
      LIMIT 1`,
-    [sourceKind, locator],
+    [sourceKind, locator, ...owner.params],
   );
   return rows[0] ? mapPaperAssetRow(rows[0] as Record<string, unknown>) : null;
 }
 
 async function createPaperAsset(input: {
   workspaceId?: string | null;
+  ownerUserEmail?: string | null;
+  anonymousIdHash?: string | null;
   title: string;
   abstract?: string | null;
   arxivId?: string | null;
@@ -149,16 +204,18 @@ async function createPaperAsset(input: {
   const normalizedArxivId = normalizeArxivId(input.arxivId);
   try {
     const { rows } = await db.query(
-      `INSERT INTO paper_assets (
-         id, workspace_id, canonical_title, abstract, authors, year, arxiv_id,
+       `INSERT INTO paper_assets (
+         id, workspace_id, owner_user_email, owner_anon_id_hash, canonical_title, abstract, authors, year, arxiv_id,
          canonical_checksum_sha256, status, processing_error, marker_processed,
          document_id, primary_library_id
        )
-       VALUES ($1,$2,$3,$4,'{}',$5,$6,$7,$8,NULL,false,NULL,NULL)
+       VALUES ($1,$2,$3,$4,$5,$6,'{}',$7,$8,$9,$10,NULL,false,NULL,NULL)
        RETURNING *`,
       [
         nanoid(),
         input.workspaceId ?? null,
+        input.ownerUserEmail?.trim().toLowerCase() || null,
+        input.anonymousIdHash?.trim() || null,
         input.title.trim() || "Untitled Paper",
         input.abstract?.trim() || null,
         null,
@@ -172,7 +229,11 @@ async function createPaperAsset(input: {
     // PostgreSQL unique_violation (23505): concurrent request already created this asset.
     // Re-fetch and return the winner instead of propagating the error.
     if ((err as { code?: string }).code === "23505" && normalizedArxivId) {
-      const existing = await findPaperAssetByArxivId(normalizedArxivId);
+      const existing = await findPaperAssetByArxivId(normalizedArxivId, {
+        workspaceId: input.workspaceId,
+        ownerUserEmail: input.ownerUserEmail,
+        anonymousIdHash: input.anonymousIdHash,
+      });
       if (existing) return existing;
     }
     throw err;
@@ -205,6 +266,8 @@ async function ensurePaperAssetSource(input: {
 
 export async function resolvePaperAsset(input: {
   workspaceId?: string | null;
+  ownerUserEmail?: string | null;
+  anonymousIdHash?: string | null;
   title: string;
   abstract?: string | null;
   arxivId?: string | null;
@@ -212,28 +275,31 @@ export async function resolvePaperAsset(input: {
   sourceLocator?: string | null;
   checksumSha256?: string | null;
 }): Promise<ResolvedPaperAsset> {
+  const ownerScope = normalizeOwnerScope(input);
   const normalizedArxivId = normalizeArxivId(input.arxivId);
   const normalizedLocator = input.sourceLocator?.trim() || null;
   const normalizedChecksum = input.checksumSha256?.trim() || null;
 
   let asset: PaperAsset | null = null;
   if (normalizedArxivId) {
-    asset = await findPaperAssetByArxivId(normalizedArxivId);
+    asset = await findPaperAssetByArxivId(normalizedArxivId, ownerScope);
   }
   if (!asset && normalizedChecksum && input.sourceKind === "upload") {
-    asset = await findPaperAssetBySourceChecksum("upload", normalizedChecksum);
+    asset = await findPaperAssetBySourceChecksum("upload", normalizedChecksum, ownerScope);
   }
   if (!asset && normalizedChecksum && input.sourceKind === "pdf_url") {
-    asset = await findPaperAssetBySourceChecksum("pdf_url", normalizedChecksum);
+    asset = await findPaperAssetBySourceChecksum("pdf_url", normalizedChecksum, ownerScope);
   }
   if (!asset && normalizedLocator && input.sourceKind !== "text") {
-    asset = await findPaperAssetByLocator(input.sourceKind, normalizedLocator);
+    asset = await findPaperAssetByLocator(input.sourceKind, normalizedLocator, ownerScope);
   }
 
   const reusedAsset = Boolean(asset);
   if (!asset) {
     asset = await createPaperAsset({
       workspaceId: input.workspaceId,
+      ownerUserEmail: input.ownerUserEmail,
+      anonymousIdHash: input.anonymousIdHash,
       title: input.title,
       abstract: input.abstract,
       arxivId: normalizedArxivId,
@@ -339,7 +405,19 @@ export async function getPaperAssetById(paperAssetId: string): Promise<PaperAsse
   return rows[0] ? mapPaperAssetRow(rows[0] as Record<string, unknown>) : null;
 }
 
-export async function getPaperAssetLookupByArxivId(arxivId: string): Promise<{
+export async function getPaperAssetByIdForOwner(
+  paperAssetId: string,
+  scope: PaperAssetOwnerScope,
+): Promise<PaperAsset | null> {
+  const owner = buildOwnerScopeClause(scope, "paper_assets", 2);
+  const { rows } = await db.query(
+    `SELECT * FROM paper_assets WHERE id = $1 AND ${owner.clause} LIMIT 1`,
+    [paperAssetId, ...owner.params],
+  );
+  return rows[0] ? mapPaperAssetRow(rows[0] as Record<string, unknown>) : null;
+}
+
+export async function getPaperAssetLookupByArxivId(arxivId: string, scope: PaperAssetOwnerScope): Promise<{
   status: PaperAssetStatus | "unknown";
   paperAssetId: string | null;
   title: string | null;
@@ -348,6 +426,7 @@ export async function getPaperAssetLookupByArxivId(arxivId: string): Promise<{
 } | null> {
   const normalizedArxivId = normalizeArxivId(arxivId);
   if (!normalizedArxivId) return null;
+  const owner = buildOwnerScopeClause(scope, "a", 2);
 
   const { rows } = await db.query(
     `SELECT a.id,
@@ -358,9 +437,10 @@ export async function getPaperAssetLookupByArxivId(arxivId: string): Promise<{
      FROM paper_assets a
      LEFT JOIN council_sessions s ON s.paper_asset_id = a.id
      WHERE a.arxiv_id = $1
+       AND ${owner.clause}
      GROUP BY a.id
      LIMIT 1`,
-    [normalizedArxivId],
+    [normalizedArxivId, ...owner.params],
   );
 
   const row = rows[0] as Record<string, unknown> | undefined;
@@ -527,18 +607,11 @@ export interface PaperAssetDetail {
 
 export async function getPaperAssetDetail(
   paperAssetId: string,
-  workspaceId?: string | null,
+  scope: PaperAssetOwnerScope,
 ): Promise<PaperAssetDetail | null> {
   await ensureCouncilSchema();
-  const { rows: assetRows } = await db.query(
-    `SELECT * FROM paper_assets WHERE id = $1 LIMIT 1`,
-    [paperAssetId],
-  );
-  if (!assetRows[0]) return null;
-
-  const asset = mapPaperAssetRow(assetRows[0] as Record<string, unknown>);
-
-  if (workspaceId && asset.workspace_id && asset.workspace_id !== workspaceId) return null;
+  const asset = await getPaperAssetByIdForOwner(paperAssetId, scope);
+  if (!asset) return null;
 
   const { rows: sessionRows } = await db.query(
     `SELECT id, title, topic, status, rounds, divergence_level, created_at, concluded_at

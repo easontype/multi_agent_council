@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPaperAssetById } from "@/lib/paper-assets";
+import { getPaperAssetByIdForOwner } from "@/lib/paper-assets";
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats, BIOMEDICAL_SEAT_DEFINITIONS, PHYSICS_SEAT_DEFINITIONS, EXPERIMENTAL_SEAT_DEFINITIONS } from "@/lib/core/council-academic";
 import { buildAdversarialTeam } from "@/lib/prompts/debate-presets";
 import type { ReviewDomain } from "@/lib/prompts/review-presets";
 import { createCouncilSession } from "@/lib/core/council";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/core/council-access";
-import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 import type { CouncilSeat } from "@/lib/core/council-types";
 import { validateUserSystemPrompt, toSafeError } from "@/lib/utils/text";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 const DOMAIN_SEATS: Record<string, ((model: string) => CouncilSeat[]) | undefined> = {
   general: (model) => buildAcademicCritiqueSeats(model),
@@ -69,8 +70,10 @@ function buildPhysicsSeats(model: string): CouncilSeat[] {
  * Output: { sessionId, paperTitle, paperAbstract }
  */
 export async function POST(req: NextRequest) {
-  const quota = await checkEntitlement(req, "review_run");
-  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+  const account = await resolveAuthAccountContext();
+  const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req);
+  const quota = await checkEntitlement(req, "review_run", anonymousVisitor ?? undefined);
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 
   let body: Record<string, unknown>;
   try {
@@ -89,9 +92,16 @@ export async function POST(req: NextRequest) {
   const rounds: 1 | 2 = body.rounds === 2 ? 2 : 1;
   const domain = (typeof body.domain === "string" ? body.domain : "general") as ReviewDomain;
 
-  const asset = await getPaperAssetById(paperAssetId);
+  const asset = await getPaperAssetByIdForOwner(paperAssetId, {
+    workspaceId: account?.workspaceId,
+    ownerUserEmail: account?.email ?? undefined,
+    anonymousIdHash: anonymousVisitor?.idHash,
+  });
   if (!asset) {
-    return NextResponse.json({ error: "Paper asset not found" }, { status: 404 });
+    return applyEntitlementResponse(
+      NextResponse.json({ error: "Paper asset not found" }, { status: 404 }),
+      quota,
+    );
   }
 
   const libraryId = asset.primary_library_id;
@@ -150,7 +160,6 @@ export async function POST(req: NextRequest) {
       : "Provide rigorous multi-perspective academic critique.");
   }
 
-  const account = await resolveAuthAccountContext();
   const anonymousAccess = account ? null : createCouncilAnonymousAccess();
 
   let sessionId: string;
@@ -177,5 +186,5 @@ export async function POST(req: NextRequest) {
   if (anonymousAccess) {
     attachCouncilSessionCookie(response, sessionId, anonymousAccess.plaintextToken);
   }
-  return response;
+  return applyEntitlementResponse(response, quota);
 }

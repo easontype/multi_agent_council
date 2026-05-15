@@ -20,15 +20,17 @@ jest.mock("@/lib/core/council-access", () => ({
   createCouncilAnonymousAccess: jest.fn(),
 }));
 
-jest.mock("@/lib/web-quota", () => ({
-  enforceAnonymousWebQuota: jest.fn(),
+jest.mock("@/lib/entitlements", () => ({
+  checkEntitlement: jest.fn(),
+  quotaDenied: jest.fn((error: string) => new Response(JSON.stringify({ error }), { status: 429 })),
+  applyEntitlementResponse: jest.fn((response: Response) => response),
 }));
 
 import { GET, POST } from "@/app/api/sessions/route";
 import { ensureAccountContextForAuthUser, resolveAuthAccountContext } from "@/lib/auth-account";
 import { createCouncilSession, listSessions } from "@/lib/core/council";
 import { attachCouncilSessionCookie, createCouncilAnonymousAccess } from "@/lib/core/council-access";
-import { enforceAnonymousWebQuota } from "@/lib/web-quota";
+import { checkEntitlement } from "@/lib/entitlements";
 
 const mockedEnsureAccountContextForAuthUser = jest.mocked(ensureAccountContextForAuthUser);
 const mockedResolveAuthAccountContext = jest.mocked(resolveAuthAccountContext);
@@ -36,7 +38,21 @@ const mockedCreateCouncilSession = jest.mocked(createCouncilSession);
 const mockedListSessions = jest.mocked(listSessions);
 const mockedAttachCouncilSessionCookie = jest.mocked(attachCouncilSessionCookie);
 const mockedCreateCouncilAnonymousAccess = jest.mocked(createCouncilAnonymousAccess);
-const mockedEnforceAnonymousWebQuota = jest.mocked(enforceAnonymousWebQuota);
+const mockedCheckEntitlement = jest.mocked(checkEntitlement);
+
+function makeApiRequest(body: Record<string, unknown>) {
+  const request = new Request("http://localhost/api/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  return {
+    json: () => request.json(),
+    headers: request.headers,
+    cookies: { get: () => undefined },
+  } as never;
+}
 
 describe("/api/sessions account ownership wiring", () => {
   beforeEach(() => {
@@ -70,7 +86,7 @@ describe("/api/sessions account ownership wiring", () => {
   });
 
   it("creates authenticated sessions with workspace and creator ids", async () => {
-    mockedEnforceAnonymousWebQuota.mockResolvedValue({ ok: true });
+    mockedCheckEntitlement.mockResolvedValue({ ok: true } as never);
     mockedResolveAuthAccountContext.mockResolvedValue({
       userId: "user-1",
       workspaceId: "ws-1",
@@ -81,11 +97,7 @@ describe("/api/sessions account ownership wiring", () => {
     });
     mockedCreateCouncilSession.mockResolvedValue({ id: "session-1" } as never);
 
-    const response = await POST(new Request("http://localhost/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: "Review this paper" }),
-    }) as never);
+    const response = await POST(makeApiRequest({ topic: "Review this paper" }));
 
     expect(response.status).toBe(201);
     expect(mockedCreateCouncilSession).toHaveBeenCalledWith(expect.objectContaining({
@@ -99,7 +111,7 @@ describe("/api/sessions account ownership wiring", () => {
   });
 
   it("keeps anonymous session cookies for unauthenticated creates", async () => {
-    mockedEnforceAnonymousWebQuota.mockResolvedValue({ ok: true });
+    mockedCheckEntitlement.mockResolvedValue({ ok: true } as never);
     mockedResolveAuthAccountContext.mockResolvedValue(null);
     mockedCreateCouncilAnonymousAccess.mockReturnValue({
       plaintextToken: "plain-token",
@@ -107,11 +119,7 @@ describe("/api/sessions account ownership wiring", () => {
     });
     mockedCreateCouncilSession.mockResolvedValue({ id: "session-2" } as never);
 
-    const response = await POST(new Request("http://localhost/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: "Anonymous review" }),
-    }) as never);
+    const response = await POST(makeApiRequest({ topic: "Anonymous review" }));
 
     expect(response.status).toBe(201);
     expect(mockedCreateCouncilSession).toHaveBeenCalledWith(expect.objectContaining({

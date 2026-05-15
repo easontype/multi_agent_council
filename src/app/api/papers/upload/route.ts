@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
+import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer, assertPdfBuffer } from "@/lib/paper-ingest";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { buildAcademicCritiqueSeats, buildGapAnalysisSeats } from "@/lib/core/council-academic";
 import { createCouncilSession } from "@/lib/core/council";
-import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/core/council-access";
 import type { CouncilSeat } from "@/lib/core/council-types";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
@@ -18,11 +18,13 @@ import {
 import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
 import { toSafeError } from "@/lib/utils/text";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 export async function POST(req: NextRequest) {
-  // Rate limit
-  const quota = await checkEntitlement(req, "web_analyze");
-  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+  const account = await resolveAuthAccountContext();
+  const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req);
+  const quota = await checkEntitlement(req, "web_analyze", anonymousVisitor ?? undefined);
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 
   const pdfLimits = await getPdfLimitsForRequest();
 
@@ -69,11 +71,16 @@ export async function POST(req: NextRequest) {
         );
       }
       uploadedBuffer = Buffer.from(await file.arrayBuffer());
-      // Verify PDF magic bytes (%PDF) to reject disguised non-PDF files
-      if (uploadedBuffer.length < 4 ||
-          uploadedBuffer[0] !== 0x25 || uploadedBuffer[1] !== 0x50 ||
-          uploadedBuffer[2] !== 0x44 || uploadedBuffer[3] !== 0x46) {
-        return NextResponse.json({ error: "File does not appear to be a valid PDF" }, { status: 400 });
+      try {
+        assertPdfBuffer(uploadedBuffer);
+      } catch (error) {
+        return applyEntitlementResponse(
+          NextResponse.json(
+            { error: error instanceof Error ? error.message : "File does not appear to be a valid PDF" },
+            { status: 400 },
+          ),
+          quota,
+        );
       }
       uploadTitle = file.name.replace(/\.pdf$/i, "");
     }
@@ -141,7 +148,13 @@ export async function POST(req: NextRequest) {
       sourceKind = "arxiv";
     }
   } catch (err) {
-    return NextResponse.json({ error: toSafeError(err, 'paper upload fetch') }, { status: 502 });
+    if (err instanceof Error && err.message === "File does not appear to be a valid PDF") {
+      return applyEntitlementResponse(NextResponse.json({ error: err.message }, { status: 400 }), quota);
+    }
+    return applyEntitlementResponse(
+      NextResponse.json({ error: toSafeError(err, 'paper upload fetch') }, { status: 502 }),
+      quota,
+    );
   }
 
   if (!paperText.trim()) {
@@ -149,10 +162,11 @@ export async function POST(req: NextRequest) {
   }
 
   const paperAbstract = paperText.slice(0, 600).trim();
-  const account = await resolveAuthAccountContext();
   const checksumSha256 = computeBufferChecksum(markerPdfBuffer);
   const paperAssetResolution = await resolvePaperAsset({
     workspaceId: account?.workspaceId,
+    ownerUserEmail: account?.email ?? undefined,
+    anonymousIdHash: anonymousVisitor?.idHash,
     title: paperTitle,
     abstract: paperAbstract,
     arxivId: arxivId ?? null,
@@ -193,7 +207,13 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     await markPaperAssetProcessingFailed(paperAssetResolution.asset.id, err).catch(() => {});
-    return NextResponse.json({ error: toSafeError(err, 'paper upload ingest') }, { status: 500 });
+    if (err instanceof Error && err.message === "File does not appear to be a valid PDF") {
+      return applyEntitlementResponse(NextResponse.json({ error: err.message }, { status: 400 }), quota);
+    }
+    return applyEntitlementResponse(
+      NextResponse.json({ error: toSafeError(err, 'paper upload ingest') }, { status: 500 }),
+      quota,
+    );
   }
 
   if (uploadedBuffer && uploadTitle && documentId) {
@@ -261,5 +281,5 @@ export async function POST(req: NextRequest) {
     attachCouncilSessionCookie(response, sessionId, anonymousAccess.plaintextToken);
   }
 
-  return response;
+  return applyEntitlementResponse(response, quota);
 }

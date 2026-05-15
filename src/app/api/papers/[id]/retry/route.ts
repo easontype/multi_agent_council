@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { ensureAccountContextForAuthUser } from "@/lib/auth-account";
 import {
-  getPaperAssetById,
+  getPaperAssetByIdForOwner,
   attachIngestedDocumentToPaperAsset,
   markPaperAssetProcessingFailed,
   markPaperAssetProcessingStarted,
@@ -26,12 +26,11 @@ export const POST = auth(async (req, { params }) => {
     return NextResponse.json({ error: "Missing paper id" }, { status: 400 });
   }
 
-  const asset = await getPaperAssetById(id.trim());
+  const asset = await getPaperAssetByIdForOwner(id.trim(), {
+    workspaceId: account.workspaceId,
+    ownerUserEmail: account.email,
+  });
   if (!asset) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (account.workspaceId && asset.workspace_id && asset.workspace_id !== account.workspaceId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

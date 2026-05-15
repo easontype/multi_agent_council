@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
-import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
+import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer, assertPdfBuffer } from "@/lib/paper-ingest";
 import { recordUploadedFile } from "@/lib/uploaded-files";
-import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { isAllowedExternalUrl, safeFetch } from "@/lib/utils/url-safety";
 import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
 import { toSafeError } from "@/lib/utils/text";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 export async function POST(req: NextRequest) {
   try {
-    const quota = await checkEntitlement(req, "paper_ingest");
-    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+    const account = await resolveAuthAccountContext();
+    const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req);
+    const quota = await checkEntitlement(req, "paper_ingest", anonymousVisitor ?? undefined);
+    if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 
     const pdfLimits = await getPdfLimitsForRequest();
     const contentType = req.headers.get("content-type") ?? "";
@@ -45,6 +48,7 @@ export async function POST(req: NextRequest) {
           );
         }
         uploadedPdfBuffer = Buffer.from(await file.arrayBuffer());
+        assertPdfBuffer(uploadedPdfBuffer);
         uploadedFilename = file.name;
         uploadedMimeType = file.type || "application/pdf";
         if (!title) title = file.name.replace(/\.pdf$/i, "");
@@ -104,6 +108,7 @@ export async function POST(req: NextRequest) {
           { status: 413 },
         );
       }
+      assertPdfBuffer(buffer);
       const parsed = await extractTextFromPdfBuffer(buffer);
       if (parsed.pageCount > pdfLimits.maxPages) {
         return NextResponse.json(
@@ -134,7 +139,6 @@ export async function POST(req: NextRequest) {
       pdfBuffer: markerPdfBuffer,
     });
     if (uploadedPdfBuffer && uploadedFilename) {
-      const account = await resolveAuthAccountContext();
       void recordUploadedFile({
         workspaceId: account?.workspaceId,
         createdByUserId: account?.userId,
@@ -147,8 +151,11 @@ export async function POST(req: NextRequest) {
         libraryId: result.libraryId,
       }).catch(() => {});
     }
-    return NextResponse.json(result);
+    return applyEntitlementResponse(NextResponse.json(result), quota);
   } catch (error) {
+    if (error instanceof Error && error.message === "File does not appear to be a valid PDF") {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: toSafeError(error, 'paper ingest') }, { status: 500 });
   }
 }

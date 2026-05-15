@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getAuthenticatedCouncilOwnerEmail } from "@/lib/core/council-access";
 import { getWorkspaceTierByEmail } from "@/lib/workspace-tier";
+import type { AnonymousVisitorIdentity } from "@/lib/anonymous-access";
+import { buildAnonymousVisitorSetCookie } from "@/lib/anonymous-access";
 
 export type EntitlementAction =
   | "review_create"
@@ -63,25 +65,44 @@ const PRO_LIMITS: Record<EntitlementAction, QuotaWindow[]> = {
   ],
 };
 
-export async function checkEntitlement(req: NextRequest, action: EntitlementAction) {
+export async function checkEntitlement(
+  req: NextRequest,
+  action: EntitlementAction,
+  anonymousVisitor?: AnonymousVisitorIdentity,
+) {
   const email = await getAuthenticatedCouncilOwnerEmail();
   let limits = FREE_LIMITS[action];
   if (email) {
     const tier = await getWorkspaceTierByEmail(email);
     if (tier === 'pro') limits = PRO_LIMITS[action];
   }
-  return enforceAnonymousWebQuota(req, action, limits);
+  return enforceAnonymousWebQuota(req, action, limits, anonymousVisitor);
 }
 
 export function quotaDenied(
   error: string | undefined,
   retryAfterSeconds: number | undefined,
+  anonymousVisitorIdToSet?: string,
 ): NextResponse {
-  return NextResponse.json(
+  const response = NextResponse.json(
     { error: error ?? "Rate limit exceeded" },
     {
       status: 429,
       headers: retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : undefined,
     },
   );
+  return applyEntitlementResponse(response, { anonymousVisitorIdToSet });
+}
+
+export function applyEntitlementResponse<T extends Response>(
+  response: T,
+  quota: { anonymousVisitorIdToSet?: string },
+): T {
+  if (quota.anonymousVisitorIdToSet) {
+    response.headers.append(
+      "Set-Cookie",
+      buildAnonymousVisitorSetCookie(quota.anonymousVisitorIdToSet),
+    );
+  }
+  return response;
 }

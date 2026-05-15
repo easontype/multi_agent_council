@@ -4,26 +4,16 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import { NextResponse } from "next/server";
 
-const DEV_ADMIN_EMAIL = "admin@council.local";
-const DEV_ADMIN_PASSWORD = "dev-password";
-const DEV_AUTH_SECRET = "council-dev-auth-secret-change-in-production";
-
 class InvalidCredentialsError extends CredentialsSignin {
   code = "invalid_credentials";
 }
 
 function getAdminEmail() {
-  return (
-    process.env.AUTH_ADMIN_EMAIL?.trim().toLowerCase() ||
-    (process.env.NODE_ENV !== "production" ? DEV_ADMIN_EMAIL : "")
-  );
+  return process.env.AUTH_ADMIN_EMAIL?.trim().toLowerCase() || "";
 }
 
 function getAdminPassword() {
-  return (
-    process.env.AUTH_ADMIN_PASSWORD ||
-    (process.env.NODE_ENV !== "production" ? DEV_ADMIN_PASSWORD : "")
-  );
+  return process.env.AUTH_ADMIN_PASSWORD || "";
 }
 
 function secureEqual(left: string, right: string) {
@@ -49,8 +39,7 @@ if (googleId && googleSecret) {
 }
 
 const enableCredentials =
-  process.env.AUTH_ENABLE_CREDENTIALS === "true" ||
-  process.env.NODE_ENV !== "production";
+  process.env.AUTH_ENABLE_CREDENTIALS === "true";
 
 if (enableCredentials) providers.push(
   Credentials({
@@ -89,9 +78,7 @@ if (enableCredentials) providers.push(
 
 export const authConfig = {
   trustHost: true,
-  secret:
-    process.env.AUTH_SECRET ||
-    (process.env.NODE_ENV !== "production" ? DEV_AUTH_SECRET : undefined),
+  secret: process.env.AUTH_SECRET,
   pages: {
     signIn: "/login",
   },

@@ -141,11 +141,13 @@ export async function ensureCouncilSchema() {
         CREATE TABLE IF NOT EXISTS paper_assets (
           id                        TEXT PRIMARY KEY,
           workspace_id              TEXT REFERENCES workspaces(id),
+          owner_user_email          TEXT,
+          owner_anon_id_hash        TEXT,
           canonical_title           TEXT NOT NULL DEFAULT '',
           abstract                  TEXT,
           authors                   TEXT[] NOT NULL DEFAULT '{}',
           year                      INTEGER,
-          arxiv_id                  TEXT UNIQUE,
+          arxiv_id                  TEXT,
           canonical_checksum_sha256 TEXT,
           status                    TEXT NOT NULL DEFAULT 'pending',
           processing_error          TEXT,
@@ -176,8 +178,21 @@ export async function ensureCouncilSchema() {
           created_at     TIMESTAMPTZ DEFAULT NOW()
         );
 
+        ALTER TABLE paper_assets ADD COLUMN IF NOT EXISTS owner_user_email TEXT;
+        ALTER TABLE paper_assets ADD COLUMN IF NOT EXISTS owner_anon_id_hash TEXT;
+        ALTER TABLE paper_assets DROP CONSTRAINT IF EXISTS paper_assets_arxiv_id_key;
+
         CREATE INDEX IF NOT EXISTS idx_paper_assets_workspace_id
           ON paper_assets(workspace_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_paper_assets_owner_user_email
+          ON paper_assets(owner_user_email, created_at DESC)
+          WHERE owner_user_email IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_paper_assets_owner_anon_id_hash
+          ON paper_assets(owner_anon_id_hash, created_at DESC)
+          WHERE owner_anon_id_hash IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_paper_assets_arxiv_id
+          ON paper_assets(arxiv_id)
+          WHERE arxiv_id IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_paper_assets_checksum
           ON paper_assets(canonical_checksum_sha256)
           WHERE canonical_checksum_sha256 IS NOT NULL;

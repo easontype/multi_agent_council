@@ -92,8 +92,23 @@ export interface PdfParseResult {
   pageCount: number;
 }
 
+export function isPdfBuffer(buffer: Buffer): boolean {
+  return (
+    buffer.length >= 4 &&
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46
+  );
+}
+
+export function assertPdfBuffer(buffer: Buffer): void {
+  if (!isPdfBuffer(buffer)) throw new Error("File does not appear to be a valid PDF");
+}
+
 /** Extract text from a PDF buffer using pdf-parse, with a hard timeout and output cap. */
 export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<PdfParseResult> {
+  assertPdfBuffer(buffer);
   // @ts-ignore — pdf-parse types are incomplete
   const pdfParse = (await import("pdf-parse")).default;
 

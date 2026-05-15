@@ -16,12 +16,16 @@ const mockedDbQuery = jest.mocked(db.query);
 const mockedGetAuthenticatedCouncilOwnerEmail = jest.mocked(getAuthenticatedCouncilOwnerEmail);
 
 function makeRequest(url: string) {
-  return new Request(url, {
+  const request = new Request(url, {
     headers: {
       "user-agent": "jest-test",
       "x-forwarded-for": "203.0.113.10",
     },
-  }) as never;
+  });
+  return {
+    headers: request.headers,
+    cookies: { get: () => undefined },
+  } as never;
 }
 
 describe("web quota enforcement", () => {
@@ -58,5 +62,33 @@ describe("web quota enforcement", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain("User usage limit reached for review_run");
+  });
+
+  it("keeps the same anonymous quota actor when only the user-agent changes", async () => {
+    mockedGetAuthenticatedCouncilOwnerEmail.mockResolvedValue(null);
+    mockedDbQuery.mockResolvedValue({ rows: [{ count: 1 }] } as never);
+
+    const first = {
+      headers: new Headers({ "user-agent": "ua-one" }),
+      cookies: { get: () => ({ value: "anon-fixed" }) },
+    } as never;
+    const second = {
+      headers: new Headers({ "user-agent": "ua-two" }),
+      cookies: { get: () => ({ value: "anon-fixed" }) },
+    } as never;
+
+    await enforceAnonymousWebQuota(first, "review_create", [
+      { limit: 3, windowSeconds: 600, label: "10 minutes" },
+    ]);
+    await enforceAnonymousWebQuota(second, "review_create", [
+      { limit: 3, windowSeconds: 600, label: "10 minutes" },
+    ]);
+
+    const insertCalls = mockedDbQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes("INSERT INTO web_rate_limits"),
+    );
+
+    expect(insertCalls).toHaveLength(2);
+    expect((insertCalls[0]?.[1] as unknown[])[1]).toBe((insertCalls[1]?.[1] as unknown[])[1]);
   });
 });

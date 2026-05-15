@@ -212,13 +212,6 @@ export function LoginForm({ isLoggedIn }: { isLoggedIn?: boolean }) {
             </Button>
           </form>}
 
-          {/* Dev credentials hint */}
-          {process.env.NODE_ENV !== "production" ? (
-            <div className="mt-[18px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-relaxed text-slate-500">
-              Dev fallback credentials: <code>admin@council.local</code> / <code>dev-password</code>
-            </div>
-          ) : null}
-
           {/* Already signed in banner */}
           {isLoggedIn ? (
             <div className="mt-[18px] flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-[13px] text-green-800">

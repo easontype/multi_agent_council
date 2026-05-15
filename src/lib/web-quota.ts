@@ -2,6 +2,8 @@ import { createHash } from "crypto";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db/db";
 import { getAuthenticatedCouncilOwnerEmail } from "@/lib/core/council-access";
+import type { AnonymousVisitorIdentity } from "@/lib/anonymous-access";
+import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 interface QuotaWindow {
   limit: number;
@@ -13,6 +15,7 @@ export interface WebQuotaResult {
   ok: boolean;
   error?: string;
   retryAfterSeconds?: number;
+  anonymousVisitorIdToSet?: string;
 }
 
 type WebQuotaActor =
@@ -70,27 +73,29 @@ function getRequestIp(req: NextRequest): string {
 // Combines the server-side IP with a stable anonymous session cookie so that
 // a single actor behind "unknown" (local dev / bare Node) still gets bucketed
 // consistently, while IP rotation alone is not enough to bypass limits.
-function buildAnonymousFingerprint(req: NextRequest): string {
+function buildAnonymousFingerprint(req: NextRequest, anonymousVisitor?: AnonymousVisitorIdentity): string {
   const ip = getRequestIp(req);
   // Include a stable anonymous session cookie as secondary signal.
   // This is NOT security-critical alone, but it makes IP-rotation attacks
   // require also rotating cookies — raising the bar meaningfully.
-  const anonSession = req.cookies.get("council_anon")?.value?.slice(0, 64) || "";
-  const userAgent = req.headers.get("user-agent")?.trim().slice(0, 160) || "unknown";
-  return `${ip}|${anonSession}|${userAgent}`;
+  const anonSession = (anonymousVisitor ?? ensureAnonymousVisitorIdentity(req)).plaintextId.slice(0, 64);
+  return `${ip}|${anonSession}`;
 }
 
 function hashAnonymousFingerprint(fingerprint: string): string {
   return createHash("sha256").update(fingerprint).digest("hex");
 }
 
-async function resolveWebQuotaActor(req: NextRequest): Promise<WebQuotaActor> {
+async function resolveWebQuotaActor(
+  req: NextRequest,
+  anonymousVisitor?: AnonymousVisitorIdentity,
+): Promise<WebQuotaActor> {
   const ownerEmail = await getAuthenticatedCouncilOwnerEmail();
   if (ownerEmail) {
     return { kind: "user", key: `user:${ownerEmail}` };
   }
 
-  const fingerprint = buildAnonymousFingerprint(req);
+  const fingerprint = buildAnonymousFingerprint(req, anonymousVisitor);
   return {
     kind: "anonymous",
     key: `anon:${hashAnonymousFingerprint(fingerprint)}`,
@@ -121,8 +126,9 @@ export async function enforceAnonymousWebQuota(
   req: NextRequest,
   action: string,
   windows: QuotaWindow[],
+  anonymousVisitor?: AnonymousVisitorIdentity,
 ): Promise<WebQuotaResult> {
-  const actor = await resolveWebQuotaActor(req);
+  const actor = await resolveWebQuotaActor(req, anonymousVisitor);
   await ensureWebQuotaSchema();
 
   const now = Date.now();
@@ -138,9 +144,19 @@ export async function enforceAnonymousWebQuota(
         ok: false,
         error: `${actor.kind === "user" ? "User" : "Anonymous"} usage limit reached for ${action}: ${window.limit} per ${window.label}.`,
         retryAfterSeconds,
+        anonymousVisitorIdToSet:
+          actor.kind === "anonymous" && anonymousVisitor?.needsSetCookie
+            ? anonymousVisitor.plaintextId
+            : undefined,
       };
     }
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    anonymousVisitorIdToSet:
+      actor.kind === "anonymous" && anonymousVisitor?.needsSetCookie
+        ? anonymousVisitor.plaintextId
+        : undefined,
+  };
 }

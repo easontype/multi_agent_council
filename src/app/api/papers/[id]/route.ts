@@ -18,7 +18,10 @@ export const GET = auth(async (req, { params }) => {
     return NextResponse.json({ error: "Missing paper id" }, { status: 400 });
   }
 
-  const detail = await getPaperAssetDetail(id.trim(), account.workspaceId);
+  const detail = await getPaperAssetDetail(id.trim(), {
+    workspaceId: account.workspaceId,
+    ownerUserEmail: account.email,
+  });
   if (!detail) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
