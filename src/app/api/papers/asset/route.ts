@@ -10,8 +10,7 @@ import {
   markPaperAssetProcessingStarted,
   resolvePaperAsset,
 } from "@/lib/paper-assets";
-
-const MAX_PDF_BYTES = 20 * 1024 * 1024;
+import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
 
 /**
  * POST /api/papers/asset
@@ -31,6 +30,8 @@ export async function POST(req: NextRequest) {
   const quota = await checkEntitlement(req, "web_analyze");
   if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
 
+  const pdfLimits = await getPdfLimitsForRequest();
+
   const contentType = req.headers.get("content-type") ?? "";
   let arxivId: string | undefined;
   let uploadedBuffer: Buffer | undefined;
@@ -41,8 +42,15 @@ export async function POST(req: NextRequest) {
     arxivId = (form.get("arxivId") as string) || undefined;
     const file = form.get("file") as File | null;
     if (file) {
-      if (file.size > MAX_PDF_BYTES) {
-        return NextResponse.json({ error: "PDF exceeds 20 MB limit" }, { status: 413 });
+      if (file.size > pdfLimits.maxBytes) {
+        const limitMb = pdfLimits.maxBytes / 1024 / 1024;
+        const upgradeTip = pdfLimits.tier === "free"
+          ? ` Upgrade to Pro for up to ${PDF_TIER_LIMITS.pro.maxBytes / 1024 / 1024} MB.`
+          : "";
+        return NextResponse.json(
+          { error: `PDF exceeds the ${limitMb} MB limit for your plan.${upgradeTip}` },
+          { status: 413 },
+        );
       }
       uploadedBuffer = Buffer.from(await file.arrayBuffer());
       uploadTitle = file.name.replace(/\.pdf$/i, "");
@@ -65,7 +73,17 @@ export async function POST(req: NextRequest) {
 
   try {
     if (uploadedBuffer) {
-      paperText = await extractTextFromPdfBuffer(uploadedBuffer);
+      const parsed = await extractTextFromPdfBuffer(uploadedBuffer);
+      if (parsed.pageCount > pdfLimits.maxPages) {
+        const upgradeTip = pdfLimits.tier === "free"
+          ? ` Upgrade to Pro for up to ${PDF_TIER_LIMITS.pro.maxPages} pages.`
+          : "";
+        return NextResponse.json(
+          { error: `PDF has ${parsed.pageCount} pages, exceeding the ${pdfLimits.maxPages}-page limit for your plan.${upgradeTip}` },
+          { status: 413 },
+        );
+      }
+      paperText = parsed.text;
       paperTitle = uploadTitle ?? "Uploaded Paper";
       sourceUrl = "upload";
       markerPdfBuffer = uploadedBuffer;

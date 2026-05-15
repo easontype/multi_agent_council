@@ -4,14 +4,14 @@ import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/pa
 import { recordUploadedFile } from "@/lib/uploaded-files";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { isAllowedExternalUrl } from "@/lib/utils/url-safety";
-
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
 
 export async function POST(req: NextRequest) {
   try {
     const quota = await checkEntitlement(req, "paper_ingest");
     if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
 
+    const pdfLimits = await getPdfLimitsForRequest();
     const contentType = req.headers.get("content-type") ?? "";
 
     // Support both JSON and multipart/form-data (PDF upload)
@@ -33,9 +33,13 @@ export async function POST(req: NextRequest) {
       libraryId = form.get("libraryId") as string | undefined ?? undefined;
       const file = form.get("file") as File | null;
       if (file) {
-        if (file.size > MAX_UPLOAD_BYTES) {
+        if (file.size > pdfLimits.maxBytes) {
+          const limitMb = pdfLimits.maxBytes / 1024 / 1024;
+          const upgradeTip = pdfLimits.tier === "free"
+            ? ` Upgrade to Pro for up to ${PDF_TIER_LIMITS.pro.maxBytes / 1024 / 1024} MB.`
+            : "";
           return NextResponse.json(
-            { error: "PDF upload exceeds the 20 MB limit" },
+            { error: `PDF exceeds the ${limitMb} MB limit for your plan.${upgradeTip}` },
             { status: 413 },
           );
         }
@@ -56,7 +60,17 @@ export async function POST(req: NextRequest) {
     let markerPdfBuffer: Buffer | undefined;
 
     if (uploadedPdfBuffer) {
-      paperText = await extractTextFromPdfBuffer(uploadedPdfBuffer);
+      const parsed = await extractTextFromPdfBuffer(uploadedPdfBuffer);
+      if (parsed.pageCount > pdfLimits.maxPages) {
+        const upgradeTip = pdfLimits.tier === "free"
+          ? ` Upgrade to Pro for up to ${PDF_TIER_LIMITS.pro.maxPages} pages.`
+          : "";
+        return NextResponse.json(
+          { error: `PDF has ${parsed.pageCount} pages, exceeding the ${pdfLimits.maxPages}-page limit for your plan.${upgradeTip}` },
+          { status: 413 },
+        );
+      }
+      paperText = parsed.text;
       sourceUrl = "upload";
       sourceType = "local_doc";
       markerPdfBuffer = uploadedPdfBuffer;
@@ -74,7 +88,21 @@ export async function POST(req: NextRequest) {
       const res = await fetch(pdfUrl);
       if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());
-      paperText = await extractTextFromPdfBuffer(buffer);
+      if (buffer.byteLength > pdfLimits.maxBytes) {
+        const limitMb = pdfLimits.maxBytes / 1024 / 1024;
+        return NextResponse.json(
+          { error: `Remote PDF exceeds the ${limitMb} MB limit for your plan.` },
+          { status: 413 },
+        );
+      }
+      const parsed = await extractTextFromPdfBuffer(buffer);
+      if (parsed.pageCount > pdfLimits.maxPages) {
+        return NextResponse.json(
+          { error: `PDF has ${parsed.pageCount} pages, exceeding the ${pdfLimits.maxPages}-page limit for your plan.` },
+          { status: 413 },
+        );
+      }
+      paperText = parsed.text;
       sourceUrl = pdfUrl;
       sourceType = "web";
       markerPdfBuffer = buffer;

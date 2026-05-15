@@ -47,33 +47,37 @@ async function ensureWebQuotaSchema(): Promise<void> {
   await webQuotaSchemaReady;
 }
 
+// Returns the deployment-injected IP only — never a client-controlled header.
+// On Vercel, `x-forwarded-for` is rewritten by the edge to contain the real client
+// IP as the FIRST entry (Vercel prepends, not appends). On Cloudflare it is
+// `cf-connecting-ip`. On bare Node (local dev) we fall back to "unknown" rather
+// than trusting any client-supplied value.
 function getRequestIp(req: NextRequest): string {
-  // Priority 1: Cloudflare sets this header authoritatively — clients cannot spoof it
+  // Cloudflare: authoritative, clients cannot inject this header
   const cfIp = req.headers.get("cf-connecting-ip")?.trim();
   if (cfIp) return cfIp;
 
-  // Priority 2: Trusted proxy (e.g. Railway, Render, Nginx) sets X-Real-IP directly;
-  // most platforms strip or override client-supplied values for this header
+  // Vercel / Railway / Render: platform sets X-Real-IP, not the client
   const realIp = req.headers.get("x-real-ip")?.trim();
   if (realIp) return realIp;
 
-  // Priority 3: X-Forwarded-For — take the LAST IP added by the trusted proximate hop,
-  // not the first (which a client can inject). If there is only one entry it is still
-  // client-controlled when there is no upstream proxy, so this is a best-effort fallback.
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const ips = forwardedFor.split(",").map((s) => s.trim()).filter(Boolean);
-    const last = ips[ips.length - 1];
-    if (last) return last;
-  }
-
+  // DO NOT trust X-Forwarded-For — it is client-controllable when there is no
+  // upstream proxy that strips/overwrites it. Using it as a rate-limit key allows
+  // trivial bypass by rotating the header value.
   return "unknown";
 }
 
+// Combines the server-side IP with a stable anonymous session cookie so that
+// a single actor behind "unknown" (local dev / bare Node) still gets bucketed
+// consistently, while IP rotation alone is not enough to bypass limits.
 function buildAnonymousFingerprint(req: NextRequest): string {
   const ip = getRequestIp(req);
+  // Include a stable anonymous session cookie as secondary signal.
+  // This is NOT security-critical alone, but it makes IP-rotation attacks
+  // require also rotating cookies — raising the bar meaningfully.
+  const anonSession = req.cookies.get("council_anon")?.value?.slice(0, 64) || "";
   const userAgent = req.headers.get("user-agent")?.trim().slice(0, 160) || "unknown";
-  return `${ip}|${userAgent}`;
+  return `${ip}|${anonSession}|${userAgent}`;
 }
 
 function hashAnonymousFingerprint(fingerprint: string): string {

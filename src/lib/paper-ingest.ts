@@ -79,18 +79,39 @@ export async function fetchArxivPaper(arxivId: string): Promise<FetchArxivPaperR
   if (!pdfRes.ok) throw new Error(`Failed to fetch arXiv PDF: ${pdfRes.status}`);
   const buffer = await pdfRes.arrayBuffer();
   const pdfBuffer = Buffer.from(buffer);
-  const text = await extractTextFromPdfBuffer(pdfBuffer);
+  const { text } = await extractTextFromPdfBuffer(pdfBuffer);
 
   return { title, text, url: pdfUrl, pdfBuffer };
 }
 
-/** Extract text from a PDF buffer using pdf-parse */
-export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
-  // Dynamic import to avoid SSR issues
+const PDF_PARSE_TIMEOUT_MS = 10_000;
+const PDF_MAX_TEXT_BYTES   = 300_000; // hard output cap — prevents downstream LLM cost explosion
+
+export interface PdfParseResult {
+  text: string;
+  pageCount: number;
+}
+
+/** Extract text from a PDF buffer using pdf-parse, with a hard timeout and output cap. */
+export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<PdfParseResult> {
   // @ts-ignore — pdf-parse types are incomplete
   const pdfParse = (await import("pdf-parse")).default;
-  const data = await pdfParse(buffer);
-  return data.text as string;
+
+  const data = await Promise.race([
+    pdfParse(buffer) as Promise<{ text: string; numpages: number }>,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("PDF parsing timed out — file may be corrupt or too complex")),
+        PDF_PARSE_TIMEOUT_MS,
+      )
+    ),
+  ]);
+
+  const raw = data.text ?? "";
+  return {
+    text:      raw.length > PDF_MAX_TEXT_BYTES ? raw.slice(0, PDF_MAX_TEXT_BYTES) : raw,
+    pageCount: data.numpages ?? 0,
+  };
 }
 
 /** Ingest a paper into the document store and return libraryId for Council */

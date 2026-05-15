@@ -139,7 +139,12 @@ export const handlers: Record<string, Handler> = {
         });
         if (!pdfRes.ok) return `PDF fetch failed for DOI ${identifier}: HTTP ${pdfRes.status}`;
         markerPdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-        text = await extractTextFromPdfBuffer(markerPdfBuffer);
+        const { PDF_TIER_LIMITS } = await import("../../pdf-limits");
+        const parsed = await extractTextFromPdfBuffer(markerPdfBuffer);
+        if (parsed.pageCount > PDF_TIER_LIMITS.pro.maxPages) {
+          return `PDF has ${parsed.pageCount} pages, exceeding the ${PDF_TIER_LIMITS.pro.maxPages}-page processing limit.`;
+        }
+        text = parsed.text;
         sourceUrl = pdfUrl;
         sourceType = "academic";
 
