@@ -17,6 +17,7 @@ import {
 } from "@/lib/paper-assets";
 import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
+import { toSafeError } from "@/lib/utils/text";
 
 export async function POST(req: NextRequest) {
   // Rate limit
@@ -140,8 +141,7 @@ export async function POST(req: NextRequest) {
       sourceKind = "arxiv";
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to fetch paper";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: toSafeError(err, 'paper upload fetch') }, { status: 502 });
   }
 
   if (!paperText.trim()) {
@@ -193,8 +193,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     await markPaperAssetProcessingFailed(paperAssetResolution.asset.id, err).catch(() => {});
-    const msg = err instanceof Error ? err.message : "Failed to ingest paper";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: toSafeError(err, 'paper upload ingest') }, { status: 500 });
   }
 
   if (uploadedBuffer && uploadTitle && documentId) {
@@ -246,8 +245,7 @@ export async function POST(req: NextRequest) {
     });
     sessionId = session.id;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to create session";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: toSafeError(err, 'paper upload session') }, { status: 500 });
   }
 
   const response = NextResponse.json({

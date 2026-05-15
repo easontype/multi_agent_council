@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { canAccessCouncilSession } from '@/lib/core/council-access'
 import { answerCouncilPaperQuestion } from '@/lib/core/council-paper-chat'
 import { checkEntitlement, quotaDenied } from '@/lib/entitlements'
+import { toSafeError } from '@/lib/utils/text'
 
 export async function POST(
   req: NextRequest,
@@ -26,7 +27,6 @@ export async function POST(
     const result = await answerCouncilPaperQuestion(id, question)
     return NextResponse.json(result)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to answer question'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: toSafeError(error, 'chat answer') }, { status: 500 })
   }
 }

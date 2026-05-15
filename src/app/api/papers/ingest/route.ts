@@ -3,8 +3,9 @@ import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
 import { recordUploadedFile } from "@/lib/uploaded-files";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
-import { isAllowedExternalUrl } from "@/lib/utils/url-safety";
+import { isAllowedExternalUrl, safeFetch } from "@/lib/utils/url-safety";
 import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
+import { toSafeError } from "@/lib/utils/text";
 
 export async function POST(req: NextRequest) {
   try {
@@ -85,7 +86,15 @@ export async function POST(req: NextRequest) {
       if (!isAllowedExternalUrl(pdfUrl)) {
         return NextResponse.json({ error: "Invalid or disallowed URL" }, { status: 400 });
       }
-      const res = await fetch(pdfUrl);
+      let res: Response;
+      try {
+        res = await safeFetch(pdfUrl);
+      } catch (e) {
+        if (e instanceof Error && (e as NodeJS.ErrnoException & { ssrfBlocked?: boolean }).ssrfBlocked) {
+          return NextResponse.json({ error: "Invalid or disallowed URL" }, { status: 400 });
+        }
+        throw e;
+      }
       if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());
       if (buffer.byteLength > pdfLimits.maxBytes) {
@@ -140,9 +149,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: toSafeError(error, 'paper ingest') }, { status: 500 });
   }
 }

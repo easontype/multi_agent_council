@@ -10,6 +10,7 @@ import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 import type { CouncilSeat } from "@/lib/core/council-types";
+import { validateUserSystemPrompt, toSafeError } from "@/lib/utils/text";
 
 const DOMAIN_SEATS: Record<string, ((model: string) => CouncilSeat[]) | undefined> = {
   general: (model) => buildAcademicCritiqueSeats(model),
@@ -107,9 +108,29 @@ export async function POST(req: NextRequest) {
   let goal: string;
 
   if (sessionType === "debate") {
-    const optionA = typeof body.optionA === "string" ? body.optionA.trim() : "Support";
-    const optionB = typeof body.optionB === "string" ? body.optionB.trim() : "Challenge";
-    const context = typeof body.context === "string" ? body.context.trim() : "";
+    const rawA = typeof body.optionA === "string" ? body.optionA.trim() : "Support";
+    const rawB = typeof body.optionB === "string" ? body.optionB.trim() : "Challenge";
+    const rawContext = typeof body.context === "string" ? body.context.trim() : "";
+
+    if (rawA.length > 200)
+      return NextResponse.json({ error: "optionA must be 200 characters or fewer" }, { status: 422 });
+    if (rawB.length > 200)
+      return NextResponse.json({ error: "optionB must be 200 characters or fewer" }, { status: 422 });
+    if (rawContext.length > 1000)
+      return NextResponse.json({ error: "context must be 1000 characters or fewer" }, { status: 422 });
+
+    const optACheck = validateUserSystemPrompt(rawA);
+    if (!optACheck.ok) return NextResponse.json({ error: `Invalid optionA: ${optACheck.reason}` }, { status: 422 });
+    const optBCheck = validateUserSystemPrompt(rawB);
+    if (!optBCheck.ok) return NextResponse.json({ error: `Invalid optionB: ${optBCheck.reason}` }, { status: 422 });
+    const ctxCheck = validateUserSystemPrompt(rawContext);
+    if (!ctxCheck.ok) return NextResponse.json({ error: `Invalid context: ${ctxCheck.reason}` }, { status: 422 });
+
+    // Pass raw values — buildAdversarialTeam() applies sanitizeUserInput() internally.
+    const optionA = rawA;
+    const optionB = rawB;
+    const context = rawContext;
+
     const selectedRoleIds = Array.isArray(body.selectedRoleIds)
       ? (body.selectedRoleIds as unknown[]).filter(x => typeof x === "string") as string[]
       : [];
@@ -149,8 +170,7 @@ export async function POST(req: NextRequest) {
     });
     sessionId = session.id;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to create session";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: toSafeError(err, 'session from-asset create') }, { status: 500 });
   }
 
   const response = NextResponse.json({ sessionId, paperTitle, paperAbstract }, { status: 201 });

@@ -9,6 +9,7 @@ import {
 } from "@/lib/paper-assets";
 import { fetchArxivPaper, ingestPaper } from "@/lib/paper-ingest";
 import { NextResponse } from "next/server";
+import { toSafeError } from "@/lib/utils/text";
 
 export const POST = auth(async (req, { params }) => {
   if (!req.auth?.user) {
@@ -72,7 +73,6 @@ export const POST = auth(async (req, { params }) => {
     return NextResponse.json({ status: updated.status, markerProcessed: updated.marker_processed });
   } catch (err) {
     await markPaperAssetProcessingFailed(asset.id, err).catch(() => {});
-    const msg = err instanceof Error ? err.message : "Retry failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: toSafeError(err, 'paper retry') }, { status: 500 });
   }
 });

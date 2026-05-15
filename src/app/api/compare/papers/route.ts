@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runLLM } from "@/lib/llm/claude";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { toSafeError } from "@/lib/utils/text";
 
 export interface PaperMeta {
   arxivId: string;
@@ -103,7 +104,6 @@ ${sections}`;
 
     return NextResponse.json({ papers, comparison });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "LLM comparison failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: toSafeError(err, 'paper compare') }, { status: 500 });
   }
 }

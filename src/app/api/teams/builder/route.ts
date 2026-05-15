@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { checkEntitlement, quotaDenied } from '@/lib/entitlements'
 import { generateTeamWithAI } from '@/lib/team-builder'
 import type { TeamBuilderBrief } from '@/lib/prompts/review-presets'
+import { toSafeError } from '@/lib/utils/text'
 
 function isValidBrief(value: unknown): value is TeamBuilderBrief {
   if (!value || typeof value !== 'object') return false
@@ -31,7 +32,6 @@ export async function POST(req: NextRequest) {
     const result = await generateTeamWithAI({ request, brief })
     return NextResponse.json(result)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to generate team'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: toSafeError(error, 'team builder') }, { status: 500 })
   }
 }

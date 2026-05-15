@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { listTeamTemplatesForWorkspace, upsertTeamTemplate } from "@/lib/team-templates";
+import { toSafeError } from "@/lib/utils/text";
 
 export async function GET() {
   const account = await resolveAuthAccountContext();
@@ -32,7 +33,6 @@ export async function POST(req: NextRequest) {
     const templates = await listTeamTemplatesForWorkspace(account.workspaceId);
     return NextResponse.json({ template, templates }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save team template";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: toSafeError(error, 'team template save') }, { status: 500 });
   }
 }

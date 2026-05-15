@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { toSafeError } from "@/lib/utils/text";
 
 /**
  * GET /api/papers/preview?arxiv=XXXX
@@ -46,7 +47,6 @@ export async function GET(req: NextRequest) {
       arxivId: resolvedId,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Preview fetch failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: toSafeError(err, 'paper preview') }, { status: 500 });
   }
 }

@@ -210,8 +210,16 @@ async function embedDocument(documentId: string) {
   await embedDocumentById(documentId);
 }
 
+// Strings that, if present in a PDF chunk, could escape the [TOOL_RESULT] /
+// <user_input> prompt delimiters used in turn-executor and council-prompts.
+// We replace them with visually similar but structurally inert alternatives.
+const PROMPT_DELIMITER_RE = /\[\/TOOL_RESULT[^\]]*\]|\[TOOL_RESULT[^\]]*\]|\[SYSTEM\]|\[ADMIN\]|\[DEVELOPER[^\]]*\]/gi;
+
 function sanitizePaperContent(text: string): string {
-  return text.replace(/\0/g, "").slice(0, 200_000);
+  return text
+    .replace(/\0/g, "")                        // null bytes
+    .replace(PROMPT_DELIMITER_RE, (m) => `​${m}`) // zero-width prefix neutralises delimiter parsing
+    .slice(0, 200_000);
 }
 
 function hashPaperContent(content: string): string {

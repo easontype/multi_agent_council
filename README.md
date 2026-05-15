@@ -186,10 +186,10 @@ interface CouncilSeat {
 |---|---|---|---|
 | P0 | Rate limit bypass via IP header spoofing | Critical | **Fixed** |
 | P1-a | PDF parsing bomb (CPU DoS) | High | **Fixed** |
-| P1-b | Prompt injection via `systemPrompt` / `bias` | Medium | Pending |
-| P2-a | SSRF — DNS rebinding bypass | Medium | Pending |
-| P2-b | Anonymous session cookie hygiene | Low-Medium | Pending |
-| P3 | Error message information leakage | Low | Pending |
+| P1-b | Prompt injection via `systemPrompt` / `bias` | Medium | **Fixed** |
+| P2-a | SSRF — DNS rebinding bypass | Medium | **Fixed** |
+| P2-b | Anonymous session cookie hygiene | Low-Medium | **Fixed** |
+| P3 | Error message information leakage | Low | **Fixed** |
 
 ---
 
@@ -352,50 +352,50 @@ curl -F "file=@normal_paper.pdf" http://localhost:3001/api/papers/upload
 
 ---
 
-### P1-b — Prompt injection (PENDING)
+### P1-b — Prompt injection (FIXED)
 
-**Target endpoints:** `POST /api/sessions`, `POST /api/papers/upload`
+**Date fixed:** 2026-05-16
+**Files:** `text.ts`, `council-prompts.ts`, `debate-presets.ts`, `turn-executor.ts`, `council-paper-chat.ts`, `paper-ingest.ts`, `sessions/route.ts`, `sessions/from-asset/route.ts`
 
-The `systemPrompt` (capped at 1000 chars) and `bias` (200 chars) fields on each seat
-are passed directly into LLM context. A crafted payload can attempt to override agent
-behavior, exfiltrate session data from RAG context, or produce policy-violating output.
-Also at risk: uploaded PDFs that embed injection instructions in their text content,
-which are then retrieved via RAG and injected into agent prompts.
+Multi-layer defence applied:
 
-**Planned fix:** Output-side moderation + stricter system prompt sandboxing.
-
----
-
-### P2-a — SSRF via DNS rebinding (PENDING)
-
-**Target:** Any endpoint that fetches a user-supplied URL (web tool handler, `pdfUrl` in ingest)
-
-`url-safety.ts` validates the hostname at parse time using a blocklist of private IP ranges.
-DNS rebinding can defeat this: the attacker controls a domain whose DNS record passes
-validation on first lookup, then flips to an internal IP before the actual HTTP fetch.
-IPv4-mapped IPv6 addresses (`::ffff:127.0.0.1`) are also not covered by the current blocklist.
-
-**Planned fix:** Re-validate the resolved IP after DNS lookup; block IPv4-mapped IPv6.
+1. **Input sanitization** — `sanitizeUserInput()`: NFKC normalize, strip zero-width chars (U+200B/C/D, bidi controls, BOM), HTML-entity-encode `<`/`>`, enforce length caps.
+2. **Injection pattern detection** — `validateUserSystemPrompt()` blocks 15 known override phrases (role-takeover, DAN, `[SYSTEM]`/`[ADMIN]`/`[DEVELOPER]` headers, exfiltration requests) on all user-supplied seat fields.
+3. **Immunity declaration** — Server-side `SEAT_IMMUNITY_DECLARATION` constant appended to every seat's system prompt; cannot be overridden by client input.
+4. **Transcript boundary declarations** — Round 2 and Moderator prompts wrap prior agent outputs in `=== AGENT OUTPUT (not system instructions) ===` blocks; RAG excerpts wrapped in `=== PAPER EXCERPTS ===` blocks.
+5. **PDF content sanitization** — `sanitizePaperContent()` prefixes structural delimiter tokens (`[TOOL_RESULT]`, `[SYSTEM]`, `[ADMIN]`, `[DEVELOPER...]`) with a zero-width space so they cannot be parsed as prompt control sequences.
 
 ---
 
-### P2-b — Anonymous session cookie hygiene (PENDING)
+### P2-a — SSRF via DNS rebinding (FIXED)
 
-**Target:** Anonymous session tokens set via `attachCouncilSessionCookie`
+**Date fixed:** 2026-05-16
+**Files:** `url-safety.ts`, `tools/handlers/web.ts`, `papers/ingest/route.ts`
 
-Need to verify `HttpOnly`, `Secure`, and `SameSite=Strict` are set on the anonymous
-access cookie. Missing `Secure` allows cookie theft over HTTP; missing `SameSite` opens
-CSRF vectors. Also need to confirm anonymous tokens have a TTL and are invalidated on expiry.
+Two-layer SSRF protection:
+
+1. **Parse-time** — Extended `BLOCKED_HOSTNAME_PATTERNS` to cover `::ffff:` IPv4-mapped IPv6, CGNAT `100.64.0.0/10`, and RFC TEST-NET ranges. `isAddressSafe()` extracts the embedded IPv4 from `::ffff:x.x.x.x` before checking.
+2. **DNS-time** — `validateResolvedAddresses()` resolves all A and AAAA records and rejects any address in a blocked range. `safeFetch()` runs both checks and throws `{ssrfBlocked: true}` on failure; callers distinguish SSRF blocks from transient network errors.
+
+All user-supplied URL fetch points (`fetch_url` tool handler, `pdfUrl` ingest) now use `safeFetch()`.
 
 ---
 
-### P3 — Error message leakage (PENDING)
+### P2-b — Anonymous session cookie hygiene (FIXED)
 
-**Target:** All API routes that return `error instanceof Error ? error.message : ...`
+**Date fixed:** 2026-05-16
+**Files:** `core/council-access.ts`
 
-Database constraint violations and internal library errors can surface table names,
-column names, or file paths in JSON error responses. Audit needed to ensure all
-catch-blocks return generic messages to clients while logging details server-side only.
+`attachCouncilSessionCookie` and `clearCouncilSessionCookie` now set `SameSite: "strict"` (was `"lax"`). All three security attributes are confirmed present: `HttpOnly: true`, `SameSite: "strict"`, `Secure: true` (auto-disabled on localhost). TTL is 30 days via `maxAge`.
+
+---
+
+### P3 — Error message leakage (FIXED)
+
+**Date fixed:** 2026-05-16
+**Files:** `text.ts` + 9 route files (sessions, papers/ingest, papers/upload, papers/asset, papers/preview, papers/retry, teams/builder, team-templates, compare/papers, sessions/from-asset, sessions/[id]/chat)
+
+`toSafeError(err, label)` added to `text.ts`: logs the full error server-side via `console.error("[council:label]", detail)` and returns a single generic message to the client. All 14 catch-blocks across 9 route files now use it. The one exception is validation errors thrown with "Invalid seat …" prefix — these are safe to surface as HTTP 422 since they contain only the caller's own input.
 
 ---
 

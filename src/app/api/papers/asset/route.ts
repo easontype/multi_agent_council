@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { toSafeError } from "@/lib/utils/text";
 import { recordUploadedFile } from "@/lib/uploaded-files";
 import {
   attachIngestedDocumentToPaperAsset,
@@ -97,8 +98,7 @@ export async function POST(req: NextRequest) {
       sourceKind = "arxiv";
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to fetch paper";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: toSafeError(err, 'paper asset fetch') }, { status: 502 });
   }
 
   if (!paperText.trim()) {
@@ -160,8 +160,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       await markPaperAssetProcessingFailed(paperAssetResolution.asset.id, err).catch(() => {});
-      const msg = err instanceof Error ? err.message : "Failed to ingest paper";
-      return NextResponse.json({ error: msg }, { status: 500 });
+      return NextResponse.json({ error: toSafeError(err, 'paper asset ingest') }, { status: 500 });
     }
   }
 

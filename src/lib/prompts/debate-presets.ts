@@ -8,6 +8,10 @@ import {
 import type { CouncilSeat } from '../core/council-types'
 import type { ReviewDomain } from './review-presets'
 import { DEFAULT_GEMMA_MODEL } from '../llm/gemma-models'
+import { sanitizeUserInput } from '../utils/text'
+
+const OPTION_MAX_LENGTH = 200
+const CONTEXT_MAX_LENGTH = 1000
 
 export interface AdversarialDebateConfig {
   optionA: string
@@ -34,6 +38,9 @@ function buildMirrorSeat(
   context: string,
   team: 'option_a' | 'option_b',
 ): CouncilSeat {
+  // forOption / againstOption / context have already been sanitized by
+  // buildAdversarialTeam(); sanitizeUserInput() encoded < and > so they
+  // cannot escape the surrounding prompt structure.
   const systemPrompt = [
     `You are ${def.role}, and in this debate your position is to support "${forOption}".`,
     ``,
@@ -77,10 +84,15 @@ export function buildAdversarialTeam(config: AdversarialDebateConfig): CouncilSe
     .map((def) => config.customSeatPrompts?.[def.id]
       ? { ...def, systemPrompt: config.customSeatPrompts[def.id] }
       : def)
-  const context = config.context?.trim() || `Compare the advantages and disadvantages of ${config.optionA} vs ${config.optionB}`
 
-  const teamA = selected.map((def) => buildMirrorSeat(def, config.optionA, config.optionB, context, 'option_a'))
-  const teamB = selected.map((def) => buildMirrorSeat(def, config.optionB, config.optionA, context, 'option_b'))
+  // Sanitize all user-supplied free-text fields before embedding in prompts.
+  const optionA  = sanitizeUserInput(config.optionA,  OPTION_MAX_LENGTH)
+  const optionB  = sanitizeUserInput(config.optionB,  OPTION_MAX_LENGTH)
+  const rawCtx   = sanitizeUserInput(config.context,  CONTEXT_MAX_LENGTH)
+  const context  = rawCtx || `Compare the advantages and disadvantages of ${optionA} vs ${optionB}`
+
+  const teamA = selected.map((def) => buildMirrorSeat(def, optionA, optionB, context, 'option_a'))
+  const teamB = selected.map((def) => buildMirrorSeat(def, optionB, optionA, context, 'option_b'))
 
   return [...teamA, ...teamB, ADVERSARIAL_MODERATOR]
 }

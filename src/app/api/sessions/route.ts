@@ -8,6 +8,7 @@ import {
 } from "@/lib/core/council-access";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
+import { validateUserSystemPrompt, sanitizeUserInput, toSafeError } from "@/lib/utils/text";
 
 export const GET = auth(async (req) => {
   if (!req.auth?.user) {
@@ -46,13 +47,29 @@ export async function POST(req: NextRequest) {
       autoPlan:     typeof raw.autoPlan === "boolean"    ? raw.autoPlan                   : undefined,
       maxSeats:     typeof raw.maxSeats === "number"     ? Math.min(Math.max(1, raw.maxSeats), 6) : undefined,
       debate_mode:  raw.debate_mode === "adversarial"    ? ("adversarial" as const)       : ("critique" as const),
-      // Force server-side model on each seat to prevent model-cost abuse
+        // Validate custom seat prompts for injection patterns before processing.
+      // This runs before the map so we can return early on a bad seat.
+      ...(Array.isArray(raw.seats) && (() => {
+        for (const s of raw.seats as Record<string, unknown>[]) {
+          if (typeof s.systemPrompt === "string") {
+            const check = validateUserSystemPrompt(s.systemPrompt);
+            if (!check.ok) throw new Error(`Invalid seat systemPrompt: ${check.reason}`);
+          }
+          if (typeof s.bias === "string") {
+            const check = validateUserSystemPrompt(s.bias);
+            if (!check.ok) throw new Error(`Invalid seat bias: ${check.reason}`);
+          }
+        }
+        return {};
+      })()),
+      // Force server-side model on each seat to prevent model-cost abuse.
+      // systemPrompt and bias are validated for injection patterns before use.
       seats: Array.isArray(raw.seats)
         ? (raw.seats as Record<string, unknown>[]).map((s) => ({
             role:         typeof s.role === "string"         ? s.role.slice(0, 80)           : "",
             model:        DEFAULT_GEMMA_MODEL,
-            systemPrompt: typeof s.systemPrompt === "string" ? s.systemPrompt.slice(0, 1000) : "",
-            bias:         typeof s.bias === "string"         ? s.bias.slice(0, 200)          : undefined,
+            systemPrompt: typeof s.systemPrompt === "string" ? sanitizeUserInput(s.systemPrompt, 1000) : "",
+            bias:         typeof s.bias === "string"         ? sanitizeUserInput(s.bias, 200)           : undefined,
             tools:        Array.isArray(s.tools) ? (s.tools as string[]).filter((t) => typeof t === "string") : undefined,
             library_id:   typeof s.library_id === "string"  ? s.library_id                  : undefined,
             team:         typeof s.team === "string"         ? s.team                        : undefined,
@@ -75,7 +92,10 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "failed to create council session";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const message = error instanceof Error ? error.message : "";
+    if (message.startsWith("Invalid seat")) {
+      return NextResponse.json({ error: message }, { status: 422 });
+    }
+    return NextResponse.json({ error: toSafeError(error, "session create") }, { status: 500 });
   }
 }
