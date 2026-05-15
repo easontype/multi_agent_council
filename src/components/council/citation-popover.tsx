@@ -21,6 +21,7 @@ export interface CitationPopoverProps {
   anchorRect: DOMRect
   onClose: () => void
   onLocateInDocument?: (docId: string, chunkIndex: number) => void
+  sessionId?: string
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -62,10 +63,12 @@ function PopoverContent({
   annotation,
   onClose,
   onLocateInDocument,
+  sessionId,
 }: {
   annotation: EvidenceAnnotation
   onClose: () => void
   onLocateInDocument?: (docId: string, chunkIndex: number) => void
+  sessionId?: string
 }) {
   const [ctx, setCtx] = useState<ChunkContext | null>(null)
   const [loading, setLoading] = useState(false)
@@ -81,7 +84,8 @@ function PopoverContent({
   useEffect(() => {
     if (!sourceRef.doc_id || sourceRef.chunk_index == null) return
     setLoading(true)
-    fetch(`/api/documents/${sourceRef.doc_id}/chunks/${sourceRef.chunk_index}/context`)
+    const sessionParam = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''
+    fetch(`/api/documents/${sourceRef.doc_id}/chunks/${sourceRef.chunk_index}/context${sessionParam}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: ChunkContext) => setCtx(data))
       .catch(() => setFetchFailed(true))
@@ -255,7 +259,7 @@ function PopoverContent({
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export function CitationPopover({ annotation, anchorRect, onClose, onLocateInDocument }: CitationPopoverProps) {
+export function CitationPopover({ annotation, anchorRect, onClose, onLocateInDocument, sessionId }: CitationPopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const POPOVER_WIDTH = 360
   const OFFSET = 10
@@ -310,6 +314,7 @@ export function CitationPopover({ annotation, anchorRect, onClose, onLocateInDoc
         annotation={annotation}
         onClose={onClose}
         onLocateInDocument={onLocateInDocument}
+        sessionId={sessionId}
       />
     </div>,
     document.body,

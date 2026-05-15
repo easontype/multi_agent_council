@@ -7,6 +7,7 @@ import {
   createCouncilAnonymousAccess,
 } from "@/lib/core/council-access";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 
 export const GET = auth(async (req) => {
   if (!req.auth?.user) {
@@ -30,15 +31,41 @@ export async function POST(req: NextRequest) {
     const quota = await checkEntitlement(req, "review_create");
     if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
 
-    const body = await req.json();
+    const raw = await req.json() as Record<string, unknown>;
     const account = await resolveAuthAccountContext();
     const anonymousAccess = account ? null : createCouncilAnonymousAccess();
+
+    // Whitelist only safe client-supplied fields — never trust model, moderator_model, or preferredModel from client
+    const safeInput = {
+      title:        typeof raw.title === "string"        ? raw.title.slice(0, 200)        : undefined,
+      topic:        typeof raw.topic === "string"        ? raw.topic.slice(0, 500)        : "",
+      context:      typeof raw.context === "string"      ? raw.context.slice(0, 3000)     : undefined,
+      goal:         typeof raw.goal === "string"         ? raw.goal.slice(0, 500)         : undefined,
+      paperAssetId: typeof raw.paperAssetId === "string" ? raw.paperAssetId               : undefined,
+      rounds:       typeof raw.rounds === "number"       ? raw.rounds                     : undefined,
+      autoPlan:     typeof raw.autoPlan === "boolean"    ? raw.autoPlan                   : undefined,
+      maxSeats:     typeof raw.maxSeats === "number"     ? Math.min(Math.max(1, raw.maxSeats), 6) : undefined,
+      debate_mode:  raw.debate_mode === "adversarial"    ? ("adversarial" as const)       : ("critique" as const),
+      // Force server-side model on each seat to prevent model-cost abuse
+      seats: Array.isArray(raw.seats)
+        ? (raw.seats as Record<string, unknown>[]).map((s) => ({
+            role:         typeof s.role === "string"         ? s.role.slice(0, 80)           : "",
+            model:        DEFAULT_GEMMA_MODEL,
+            systemPrompt: typeof s.systemPrompt === "string" ? s.systemPrompt.slice(0, 1000) : "",
+            bias:         typeof s.bias === "string"         ? s.bias.slice(0, 200)          : undefined,
+            tools:        Array.isArray(s.tools) ? (s.tools as string[]).filter((t) => typeof t === "string") : undefined,
+            library_id:   typeof s.library_id === "string"  ? s.library_id                  : undefined,
+            team:         typeof s.team === "string"         ? s.team                        : undefined,
+          }))
+        : undefined,
+    };
+
     const session = await createCouncilSession({
-      ...body,
-      workspaceId: account?.workspaceId,
-      createdByUserId: account?.userId,
-      ownerUserEmail: account?.email ?? undefined,
-      accessTokenHash: anonymousAccess?.tokenHash,
+      ...safeInput,
+      workspaceId:      account?.workspaceId,
+      createdByUserId:  account?.userId,
+      ownerUserEmail:   account?.email ?? undefined,
+      accessTokenHash:  anonymousAccess?.tokenHash,
     });
 
     const response = NextResponse.json({ id: session.id }, { status: 201 });

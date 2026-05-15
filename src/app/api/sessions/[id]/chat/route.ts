@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { canAccessCouncilSession } from '@/lib/core/council-access'
 import { answerCouncilPaperQuestion } from '@/lib/core/council-paper-chat'
+import { checkEntitlement, quotaDenied } from '@/lib/entitlements'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const quota = await checkEntitlement(req, 'review_run')
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds)
+
   const { id } = await params
   const allowed = await canAccessCouncilSession(req, id)
   if (!allowed) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { StatsGrid } from "./_components/StatsGrid";
 import { RecentReviews } from "./_components/RecentReviews";
@@ -17,11 +17,13 @@ interface SessionItem {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [domain, setDomain] = useDomain();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [greeting, setGreeting] = useState("Hello");
+  const [upgradedBanner, setUpgradedBanner] = useState(false);
 
   const firstName = (session?.user?.name || session?.user?.email || "Researcher").split(" ")[0];
   const todayCount = sessions.filter(s => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
@@ -33,6 +35,15 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (searchParams.get('upgraded') === '1') {
+      setUpgradedBanner(true);
+      router.replace('/home');
+      const t = setTimeout(() => setUpgradedBanner(false), 7000);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, router]);
+
+  useEffect(() => {
     fetch("/api/sessions")
       .then(r => r.json())
       .then((data: SessionItem[]) => setSessions(Array.isArray(data) ? data : []))
@@ -42,7 +53,7 @@ export default function DashboardPage() {
 
   const stats = [
     { label: "Total sessions", value: loadingSessions ? "—" : String(sessions.length), sub: "all time" },
-    { label: "Today", value: loadingSessions ? "—" : `${todayCount} / 10`, sub: "daily limit" },
+    { label: "This week", value: loadingSessions ? "—" : `${todayCount} / 10`, sub: "weekly limit" },
     { label: "Concluded", value: loadingSessions ? "—" : String(concludedCount), sub: "completed" },
   ];
 
@@ -51,6 +62,28 @@ export default function DashboardPage() {
       padding: "40px 48px 60px", maxWidth: 820, margin: "0 auto",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
+      {/* Upgrade success banner */}
+      {upgradedBanner && (
+        <div style={{
+          marginBottom: 24,
+          padding: '14px 18px',
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          borderRadius: 10,
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          animation: 'bubble-in 300ms ease both',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+          Welcome to Pro! You now have 50 reviews/day. Enjoy.
+        </div>
+      )}
+
       {/* Greeting */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{

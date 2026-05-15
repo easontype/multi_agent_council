@@ -1,4 +1,5 @@
 import { checkSearchRateLimit } from "../rate-limit";
+import { isAllowedExternalUrl } from "@/lib/utils/url-safety";
 import {
   searchOpenAlex,
   searchSemanticScholar,
@@ -230,7 +231,7 @@ export const handlers: Record<string, Handler> = {
 
   async fetch_url(_agentId, args) {
     const { url, selector } = args as { url: string; selector?: string };
-    if (!/^https?:\/\//i.test(url)) return `⚠️ 無效的 URL：${url}`;
+    if (!isAllowedExternalUrl(url)) return `⚠️ URL 不允許（僅支援 https:// 且不得指向內部網路）：${url}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; ClaudeAgentBot/1.0)" },
       signal: AbortSignal.timeout(15_000),

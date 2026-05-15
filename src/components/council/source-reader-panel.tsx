@@ -135,7 +135,7 @@ export function SourceReaderPanel({ session, target, onSelectTarget }: SourceRea
     setMarkdownLoading(true)
     setMarkdownError(null)
     setMarkdownData(null)
-    fetch(`/api/documents/${selectedDocId}/markdown`)
+    fetch(`/api/documents/${selectedDocId}/markdown?sessionId=${encodeURIComponent(session.id)}`)
       .then(async (response) => {
         if (!response.ok) throw new Error('Failed to load document markdown')
         return response.json() as Promise<MarkdownResponse>
@@ -156,7 +156,7 @@ export function SourceReaderPanel({ session, target, onSelectTarget }: SourceRea
     }
     setContextLoading(true)
     setContextError(null)
-    fetch(`/api/documents/${selectedDocId}/chunks/${activeChunkIndex}/context`)
+    fetch(`/api/documents/${selectedDocId}/chunks/${activeChunkIndex}/context?sessionId=${encodeURIComponent(session.id)}`)
       .then(async (response) => {
         if (!response.ok) throw new Error('Failed to load cited chunk context')
         return response.json() as Promise<ChunkContextResponse>

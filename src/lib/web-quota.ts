@@ -48,14 +48,24 @@ async function ensureWebQuotaSchema(): Promise<void> {
 }
 
 function getRequestIp(req: NextRequest): string {
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const firstIp = forwardedFor.split(",")[0]?.trim();
-    if (firstIp) return firstIp;
-  }
+  // Priority 1: Cloudflare sets this header authoritatively — clients cannot spoof it
+  const cfIp = req.headers.get("cf-connecting-ip")?.trim();
+  if (cfIp) return cfIp;
 
+  // Priority 2: Trusted proxy (e.g. Railway, Render, Nginx) sets X-Real-IP directly;
+  // most platforms strip or override client-supplied values for this header
   const realIp = req.headers.get("x-real-ip")?.trim();
   if (realIp) return realIp;
+
+  // Priority 3: X-Forwarded-For — take the LAST IP added by the trusted proximate hop,
+  // not the first (which a client can inject). If there is only one entry it is still
+  // client-controlled when there is no upstream proxy, so this is a best-effort fallback.
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    const ips = forwardedFor.split(",").map((s) => s.trim()).filter(Boolean);
+    const last = ips[ips.length - 1];
+    if (last) return last;
+  }
 
   return "unknown";
 }

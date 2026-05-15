@@ -17,6 +17,7 @@ interface EvidenceAnnotatedMarkdownProps {
   onLocateInDocument?: (docId: string, chunkIndex: number) => void
   color?: string
   fontSize?: number
+  sessionId?: string
 }
 
 interface TextSegment {
@@ -358,6 +359,7 @@ export function EvidenceAnnotatedMarkdown({
   onLocateInDocument,
   color = '#3f3f46',
   fontSize = 14,
+  sessionId,
 }: EvidenceAnnotatedMarkdownProps) {
   const blocks = useMemo(() => parseBlocks(content), [content])
   const [activePopover, setActivePopover] = useState<{
@@ -481,6 +483,7 @@ export function EvidenceAnnotatedMarkdown({
           anchorRect={activePopover.anchorRect}
           onClose={() => setActivePopover(null)}
           onLocateInDocument={onLocateInDocument ? handleLocate : undefined}
+          sessionId={sessionId}
         />
       )}
     </div>

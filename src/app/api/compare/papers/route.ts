@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runLLM } from "@/lib/llm/claude";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
+import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
 
 export interface PaperMeta {
   arxivId: string;
@@ -44,6 +45,9 @@ async function fetchArxivMeta(arxivId: string): Promise<PaperMeta | null> {
 }
 
 export async function POST(req: NextRequest) {
+  const quota = await checkEntitlement(req, "web_analyze");
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds);
+
   let body: unknown;
   try {
     body = await req.json();

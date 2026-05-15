@@ -603,6 +603,7 @@ export function DiscussionTimeline({ session, onSourceClick, onLocateInDocument 
                           sourceRefs={agentRefs}
                           onSourceClick={onSourceClick}
                           onLocateInDocument={onLocateInDocument}
+                          sessionId={session.id}
                         />
                       )
                     })}
@@ -635,6 +636,7 @@ export function DiscussionTimeline({ session, onSourceClick, onLocateInDocument 
                           sourceRefs={agentRefs}
                           onSourceClick={onSourceClick}
                           onLocateInDocument={onLocateInDocument}
+                          sessionId={session.id}
                         />
                       )
                     })}

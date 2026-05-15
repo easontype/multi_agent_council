@@ -23,11 +23,12 @@ import { buildBoundedModeratorTranscript, buildBoundedRound2Context } from "./co
 // ─── Debate brief / round prompts ─────────────────────────────────────────────
 
 export function buildDebateBrief(session: Pick<CouncilSession, "topic" | "context" | "goal">): string {
+  // User-supplied content wrapped in XML tags to prevent prompt injection.
   return [
     "Debate topic:",
-    session.topic,
-    session.goal ? `\nDecision goal:\n${session.goal}` : "",
-    session.context ? `\nContext:\n${session.context}` : "",
+    `<user_input>${session.topic}</user_input>`,
+    session.goal    ? `\nDecision goal:\n<user_input>${session.goal}</user_input>`    : "",
+    session.context ? `\nContext:\n<user_input>${session.context}</user_input>`       : "",
   ].filter(Boolean).join("\n");
 }
 

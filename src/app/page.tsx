@@ -8,6 +8,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setPendingUpload } from "@/lib/pending-upload";
 
+function UpgradeButton({ className }: { className?: string }) {
+  const [loading, setLoading] = useState(false)
+  async function handleClick() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/stripe/checkout', { method: 'POST' })
+      const data = await res.json() as { url?: string; error?: string }
+      if (data.url) window.location.href = data.url
+      else setLoading(false)
+    } catch { setLoading(false) }
+  }
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className={className}
+    >
+      {loading ? 'Redirecting…' : 'Get Pro'}
+    </button>
+  )
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -130,7 +152,7 @@ export default function HomePage() {
         </div>
 
         <p className="text-[13px] text-muted-foreground/70">
-          Free — 10 reviews/day, no account required
+          Free — 10 reviews/week, no account required
         </p>
       </section>
 
@@ -317,9 +339,9 @@ export default function HomePage() {
             },
             {
               who: "Research Teams",
-              what: "Use the API to run automated paper triage, literature gap analysis, and related work audits at scale.",
-              cta: "Get API key",
-              href: "/keys",
+              what: "Run large-scale literature gap analysis, related work audits, and adversarial debate across multiple papers.",
+              cta: "Start reviewing",
+              href: "/home",
             },
           ].map((u) => (
             <div
@@ -348,18 +370,18 @@ export default function HomePage() {
               tier="Free"
               price="$0"
               per="forever"
-              features={["10 reviews per day", "Full 5-reviewer committee", "2-round debate", "Moderator verdict", "arXiv + PDF support"]}
+              features={["10 reviews per week", "Full 5-reviewer committee", "2-round debate", "Moderator verdict", "arXiv + PDF support"]}
               cta="Start for free"
               ctaHref="/home"
               highlight={false}
             />
             <PricingCard
               tier="Pro"
-              price="$20"
+              price="$14"
               per="/month"
-              features={["500 reviews per day", "API access (all endpoints)", "Programmatic session control", "Gap Analysis mode", "Priority compute"]}
-              cta="Subscribe"
-              ctaHref="/keys"
+              features={["50 reviews per day", "Adversarial debate mode", "Multi-paper comparison", "Priority compute", "Cancel anytime"]}
+              cta="Get Pro"
+              ctaHref="/checkout"
               highlight={true}
             />
           </div>
@@ -372,7 +394,6 @@ export default function HomePage() {
         <div className="mb-4 flex justify-center gap-6">
           <a href="/home" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Try it free</a>
           <a href="/home" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Compare & Debate</a>
-          <a href="/keys" className="text-muted-foreground no-underline hover:text-foreground transition-colors">API Keys</a>
           <a href="#pricing" className="text-muted-foreground no-underline hover:text-foreground transition-colors">Pricing</a>
         </div>
         AI-powered peer review — not a substitute for human expert review.
@@ -421,6 +442,12 @@ function PricingCard({
   ctaHref: string;
   highlight: boolean;
 }) {
+  const ctaClass = cn(
+    "block rounded-[7px] py-[11px] text-center text-sm font-bold no-underline transition-colors cursor-pointer border-none",
+    highlight
+      ? "bg-white text-[#6366f1] hover:bg-white/90"
+      : "bg-[#6366f1] text-white hover:bg-[#4f46e5]"
+  )
   return (
     <div
       className={cn(
@@ -475,17 +502,11 @@ function PricingCard({
           </div>
         ))}
       </div>
-      <a
-        href={ctaHref}
-        className={cn(
-          "block rounded-[7px] py-[11px] text-center text-sm font-bold no-underline transition-colors",
-          highlight
-            ? "bg-white text-[#6366f1] hover:bg-white/90"
-            : "bg-[#6366f1] text-white hover:bg-[#4f46e5]"
-        )}
-      >
-        {cta}
-      </a>
+      {highlight ? (
+        <UpgradeButton className={ctaClass} />
+      ) : (
+        <a href={ctaHref} className={ctaClass}>{cta}</a>
+      )}
     </div>
   );
 }

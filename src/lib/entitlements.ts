@@ -1,6 +1,8 @@
 import { enforceAnonymousWebQuota } from "./web-quota";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getAuthenticatedCouncilOwnerEmail } from "@/lib/core/council-access";
+import { getWorkspaceTierByEmail } from "@/lib/workspace-tier";
 
 export type EntitlementAction =
   | "review_create"
@@ -15,30 +17,60 @@ interface QuotaWindow {
   label: string;
 }
 
-const LIMITS: Record<EntitlementAction, QuotaWindow[]> = {
+// Free tier: 10 reviews/week (~$0.34/month/user → 2.9% break-even conversion)
+const FREE_LIMITS: Record<EntitlementAction, QuotaWindow[]> = {
   review_create: [
-    { limit: 3,  windowSeconds: 10 * 60,       label: "10 minutes" },
-    { limit: 10, windowSeconds: 24 * 60 * 60,  label: "day" },
+    { limit: 3,  windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 10, windowSeconds: 7 * 24 * 60 * 60,     label: "week" },
   ],
   review_run: [
-    { limit: 10, windowSeconds: 10 * 60,       label: "10 minutes" },
+    { limit: 10, windowSeconds: 10 * 60,              label: "10 minutes" },
   ],
   web_analyze: [
-    { limit: 3,  windowSeconds: 10 * 60,       label: "10 minutes" },
-    { limit: 10, windowSeconds: 24 * 60 * 60,  label: "day" },
+    { limit: 3,  windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 10, windowSeconds: 7 * 24 * 60 * 60,     label: "week" },
   ],
   paper_ingest: [
-    { limit: 6,  windowSeconds: 10 * 60,       label: "10 minutes" },
-    { limit: 15, windowSeconds: 24 * 60 * 60,  label: "day" },
+    { limit: 6,  windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 20, windowSeconds: 7 * 24 * 60 * 60,     label: "week" },
   ],
   team_builder: [
-    { limit: 6,  windowSeconds: 10 * 60,       label: "10 minutes" },
-    { limit: 30, windowSeconds: 24 * 60 * 60,  label: "day" },
+    { limit: 6,  windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 30, windowSeconds: 7 * 24 * 60 * 60,     label: "week" },
+  ],
+};
+
+// Pro tier: 50 reviews/day
+const PRO_LIMITS: Record<EntitlementAction, QuotaWindow[]> = {
+  review_create: [
+    { limit: 10, windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 50, windowSeconds: 24 * 60 * 60,         label: "day" },
+  ],
+  review_run: [
+    { limit: 50, windowSeconds: 10 * 60,              label: "10 minutes" },
+  ],
+  web_analyze: [
+    { limit: 10, windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 50, windowSeconds: 24 * 60 * 60,         label: "day" },
+  ],
+  paper_ingest: [
+    { limit: 20, windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 100, windowSeconds: 24 * 60 * 60,        label: "day" },
+  ],
+  team_builder: [
+    { limit: 20, windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 100, windowSeconds: 24 * 60 * 60,        label: "day" },
   ],
 };
 
 export async function checkEntitlement(req: NextRequest, action: EntitlementAction) {
-  return enforceAnonymousWebQuota(req, action, LIMITS[action]);
+  const email = await getAuthenticatedCouncilOwnerEmail();
+  let limits = FREE_LIMITS[action];
+  if (email) {
+    const tier = await getWorkspaceTierByEmail(email);
+    if (tier === 'pro') limits = PRO_LIMITS[action];
+  }
+  return enforceAnonymousWebQuota(req, action, limits);
 }
 
 export function quotaDenied(

@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "PDF exceeds 20 MB limit" }, { status: 413 });
       }
       uploadedBuffer = Buffer.from(await file.arrayBuffer());
+      // Verify PDF magic bytes (%PDF) to reject disguised non-PDF files
+      if (uploadedBuffer.length < 4 ||
+          uploadedBuffer[0] !== 0x25 || uploadedBuffer[1] !== 0x50 ||
+          uploadedBuffer[2] !== 0x44 || uploadedBuffer[3] !== 0x46) {
+        return NextResponse.json({ error: "File does not appear to be a valid PDF" }, { status: 400 });
+      }
       uploadTitle = file.name.replace(/\.pdf$/i, "");
     }
   } else {
@@ -71,7 +77,16 @@ export async function POST(req: NextRequest) {
     requestedTopic = typeof body.topic === "string" ? body.topic : undefined;
     requestedGoal = typeof body.goal === "string" ? body.goal : undefined;
     if (Array.isArray(body.customSeats)) {
-      customSeats = body.customSeats as CouncilSeat[];
+      // Sanitize each custom seat — strip model to prevent cost abuse, cap systemPrompt to limit prompt injection
+      customSeats = (body.customSeats as Record<string, unknown>[]).map((s) => ({
+        role:         typeof s.role === "string"         ? s.role.slice(0, 80)           : "",
+        model:        DEFAULT_GEMMA_MODEL,
+        systemPrompt: typeof s.systemPrompt === "string" ? s.systemPrompt.slice(0, 1000) : "",
+        bias:         typeof s.bias === "string"         ? s.bias.slice(0, 200)          : undefined,
+        tools:        Array.isArray(s.tools) ? (s.tools as string[]).filter((t) => typeof t === "string") : undefined,
+        library_id:   typeof s.library_id === "string"  ? s.library_id                  : undefined,
+        team:         typeof s.team === "string"         ? s.team                        : undefined,
+      }));
     }
   }
 

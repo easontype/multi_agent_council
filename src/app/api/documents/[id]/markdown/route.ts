@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/db";
+import { canAccessCouncilSession } from "@/lib/core/council-access";
 
 interface MarkdownSection {
   heading: string;
@@ -9,7 +10,7 @@ interface MarkdownSection {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -17,6 +18,32 @@ export async function GET(
 
   if (!documentId) {
     return NextResponse.json({ error: "Invalid document id" }, { status: 400 });
+  }
+
+  const sessionId = req.nextUrl.searchParams.get("sessionId")?.trim();
+  if (!sessionId) {
+    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+  }
+
+  const allowed = await canAccessCouncilSession(req, sessionId);
+  if (!allowed) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Verify the document is actually referenced by this session
+  const { rows: linkRows } = await db.query(
+    `SELECT 1
+     FROM council_sessions s
+     LEFT JOIN paper_assets pa ON pa.id = s.paper_asset_id
+     LEFT JOIN council_evidence e ON e.session_id = s.id
+     WHERE s.id = $1
+       AND (pa.document_id = $2 OR e.doc_id = $2)
+     LIMIT 1`,
+    [sessionId, documentId],
+  );
+
+  if (!linkRows.length) {
+    return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
   const { rows } = await db.query(

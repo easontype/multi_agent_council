@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/db";
+import { canAccessCouncilSession } from "@/lib/core/council-access";
 
 const CONTEXT_RADIUS = 2;
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; index: string }> },
 ) {
   const { id, index } = await params;
@@ -13,6 +14,32 @@ export async function GET(
 
   if (!docId || isNaN(chunkIndex) || chunkIndex < 0) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
+  }
+
+  const sessionId = req.nextUrl.searchParams.get("sessionId")?.trim();
+  if (!sessionId) {
+    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+  }
+
+  const allowed = await canAccessCouncilSession(req, sessionId);
+  if (!allowed) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Verify the document is actually referenced by this session
+  const { rows: linkRows } = await db.query(
+    `SELECT 1
+     FROM council_sessions s
+     LEFT JOIN paper_assets pa ON pa.id = s.paper_asset_id
+     LEFT JOIN council_evidence e ON e.session_id = s.id
+     WHERE s.id = $1
+       AND (pa.document_id = $2 OR e.doc_id = $2)
+     LIMIT 1`,
+    [sessionId, docId],
+  );
+
+  if (!linkRows.length) {
+    return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
   const minIndex = Math.max(0, chunkIndex - CONTEXT_RADIUS);
@@ -45,7 +72,6 @@ export async function GET(
   const before = typed.filter((r) => r.chunk_index < chunkIndex);
   const after = typed.filter((r) => r.chunk_index > chunkIndex);
 
-  // Use target's section_heading, or walk backwards to find the nearest heading
   const sectionHeading =
     target.section_heading ??
     [...typed]

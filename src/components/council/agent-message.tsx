@@ -107,6 +107,7 @@ interface AgentMessageProps {
   sourceRefs?: SourceRef[]
   onSourceClick?: (label: string) => void
   onLocateInDocument?: (docId: string, chunkIndex: number) => void
+  sessionId?: string
 }
 
 function splitEvidence(content: string): { main: string; evidenceText: string | null } {
@@ -246,6 +247,7 @@ function CollapsibleText({
   sourceRefs,
   onSourceClick,
   onLocateInDocument,
+  sessionId,
 }: {
   content: string
   agentColor: string
@@ -253,6 +255,7 @@ function CollapsibleText({
   sourceRefs: SourceRef[]
   onSourceClick?: (label: string) => void
   onLocateInDocument?: (docId: string, chunkIndex: number) => void
+  sessionId?: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const isLong = content.length > TEXT_COLLAPSE_THRESHOLD
@@ -261,7 +264,7 @@ function CollapsibleText({
   return (
     <div>
       <div style={{ fontSize: 14, color: '#3f3f46', lineHeight: 1.75 }}>
-        <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} onSourceClick={onSourceClick} onLocateInDocument={onLocateInDocument} />
+        <EvidenceAnnotatedMarkdown content={visible} sourceRefs={sourceRefs} onSourceClick={onSourceClick} onLocateInDocument={onLocateInDocument} sessionId={sessionId} />
         {isLong && !expanded && '...'}
         {isStreaming && !isLong && (
           <span
@@ -306,7 +309,7 @@ function CollapsibleText({
   )
 }
 
-export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick, onLocateInDocument }: AgentMessageProps) {
+export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick, onLocateInDocument, sessionId }: AgentMessageProps) {
   const isStreaming = !message.isComplete
   const roundLabel = message.round === 99 ? 'Synthesis' : `Round ${message.round ?? 1}`
   const hasTextBlock = message.blocks.some((block) => block.type === 'text' && block.content.trim().length > 0)
@@ -381,6 +384,7 @@ export function AgentMessage({ message, agent, sourceRefs = [], onSourceClick, o
                     sourceRefs={sourceRefs}
                     onSourceClick={onSourceClick}
                     onLocateInDocument={onLocateInDocument}
+                    sessionId={sessionId}
                   />
                   {evidenceText && (
                     <EvidenceSection text={evidenceText} agent={agent} sourceRefs={sourceRefs} onSourceClick={onSourceClick} />

@@ -3,6 +3,7 @@ import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { fetchArxivPaper, ingestPaper, extractTextFromPdfBuffer } from "@/lib/paper-ingest";
 import { recordUploadedFile } from "@/lib/uploaded-files";
 import { checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { isAllowedExternalUrl } from "@/lib/utils/url-safety";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest) {
       sourceType = "academic";
       markerPdfBuffer = result.pdfBuffer;
     } else if (pdfUrl) {
+      if (!isAllowedExternalUrl(pdfUrl)) {
+        return NextResponse.json({ error: "Invalid or disallowed URL" }, { status: 400 });
+      }
       const res = await fetch(pdfUrl);
       if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());

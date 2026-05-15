@@ -201,6 +201,10 @@ export async function listSessions(
   await getSchemaReady();
   const normalizedWorkspaceId = sanitizeText(input.workspaceId);
   const normalizedOwnerUserEmail = sanitizeText(input.ownerUserEmail).toLowerCase();
+
+  // Safety guard: never allow an unscoped query that returns all sessions
+  if (!normalizedWorkspaceId && !normalizedOwnerUserEmail) return [];
+
   const params: unknown[] = [];
   let where = "";
   if (normalizedWorkspaceId) {
