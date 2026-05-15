@@ -48,7 +48,17 @@ export async function POST(req: NextRequest) {
           );
         }
         uploadedPdfBuffer = Buffer.from(await file.arrayBuffer());
-        assertPdfBuffer(uploadedPdfBuffer);
+        try {
+          assertPdfBuffer(uploadedPdfBuffer);
+        } catch (error) {
+          return applyEntitlementResponse(
+            NextResponse.json(
+              { error: error instanceof Error ? error.message : "File does not appear to be a valid PDF" },
+              { status: 400 },
+            ),
+            quota,
+          );
+        }
         uploadedFilename = file.name;
         uploadedMimeType = file.type || "application/pdf";
         if (!title) title = file.name.replace(/\.pdf$/i, "");
@@ -108,7 +118,17 @@ export async function POST(req: NextRequest) {
           { status: 413 },
         );
       }
-      assertPdfBuffer(buffer);
+      try {
+        assertPdfBuffer(buffer);
+      } catch (error) {
+        return applyEntitlementResponse(
+          NextResponse.json(
+            { error: error instanceof Error ? error.message : "File does not appear to be a valid PDF" },
+            { status: 400 },
+          ),
+          quota,
+        );
+      }
       const parsed = await extractTextFromPdfBuffer(buffer);
       if (parsed.pageCount > pdfLimits.maxPages) {
         return NextResponse.json(
@@ -153,9 +173,6 @@ export async function POST(req: NextRequest) {
     }
     return applyEntitlementResponse(NextResponse.json(result), quota);
   } catch (error) {
-    if (error instanceof Error && error.message === "File does not appear to be a valid PDF") {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
     return NextResponse.json({ error: toSafeError(error, 'paper ingest') }, { status: 500 });
   }
 }

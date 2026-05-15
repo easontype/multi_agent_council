@@ -3,6 +3,7 @@ import { applyEntitlementResponse, checkEntitlement, quotaDenied } from '@/lib/e
 import { generateTeamWithAI } from '@/lib/team-builder'
 import type { TeamBuilderBrief } from '@/lib/prompts/review-presets'
 import { toSafeError } from '@/lib/utils/text'
+import { resolveAuthAccountContext } from '@/lib/auth-account'
 import { ensureAnonymousVisitorIdentity } from '@/lib/anonymous-access'
 
 function isValidBrief(value: unknown): value is TeamBuilderBrief {
@@ -18,7 +19,9 @@ function isValidBrief(value: unknown): value is TeamBuilderBrief {
 }
 
 export async function POST(req: NextRequest) {
-  const quota = await checkEntitlement(req, 'team_builder', ensureAnonymousVisitorIdentity(req))
+  const account = await resolveAuthAccountContext()
+  const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req)
+  const quota = await checkEntitlement(req, 'team_builder', anonymousVisitor ?? undefined)
   if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet)
 
   const body = await req.json().catch(() => ({}))
