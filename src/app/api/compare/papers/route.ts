@@ -7,9 +7,10 @@ import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
 
 export interface PaperMeta {
-  arxivId: string;
+  arxivId: string | null;
   title: string;
   abstract: string;
+  kind: 'arxiv' | 'upload';
 }
 
 export interface PaperComparison {
@@ -41,7 +42,7 @@ async function fetchArxivMeta(arxivId: string): Promise<PaperMeta | null> {
     const resolvedId = idMatch?.[1]?.trim() ?? clean;
 
     if (!title) return null;
-    return { arxivId: resolvedId, title, abstract: abstract.slice(0, 900) };
+    return { kind: 'arxiv' as const, arxivId: resolvedId, title, abstract: abstract.slice(0, 900) };
   } catch {
     return null;
   }
@@ -60,24 +61,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const ids: string[] = Array.isArray((body as Record<string, unknown>).arxivIds)
-    ? ((body as Record<string, unknown>).arxivIds as unknown[]).filter((x): x is string => typeof x === "string")
-    : [];
-
-  if (ids.length < 2 || ids.length > 4) {
-    return NextResponse.json({ error: "Provide 2–4 arXiv IDs" }, { status: 400 });
+  interface SlotInput {
+    kind: 'arxiv' | 'upload';
+    arxivId?: string;
+    title?: string;
+    abstract?: string;
   }
 
-  const results = await Promise.all(ids.map(fetchArxivMeta));
+  const rawBody = body as Record<string, unknown>;
+  let slots: SlotInput[];
+
+  if (Array.isArray(rawBody.papers)) {
+    slots = (rawBody.papers as unknown[]).filter((x): x is SlotInput => x !== null && typeof x === 'object');
+  } else {
+    // backwards compat: arxivIds array
+    const ids = Array.isArray(rawBody.arxivIds)
+      ? (rawBody.arxivIds as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [];
+    slots = ids.map(id => ({ kind: 'arxiv' as const, arxivId: id }));
+  }
+
+  if (slots.length < 2 || slots.length > 4) {
+    return NextResponse.json({ error: "Provide 2–4 papers" }, { status: 400 });
+  }
+
+  const results = await Promise.all(
+    slots.map(async (s): Promise<PaperMeta | null> => {
+      if (s.kind === 'upload') {
+        if (!s.title) return null;
+        return { kind: 'upload', arxivId: null, title: s.title, abstract: (s.abstract ?? '').slice(0, 900) };
+      }
+      return s.arxivId ? fetchArxivMeta(s.arxivId) : null;
+    })
+  );
   const papers = results.filter((p): p is PaperMeta => p !== null);
 
   if (papers.length < 2) {
-    return NextResponse.json({ error: "Could not retrieve at least 2 papers from arXiv" }, { status: 422 });
+    return NextResponse.json({ error: "Could not retrieve at least 2 papers" }, { status: 422 });
   }
 
   const n = papers.length;
   const sections = papers
-    .map((p, i) => `PAPER ${i + 1}: "${p.title}" (arXiv:${p.arxivId})\n${p.abstract}`)
+    .map((p, i) => `PAPER ${i + 1}: "${p.title}"${p.arxivId ? ` (arXiv:${p.arxivId})` : ''}\n${p.abstract}`)
     .join("\n\n---\n\n");
 
   const prompt = `You are a rigorous academic analyst. Carefully read the following ${n} paper abstracts and produce a structured comparison in JSON (no markdown fences, no extra text).

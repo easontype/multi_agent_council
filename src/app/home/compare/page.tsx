@@ -1,11 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { reviewTheme } from '@/components/review/review-theme'
 import { useUiLocale } from '@/lib/i18n/ui-locale-context'
 import type { PaperMeta, PaperComparison } from '@/app/api/compare/papers/route'
 
 type Phase = 'idle' | 'loading' | 'done' | 'error'
+
+interface ArxivSlot { kind: 'arxiv'; id: string }
+interface UploadSlot { kind: 'upload'; uploading: boolean; title: string | null; abstract: string | null; err: string | null }
+type Slot = ArxivSlot | UploadSlot
+
+function emptyArxiv(): ArxivSlot { return { kind: 'arxiv', id: '' } }
+function emptyUpload(): UploadSlot { return { kind: 'upload', uploading: false, title: null, abstract: null, err: null } }
 
 const COMPARISON_ROWS: { key: keyof Omit<PaperComparison, 'verdict'>; label: string; color: string }[] = [
   { key: 'methodology',      label: 'Methodology',      color: '#1d4ed8' },
@@ -44,81 +51,176 @@ function SpinnerIcon() {
   )
 }
 
-function ArxivInput({
+function UploadIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <path d="M2.5 11.5v1.5a1 1 0 001 1h9a1 1 0 001-1v-1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M8 10V3m0 0L5.5 5.5M8 3l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function PaperSlotInput({
   index,
-  value,
-  onChange,
+  slot,
+  onSlotChange,
   onRemove,
   canRemove,
 }: {
   index: number
-  value: string
-  onChange: (v: string) => void
+  slot: Slot
+  onSlotChange: (s: Slot) => void
   onRemove: () => void
   canRemove: boolean
 }) {
   const color = TEAM_COLORS[index] ?? '#555'
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{
-        width: 22,
-        height: 22,
-        borderRadius: '50%',
-        background: color,
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: 700,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        {index + 1}
-      </div>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={`arXiv ID or URL (e.g. 2401.12345)`}
-        style={{
-          flex: 1,
-          border: `1.5px solid ${reviewTheme.colors.border}`,
-          borderRadius: 10,
-          padding: '10px 13px',
-          fontSize: 13,
-          fontFamily: 'monospace',
-          color: reviewTheme.colors.ink,
-          outline: 'none',
-          background: '#fff',
-          transition: 'border-color 150ms',
-        }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.accent }}
-        onBlur={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.border }}
-      />
-      {canRemove && (
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = async (file: File) => {
+    if (file.type !== 'application/pdf') {
+      onSlotChange({ kind: 'upload', uploading: false, title: null, abstract: null, err: 'Only PDF files are supported' })
+      return
+    }
+    onSlotChange({ kind: 'upload', uploading: true, title: null, abstract: null, err: null })
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/papers/asset', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Upload failed')
+      onSlotChange({ kind: 'upload', uploading: false, title: data.title ?? file.name.replace(/\.pdf$/i, ''), abstract: data.abstract ?? '', err: null })
+    } catch (err) {
+      onSlotChange({ kind: 'upload', uploading: false, title: null, abstract: null, err: err instanceof Error ? err.message : 'Upload failed' })
+    }
+  }
+
+  const badge = (
+    <div style={{
+      width: 22, height: 22, borderRadius: '50%',
+      background: color, color: '#fff',
+      fontSize: 10, fontWeight: 700,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }}>
+      {index + 1}
+    </div>
+  )
+
+  const removeBtn = canRemove && (
+    <button
+      type="button"
+      onClick={onRemove}
+      style={{
+        width: 30, height: 30,
+        border: `1px solid ${reviewTheme.colors.border}`, borderRadius: 7,
+        background: '#fff', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#999', flexShrink: 0, transition: 'color 120ms, border-color 120ms',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca' }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = '#999'; e.currentTarget.style.borderColor = reviewTheme.colors.border }}
+    >
+      <TrashIcon />
+    </button>
+  )
+
+  // Kind toggle
+  const kindToggle = (
+    <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: `1px solid ${reviewTheme.colors.border}`, flexShrink: 0 }}>
+      {(['arxiv', 'upload'] as const).map(k => (
         <button
+          key={k}
           type="button"
-          onClick={onRemove}
+          onClick={() => onSlotChange(k === 'arxiv' ? emptyArxiv() : emptyUpload())}
           style={{
-            width: 30,
-            height: 30,
-            border: `1px solid ${reviewTheme.colors.border}`,
-            borderRadius: 7,
-            background: '#fff',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#999',
-            flexShrink: 0,
-            transition: 'color 120ms, border-color 120ms',
+            padding: '4px 10px', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+            background: slot.kind === k ? color : '#fff',
+            color: slot.kind === k ? '#fff' : '#999',
+            transition: 'background 120ms, color 120ms',
+            letterSpacing: '0.04em', textTransform: 'uppercase',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#999'; e.currentTarget.style.borderColor = reviewTheme.colors.border }}
         >
-          <TrashIcon />
+          {k === 'arxiv' ? 'arXiv' : 'PDF'}
         </button>
+      ))}
+    </div>
+  )
+
+  if (slot.kind === 'arxiv') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {badge}
+        {kindToggle}
+        <input
+          type="text"
+          value={slot.id}
+          onChange={(e) => onSlotChange({ kind: 'arxiv', id: e.target.value })}
+          placeholder="arXiv ID or URL (e.g. 2401.12345)"
+          style={{
+            flex: 1, border: `1.5px solid ${reviewTheme.colors.border}`, borderRadius: 10,
+            padding: '10px 13px', fontSize: 13, fontFamily: 'monospace',
+            color: reviewTheme.colors.ink, outline: 'none', background: '#fff', transition: 'border-color 150ms',
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.accent }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.border }}
+        />
+        {removeBtn}
+      </div>
+    )
+  }
+
+  // Upload slot
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {badge}
+        {kindToggle}
+        <div
+          style={{
+            flex: 1, border: `1.5px dashed ${slot.err ? '#fca5a5' : reviewTheme.colors.border}`,
+            borderRadius: 10, padding: '9px 14px',
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: slot.title ? `${color}06` : '#fafafa',
+            cursor: slot.uploading ? 'default' : 'pointer',
+            transition: 'border-color 150ms, background 150ms',
+          }}
+          onClick={() => !slot.uploading && fileRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+        >
+          <span style={{ color: '#aaa', flexShrink: 0 }}><UploadIcon /></span>
+          {slot.uploading ? (
+            <span style={{ fontSize: 12, color: '#aaa' }}><SpinnerIcon /> 上傳中…</span>
+          ) : slot.title ? (
+            <span style={{ fontSize: 12, fontWeight: 600, color: reviewTheme.colors.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {slot.title}
+            </span>
+          ) : (
+            <span style={{ fontSize: 12, color: '#bbb' }}>拖放 PDF 或點擊上傳</span>
+          )}
+          {slot.title && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSlotChange(emptyUpload()) }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 11, flexShrink: 0 }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {removeBtn}
+      </div>
+      {slot.err && <div style={{ fontSize: 11, color: '#dc2626', paddingLeft: 32 }}>{slot.err}</div>}
+      {slot.abstract && (
+        <div style={{
+          marginLeft: 32, padding: '8px 12px', borderRadius: 8,
+          background: `${color}08`, border: `1px solid ${color}20`,
+          fontSize: 11, color: reviewTheme.colors.muted, lineHeight: 1.55,
+          maxHeight: 60, overflow: 'hidden',
+        }}>
+          {slot.abstract.slice(0, 200)}{slot.abstract.length > 200 ? '…' : ''}
+        </div>
       )}
+      <input ref={fileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
     </div>
   )
 }
@@ -142,7 +244,7 @@ function PaperCard({ paper, index }: { paper: PaperMeta; index: number }) {
         color,
         marginBottom: 6,
       }}>
-        Paper {index + 1} · arXiv:{paper.arxivId}
+        Paper {index + 1}{paper.arxivId ? ` · arXiv:${paper.arxivId}` : ' · PDF Upload'}
       </div>
       <div style={{
         fontSize: 13,
@@ -157,14 +259,16 @@ function PaperCard({ paper, index }: { paper: PaperMeta; index: number }) {
       } as React.CSSProperties}>
         {paper.title}
       </div>
-      <a
-        href={`https://arxiv.org/abs/${paper.arxivId}`}
-        target="_blank"
-        rel="noreferrer"
-        style={{ fontSize: 11, color, textDecoration: 'none', fontWeight: 600 }}
-      >
-        View on arXiv →
-      </a>
+      {paper.arxivId && (
+        <a
+          href={`https://arxiv.org/abs/${paper.arxivId}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 11, color, textDecoration: 'none', fontWeight: 600 }}
+        >
+          View on arXiv →
+        </a>
+      )}
     </div>
   )
 }
@@ -306,35 +410,48 @@ function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison:
   )
 }
 
+function isSlotFilled(s: Slot): boolean {
+  if (s.kind === 'arxiv') return s.id.trim().length > 0
+  return s.title !== null
+}
+
 export default function ComparePage() {
   const t = useUiLocale()
-  const [ids, setIds] = useState<string[]>(['', ''])
+  const [slots, setSlots] = useState<Slot[]>([emptyArxiv(), emptyArxiv()])
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [papers, setPapers] = useState<PaperMeta[]>([])
   const [comparison, setComparison] = useState<PaperComparison | null>(null)
 
-  const filledIds = ids.filter((id) => id.trim().length > 0)
-  const canCompare = filledIds.length >= 2 && phase !== 'loading'
+  const filledCount = slots.filter(isSlotFilled).length
+  const canCompare = filledCount >= 2 && phase !== 'loading'
 
-  function updateId(index: number, value: string) {
-    setIds((prev) => prev.map((v, i) => (i === index ? value : v)))
+  function updateSlot(index: number, s: Slot) {
+    setSlots((prev) => prev.map((v, i) => (i === index ? s : v)))
   }
 
-  function addId() {
-    if (ids.length < 4) setIds((prev) => [...prev, ''])
+  function addSlot() {
+    if (slots.length < 4) setSlots((prev) => [...prev, emptyArxiv()])
   }
 
-  function removeId(index: number) {
-    setIds((prev) => prev.filter((_, i) => i !== index))
+  function removeSlot(index: number) {
+    setSlots((prev) => prev.filter((_, i) => i !== index))
   }
 
   async function handleCompare() {
-    const arxivIds = ids
-      .map((id) => id.trim().replace(/^https?:\/\/arxiv\.org\/abs\//i, '').replace(/^arxiv:/i, ''))
-      .filter(Boolean)
+    const paperInputs = slots
+      .filter(isSlotFilled)
+      .map((s) => {
+        if (s.kind === 'arxiv') {
+          return {
+            kind: 'arxiv' as const,
+            arxivId: s.id.trim().replace(/^https?:\/\/arxiv\.org\/abs\//i, '').replace(/^arxiv:/i, ''),
+          }
+        }
+        return { kind: 'upload' as const, title: s.title!, abstract: s.abstract ?? '' }
+      })
 
-    if (arxivIds.length < 2) return
+    if (paperInputs.length < 2) return
 
     setPhase('loading')
     setError(null)
@@ -345,7 +462,7 @@ export default function ComparePage() {
       const res = await fetch('/api/compare/papers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ arxivIds }),
+        body: JSON.stringify({ papers: paperInputs }),
       })
       const data = await res.json() as { papers?: PaperMeta[]; comparison?: PaperComparison; error?: string }
 
@@ -423,23 +540,23 @@ export default function ComparePage() {
           boxShadow: '0 4px 16px rgba(63, 43, 24, 0.05)',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-            {ids.map((id, i) => (
-              <ArxivInput
+            {slots.map((slot, i) => (
+              <PaperSlotInput
                 key={i}
                 index={i}
-                value={id}
-                onChange={(v) => updateId(i, v)}
-                onRemove={() => removeId(i)}
-                canRemove={ids.length > 2}
+                slot={slot}
+                onSlotChange={(s) => updateSlot(i, s)}
+                onRemove={() => removeSlot(i)}
+                canRemove={slots.length > 2}
               />
             ))}
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
-            {ids.length < 4 && (
+            {slots.length < 4 && (
               <button
                 type="button"
-                onClick={addId}
+                onClick={addSlot}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

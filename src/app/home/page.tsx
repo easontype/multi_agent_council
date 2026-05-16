@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useUiLocale } from "@/lib/i18n/ui-locale-context";
 import { StatsGrid } from "./_components/StatsGrid";
 import { RecentReviews } from "./_components/RecentReviews";
+import { PaperInputBox } from "./_components/PaperInputBox";
 
 interface SessionItem {
   id: string;
@@ -93,6 +94,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      <PaperInputBox />
       <StatsGrid stats={stats} />
 
       <RecentReviews
