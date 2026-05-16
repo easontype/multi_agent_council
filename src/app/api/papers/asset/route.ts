@@ -13,6 +13,7 @@ import {
 } from "@/lib/paper-assets";
 import { getPdfLimitsForRequest, PDF_TIER_LIMITS } from "@/lib/pdf-limits";
 import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
+import { extractPaperTitleFromText } from "@/lib/extract-paper-title";
 
 /**
  * POST /api/papers/asset
@@ -99,7 +100,9 @@ export async function POST(req: NextRequest) {
         );
       }
       paperText = parsed.text;
-      paperTitle = uploadTitle ?? "Uploaded Paper";
+      // Try to extract title from PDF content (arXiv ID or DOI → API lookup)
+      const extractedTitle = await extractPaperTitleFromText(paperText);
+      paperTitle = extractedTitle ?? uploadTitle ?? "Uploaded Paper";
       sourceUrl = "upload";
       markerPdfBuffer = uploadedBuffer;
       sourceKind = "upload";
