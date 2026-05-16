@@ -8,6 +8,10 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3001",
     trace: "retain-on-failure",
+    headless: false,
+    launchOptions: {
+      slowMo: 1200,
+    },
   },
   projects: [
     {

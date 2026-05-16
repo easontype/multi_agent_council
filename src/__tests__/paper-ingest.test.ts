@@ -26,7 +26,7 @@ describe("ingestPaper", () => {
     jest.clearAllMocks();
   });
 
-  it("waits for the inserted document to be embedded before resolving", async () => {
+  it("kicks off background embedding after inserting a new document", async () => {
     mockSchemaSetup();
     mockedDbQuery
       .mockResolvedValueOnce({ rows: [] } as never)
@@ -44,25 +44,33 @@ describe("ingestPaper", () => {
       libraryId: "paper:test-lib",
     });
 
+    // Let the fire-and-forget embedding promise resolve.
+    await new Promise<void>((r) => setImmediate(r));
+
     expect(mockedEmbedDocumentById).toHaveBeenCalledWith("doc-123");
     expect(result.documentId).toBe("doc-123");
     expect(result.libraryId).toBe("paper:test-lib");
     expect(result.reusedDocument).toBe(false);
   });
 
-  it("fails the ingest when embedding the inserted document fails", async () => {
+  it("resolves successfully even when background embedding fails", async () => {
     mockSchemaSetup();
     mockedDbQuery
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [{ id: "doc-456" }] } as never);
     mockedEmbedDocumentById.mockRejectedValue(new Error("embedding unavailable"));
 
-    await expect(ingestPaper({
+    const result = await ingestPaper({
       title: "Broken Paper",
       text: "This paper should fail because embedding did not complete successfully.",
       sourceUrl: "https://example.com/broken.pdf",
-    })).rejects.toThrow("embedding unavailable");
+    });
 
+    // Let the fire-and-forget embedding promise settle.
+    await new Promise<void>((r) => setImmediate(r));
+
+    expect(result.documentId).toBe("doc-456");
+    expect(result.reusedDocument).toBe(false);
     expect(mockedEmbedDocumentById).toHaveBeenCalledWith("doc-456");
   });
 

@@ -7,6 +7,13 @@ import type { SeatDefinition } from '@/lib/core/council-academic'
 
 type Domain = 'general' | 'materials' | 'biomedical' | 'physics'
 
+const DOMAIN_OPTIONS: { value: Domain; label: string; sub: string }[] = [
+  { value: 'general',    label: 'General',    sub: 'Multidisciplinary' },
+  { value: 'materials',  label: 'Materials',  sub: 'Chemistry & Engineering' },
+  { value: 'biomedical', label: 'Biomedical', sub: 'Life Sciences' },
+  { value: 'physics',    label: 'Physics',    sub: 'Devices & Systems' },
+]
+
 const DOMAIN_SEATS: Record<Domain, SeatDefinition[]> = {
   general: CRITIQUE_SEAT_DEFINITIONS,
   materials: EXPERIMENTAL_SEAT_DEFINITIONS,
@@ -26,15 +33,21 @@ export default function DebateSetupPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const assetId = params.assetId as string
-  const domain = (searchParams.get('domain') ?? 'general') as Domain
 
+  const [domain, setDomain] = useState<Domain>((searchParams.get('domain') ?? 'general') as Domain)
   const availableSeats = DOMAIN_SEATS[domain] ?? CRITIQUE_SEAT_DEFINITIONS
-  const defaultRoles = DEFAULT_ROLES_BY_DOMAIN[domain] ?? ['methods', 'literature', 'contribution']
+
+  const handleDomainChange = (d: Domain) => {
+    setDomain(d)
+    setSelectedRoleIds(DEFAULT_ROLES_BY_DOMAIN[d] ?? ['methods', 'literature', 'contribution'])
+  }
 
   const [optionA, setOptionA] = useState('Supporting the paper')
   const [optionB, setOptionB] = useState('Challenging the paper')
   const [context, setContext] = useState('')
-  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(defaultRoles)
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(
+    DEFAULT_ROLES_BY_DOMAIN[(searchParams.get('domain') ?? 'general') as Domain] ?? ['methods', 'literature', 'contribution']
+  )
   const [rounds, setRounds] = useState<1 | 2>(2)
   const [launching, setLaunching] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -109,9 +122,36 @@ export default function DebateSetupPage() {
             Configure Debate
           </h1>
           <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>
-            Domain: <span style={{ color: '#52525b', fontWeight: 500, textTransform: 'capitalize' }}>{domain}</span>
-            {' · '}Two councils will argue opposing positions on the paper.
+            Two councils will argue opposing positions on the paper.
           </p>
+        </div>
+
+        {/* Domain */}
+        <SectionLabel>Research Domain</SectionLabel>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+          {DOMAIN_OPTIONS.map(opt => {
+            const active = domain === opt.value
+            return (
+              <button
+                key={opt.value}
+                onClick={() => handleDomainChange(opt.value)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                  padding: '7px 14px', borderRadius: 8, cursor: 'pointer', outline: 'none',
+                  border: `1.5px solid ${active ? '#1e3a8a' : '#e4e4e7'}`,
+                  background: active ? '#1e3a8a' : '#fff',
+                  transition: 'all 120ms',
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : '#3f3f46' }}>
+                  {opt.label}
+                </span>
+                <span style={{ fontSize: 10, color: active ? 'rgba(255,255,255,0.6)' : '#a1a1aa', marginTop: 1 }}>
+                  {opt.sub}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Sides */}

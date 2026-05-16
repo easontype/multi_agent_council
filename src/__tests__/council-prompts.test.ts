@@ -89,9 +89,9 @@ describe("buildRound2Prompt", () => {
     expect(prompt).toContain("Skeptic");
   });
 
-  it("includes 220-word limit", () => {
+  it("includes 300-word limit", () => {
     const prompt = buildRound2Prompt(session, round1Turns);
-    expect(prompt).toContain("220 words");
+    expect(prompt).toContain("300 words");
   });
 
   it("includes round 2 turns already made when provided", () => {

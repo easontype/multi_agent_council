@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { StatsGrid } from "./_components/StatsGrid";
 import { RecentReviews } from "./_components/RecentReviews";
-import { DomainPicker, useDomain } from "./_components/DomainPicker";
 import { PaperInputBox } from "./_components/PaperInputBox";
 
 interface SessionItem {
@@ -19,7 +18,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const [domain, setDomain] = useDomain();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [greeting, setGreeting] = useState("Hello");
@@ -100,11 +98,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Domain picker */}
-      <DomainPicker value={domain} onChange={setDomain} />
-
       {/* Paper input — arXiv or PDF, then mode selection */}
-      <PaperInputBox domain={domain} />
+      <PaperInputBox />
 
       <div style={{ height: 1, background: "#f0f0f2", margin: "32px 0" }} />
 

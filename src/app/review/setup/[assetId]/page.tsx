@@ -6,6 +6,13 @@ import { useRouter, useSearchParams, useParams } from 'next/navigation'
 type ReviewMode = 'critique' | 'gap'
 type Domain = 'general' | 'materials' | 'biomedical' | 'physics'
 
+const DOMAIN_OPTIONS: { value: Domain; label: string; sub: string }[] = [
+  { value: 'general',    label: 'General',    sub: 'Multidisciplinary' },
+  { value: 'materials',  label: 'Materials',  sub: 'Chemistry & Engineering' },
+  { value: 'biomedical', label: 'Biomedical', sub: 'Life Sciences' },
+  { value: 'physics',    label: 'Physics',    sub: 'Devices & Systems' },
+]
+
 const MODE_OPTIONS: { value: ReviewMode; label: string; sub: string; description: string }[] = [
   {
     value: 'critique',
@@ -31,8 +38,8 @@ export default function ReviewSetupPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const assetId = params.assetId as string
-  const domain = (searchParams.get('domain') ?? 'general') as Domain
 
+  const [domain, setDomain] = useState<Domain>((searchParams.get('domain') ?? 'general') as Domain)
   const [mode, setMode] = useState<ReviewMode>('critique')
   const [rounds, setRounds] = useState<1 | 2>(1)
   const [launching, setLaunching] = useState(false)
@@ -84,9 +91,34 @@ export default function ReviewSetupPage() {
           }}>
             Configure Review
           </h1>
-          <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>
-            Domain: <span style={{ color: '#52525b', fontWeight: 500, textTransform: 'capitalize' }}>{domain}</span>
-          </p>
+        </div>
+
+        {/* Domain */}
+        <SectionLabel>Research Domain</SectionLabel>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+          {DOMAIN_OPTIONS.map(opt => {
+            const active = domain === opt.value
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setDomain(opt.value)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                  padding: '7px 14px', borderRadius: 8, cursor: 'pointer', outline: 'none',
+                  border: `1.5px solid ${active ? '#111' : '#e4e4e7'}`,
+                  background: active ? '#111' : '#fff',
+                  transition: 'all 120ms',
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : '#3f3f46' }}>
+                  {opt.label}
+                </span>
+                <span style={{ fontSize: 10, color: active ? '#aaa' : '#a1a1aa', marginTop: 1 }}>
+                  {opt.sub}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Mode */}

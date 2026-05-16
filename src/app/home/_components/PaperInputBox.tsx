@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Domain } from './DomainPicker'
 
 type Stage =
   | { kind: 'idle' }
@@ -12,11 +11,7 @@ type Stage =
   | { kind: 'confirming'; label: string }
   | { kind: 'confirmed'; assetId: string; title: string; abstract: string }
 
-interface Props {
-  domain: Domain
-}
-
-export function PaperInputBox({ domain }: Props) {
+export function PaperInputBox() {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<Stage>({ kind: 'idle' })
@@ -100,7 +95,7 @@ export function PaperInputBox({ domain }: Props) {
   const launch = (mode: 'review' | 'debate') => {
     if (stage.kind !== 'confirmed') return
     const base = mode === 'review' ? '/review/setup' : '/debate/setup'
-    router.push(`${base}/${stage.assetId}?domain=${domain}`)
+    router.push(`${base}/${stage.assetId}`)
   }
 
   /* ─── drag ─────────────────────────────────────────────── */
