@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PaperCompareTable, type CompareSessionData } from "@/components/council/paper-compare-table";
+import { useUiLocale } from "@/lib/i18n/ui-locale-context";
 
 interface SessionItem {
   id: string;
@@ -13,13 +14,6 @@ interface SessionItem {
   rounds?: number;
   seats?: Array<{ role: string }>;
 }
-
-const STATUS_CONFIG: Record<string, { dot: string; label: string; bg: string; text: string }> = {
-  concluded: { dot: "#22c55e", label: "Concluded", bg: "#f0fdf4", text: "#15803d" },
-  running:   { dot: "#a78bfa", label: "Running",   bg: "#faf5ff", text: "#7c3aed" },
-  pending:   { dot: "#f59e0b", label: "Pending",   bg: "#fffbeb", text: "#b45309" },
-  failed:    { dot: "#ef4444", label: "Failed",    bg: "#fef2f2", text: "#b91c1c" },
-};
 
 type FilterStatus = "all" | "concluded" | "running" | "pending" | "failed";
 
@@ -75,6 +69,13 @@ function CheckIcon() {
 
 export default function ReviewsPage() {
   const router = useRouter();
+  const t = useUiLocale();
+  const STATUS_CONFIG: Record<string, { dot: string; label: string; bg: string; text: string }> = {
+    concluded: { dot: "#22c55e", label: t.status_concluded, bg: "#f0fdf4", text: "#15803d" },
+    running:   { dot: "#a78bfa", label: t.status_running,   bg: "#faf5ff", text: "#7c3aed" },
+    pending:   { dot: "#f59e0b", label: t.status_pending,   bg: "#fffbeb", text: "#b45309" },
+    failed:    { dot: "#ef4444", label: t.status_failed,    bg: "#fef2f2", text: "#b91c1c" },
+  };
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("all");
@@ -260,7 +261,7 @@ export default function ReviewsPage() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search reviews…"
+            placeholder={t.action_search_reviews}
             style={{
               background: "transparent", border: "none", outline: "none",
               fontSize: 13, color: "#1a1a1a", padding: "8px 0", flex: 1,
@@ -282,7 +283,7 @@ export default function ReviewsPage() {
                 display: "flex", alignItems: "center", gap: 5,
               }}>
                 {cfg && <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.dot }} />}
-                {f === "all" ? `All (${counts.all})` : `${f.charAt(0).toUpperCase() + f.slice(1)} (${counts[f]})`}
+                {f === "all" ? `All (${counts.all})` : `${STATUS_CONFIG[f as keyof typeof STATUS_CONFIG]?.label ?? f.charAt(0).toUpperCase() + f.slice(1)} (${counts[f as keyof typeof counts]})`}
               </button>
             );
           })}
@@ -299,13 +300,13 @@ export default function ReviewsPage() {
       )}
 
       {loading ? (
-        <div style={{ padding: "32px 0", color: "#ccc", fontSize: 13 }}>Loading…</div>
+        <div style={{ padding: "32px 0", color: "#ccc", fontSize: 13 }}>{t.common_loading}</div>
       ) : filtered.length === 0 ? (
         <div style={{
           padding: "48px 24px", border: "1px dashed #ebebed", borderRadius: 10,
           textAlign: "center", color: "#ccc", fontSize: 13,
         }}>
-          {query || filter !== "all" ? "No reviews match this filter" : "No reviews yet — start one from the dashboard"}
+          {t.common_no_results}
         </div>
       ) : (
         <div style={{ border: "1px solid #f0f0f2", borderRadius: 10, overflow: "hidden" }}>
@@ -318,9 +319,9 @@ export default function ReviewsPage() {
             color: "#bbb", textTransform: "uppercase",
           }}>
             {compareMode && <span />}
-            <span>Title</span>
-            <span>Status</span>
-            <span>When</span>
+            <span>{t.table_title}</span>
+            <span>{t.table_status}</span>
+            <span>{t.table_when}</span>
             <span />
           </div>
 

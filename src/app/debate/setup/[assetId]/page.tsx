@@ -2,17 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams, useParams } from 'next/navigation'
+import { useUiLocale } from '@/lib/i18n/ui-locale-context'
 import { CRITIQUE_SEAT_DEFINITIONS, EXPERIMENTAL_SEAT_DEFINITIONS, BIOMEDICAL_SEAT_DEFINITIONS, PHYSICS_SEAT_DEFINITIONS } from '@/lib/core/council-academic'
 import type { SeatDefinition } from '@/lib/core/council-academic'
 
 type Domain = 'general' | 'materials' | 'biomedical' | 'physics'
-
-const DOMAIN_OPTIONS: { value: Domain; label: string; sub: string }[] = [
-  { value: 'general',    label: 'General',    sub: 'Multidisciplinary' },
-  { value: 'materials',  label: 'Materials',  sub: 'Chemistry & Engineering' },
-  { value: 'biomedical', label: 'Biomedical', sub: 'Life Sciences' },
-  { value: 'physics',    label: 'Physics',    sub: 'Devices & Systems' },
-]
 
 const DOMAIN_SEATS: Record<Domain, SeatDefinition[]> = {
   general: CRITIQUE_SEAT_DEFINITIONS,
@@ -32,7 +26,15 @@ export default function DebateSetupPage() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
+  const t = useUiLocale()
   const assetId = params.assetId as string
+
+  const DOMAIN_OPTIONS = [
+    { value: 'general' as Domain,    label: t.domain_general,    sub: 'Multidisciplinary' },
+    { value: 'materials' as Domain,  label: t.domain_materials,  sub: 'Chemistry & Engineering' },
+    { value: 'biomedical' as Domain, label: t.domain_biomedical, sub: 'Life Sciences' },
+    { value: 'physics' as Domain,    label: t.domain_physics,    sub: 'Devices & Systems' },
+  ]
 
   const [domain, setDomain] = useState<Domain>((searchParams.get('domain') ?? 'general') as Domain)
   const availableSeats = DOMAIN_SEATS[domain] ?? CRITIQUE_SEAT_DEFINITIONS
@@ -60,11 +62,11 @@ export default function DebateSetupPage() {
 
   const handleLaunch = async () => {
     if (!optionA.trim() || !optionB.trim()) {
-      setError('Both sides are required')
+      setError(t.debate_error_sides)
       return
     }
     if (selectedRoleIds.length === 0) {
-      setError('Select at least one expert role')
+      setError(t.debate_error_roles)
       return
     }
     setLaunching(true)
@@ -110,7 +112,7 @@ export default function DebateSetupPage() {
             fontSize: 12.5, cursor: 'pointer', padding: 0, marginBottom: 32,
           }}
         >
-          ← Back
+          ← {t.common_back}
         </button>
 
         {/* Header */}
@@ -119,15 +121,15 @@ export default function DebateSetupPage() {
             fontSize: 22, fontWeight: 800, color: '#1e3a8a', letterSpacing: '-0.04em',
             margin: '0 0 4px', fontFamily: "'Georgia', serif",
           }}>
-            Configure Debate
+            {t.page_configure_debate}
           </h1>
           <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>
-            Two councils will argue opposing positions on the paper.
+            {t.debate_context_placeholder}
           </p>
         </div>
 
         {/* Domain */}
-        <SectionLabel>Research Domain</SectionLabel>
+        <SectionLabel>{t.home_domain_label}</SectionLabel>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
           {DOMAIN_OPTIONS.map(opt => {
             const active = domain === opt.value
@@ -155,16 +157,16 @@ export default function DebateSetupPage() {
         </div>
 
         {/* Sides */}
-        <SectionLabel>Positions</SectionLabel>
+        <SectionLabel>{t.debate_positions_label}</SectionLabel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: '#4a6b73', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>
-              Side A — For
+              {t.debate_side_a}
             </div>
             <textarea
               value={optionA}
               onChange={e => setOptionA(e.target.value)}
-              placeholder="e.g. The methodology is sound"
+              placeholder={t.debate_side_a_placeholder}
               rows={2}
               style={{
                 width: '100%', boxSizing: 'border-box',
@@ -176,12 +178,12 @@ export default function DebateSetupPage() {
           </div>
           <div>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: '#7a4c54', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>
-              Side B — Against
+              {t.debate_side_b}
             </div>
             <textarea
               value={optionB}
               onChange={e => setOptionB(e.target.value)}
-              placeholder="e.g. The results are overstated"
+              placeholder={t.debate_side_b_placeholder}
               rows={2}
               style={{
                 width: '100%', boxSizing: 'border-box',
@@ -196,7 +198,7 @@ export default function DebateSetupPage() {
         {/* Context */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, color: '#aaa', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>
-            Context <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+            {t.debate_context_optional_label}
           </div>
           <input
             type="text"
@@ -212,7 +214,7 @@ export default function DebateSetupPage() {
         </div>
 
         {/* Expert roles */}
-        <SectionLabel>Expert Roles ({selectedRoleIds.length} selected)</SectionLabel>
+        <SectionLabel>{t.debate_roles_selected} ({selectedRoleIds.length})</SectionLabel>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
           {availableSeats.map(seat => {
             const selected = selectedRoleIds.includes(seat.id)
@@ -246,7 +248,7 @@ export default function DebateSetupPage() {
         </div>
 
         {/* Rounds */}
-        <SectionLabel>Rounds</SectionLabel>
+        <SectionLabel>{t.setup_rounds_label}</SectionLabel>
         <div style={{ display: 'flex', gap: 8, marginBottom: 32 }}>
           {([1, 2] as const).map(r => (
             <button
@@ -260,7 +262,7 @@ export default function DebateSetupPage() {
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 600, color: rounds === r ? '#fff' : '#111' }}>
-                {r} Round{r > 1 ? 's' : ''}
+                {r === 1 ? t.setup_rounds_1 : t.setup_rounds_2}
               </div>
               <div style={{ fontSize: 11, color: rounds === r ? '#93c5fd' : '#a1a1aa', marginTop: 2 }}>
                 {r === 1 ? 'Fast — 10–15 min' : 'Full debate — 25–40 min'}
@@ -290,7 +292,7 @@ export default function DebateSetupPage() {
             letterSpacing: '-0.01em', transition: 'background 150ms',
           }}
         >
-          {launching ? 'Launching…' : 'Start Debate →'}
+          {launching ? t.debate_launching : `${t.debate_launch} →`}
         </button>
 
       </div>

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useUiLocale } from "@/lib/i18n/ui-locale-context";
 import { StatsGrid } from "./_components/StatsGrid";
 import { RecentReviews } from "./_components/RecentReviews";
-import { PaperInputBox } from "./_components/PaperInputBox";
 
 interface SessionItem {
   id: string;
@@ -18,9 +18,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const t = useUiLocale();
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const [greeting, setGreeting] = useState("Hello");
+  const [greeting, setGreeting] = useState("");
   const [upgradedBanner, setUpgradedBanner] = useState(false);
 
   const firstName = (session?.user?.name || session?.user?.email || "Researcher").split(" ")[0];
@@ -29,15 +30,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const h = new Date().getHours();
-    setGreeting(h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening");
-  }, []);
+    setGreeting(h < 12 ? t.home_greeting : h < 17 ? t.home_greeting : t.home_greeting);
+  }, [t.home_greeting]);
 
   useEffect(() => {
     if (searchParams.get('upgraded') === '1') {
       setUpgradedBanner(true);
       router.replace('/home');
-      const t = setTimeout(() => setUpgradedBanner(false), 7000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setUpgradedBanner(false), 7000);
+      return () => clearTimeout(timer);
     }
   }, [searchParams, router]);
 
@@ -50,9 +51,9 @@ export default function DashboardPage() {
   }, []);
 
   const stats = [
-    { label: "Total sessions", value: loadingSessions ? "—" : String(sessions.length), sub: "all time" },
-    { label: "This week", value: loadingSessions ? "—" : `${todayCount} / 10`, sub: "weekly limit" },
-    { label: "Concluded", value: loadingSessions ? "—" : String(concludedCount), sub: "completed" },
+    { label: t.home_stat_total, value: loadingSessions ? "—" : String(sessions.length), sub: t.home_stat_all_time },
+    { label: t.home_stat_this_week, value: loadingSessions ? "—" : `${todayCount} / 10`, sub: t.home_stat_weekly_limit },
+    { label: t.home_stat_concluded, value: loadingSessions ? "—" : String(concludedCount), sub: t.home_stat_completed },
   ];
 
   return (
@@ -60,53 +61,40 @@ export default function DashboardPage() {
       padding: "40px 48px 60px", maxWidth: 820, margin: "0 auto",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
-      {/* Upgrade success banner */}
       {upgradedBanner && (
         <div style={{
-          marginBottom: 24,
-          padding: '14px 18px',
+          marginBottom: 24, padding: '14px 18px',
           background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-          borderRadius: 10,
-          color: '#fff',
-          fontSize: 14,
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
+          borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 10,
           animation: 'bubble-in 300ms ease both',
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
-          Welcome to Pro! You now have 50 reviews/day. Enjoy.
+          {t.home_upgrade_banner}
         </div>
       )}
 
-      {/* Greeting */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{
           fontSize: 26, fontWeight: 800, color: "#1a1a1a",
           letterSpacing: "-0.04em", marginBottom: 4,
           fontFamily: "'Georgia', 'Times New Roman', serif",
         }}>
-          {greeting}, {firstName}.
+          {t.home_greeting}, {firstName}.
         </h1>
         <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
-          {loadingSessions ? "Loading…" : todayCount > 0
-            ? `${todayCount} session${todayCount > 1 ? "s" : ""} today`
-            : "No sessions yet today — start an analysis below"}
+          {loadingSessions
+            ? t.common_loading
+            : todayCount > 0
+            ? `${todayCount} ${t.home_sessions_today}`
+            : t.home_no_sessions}
         </p>
       </div>
 
-      {/* Paper input — arXiv or PDF, then mode selection */}
-      <PaperInputBox />
-
-      <div style={{ height: 1, background: "#f0f0f2", margin: "32px 0" }} />
-
-      {/* Stats */}
       <StatsGrid stats={stats} />
 
-      {/* Recent sessions */}
       <RecentReviews
         sessions={sessions}
         loadingSessions={loadingSessions}

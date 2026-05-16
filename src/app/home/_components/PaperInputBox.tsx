@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useUiLocale } from '@/lib/i18n/ui-locale-context'
 
 type Stage =
   | { kind: 'idle' }
@@ -13,11 +14,22 @@ type Stage =
 
 export function PaperInputBox() {
   const router = useRouter()
+  const t = useUiLocale()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<Stage>({ kind: 'idle' })
   const [arxivInput, setArxivInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (stage.kind === 'pdf_ready') {
+      const url = URL.createObjectURL(stage.file)
+      setPdfPreviewUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    setPdfPreviewUrl(null)
+  }, [stage])
 
   /* ─── helpers ─────────────────────────────────────────── */
 
@@ -132,7 +144,7 @@ export function PaperInputBox() {
               type="text"
               value={arxivInput}
               onChange={e => setArxivInput(e.target.value)}
-              placeholder={dragging ? 'Drop PDF here' : 'arXiv ID or URL  ·  or drop a PDF'}
+              placeholder={dragging ? t.input_pdf_placeholder : t.input_arxiv_placeholder}
               autoFocus
               style={{
                 flex: 1, border: 'none', outline: 'none', background: 'transparent',
@@ -143,7 +155,7 @@ export function PaperInputBox() {
             {/* PDF upload button */}
             <button
               type="button"
-              title="Upload PDF"
+              title={t.input_upload_pdf}
               onClick={() => fileInputRef.current?.click()}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -169,7 +181,7 @@ export function PaperInputBox() {
               }}
             >
               {isFetching ? <SpinnerIcon /> : null}
-              {isFetching ? 'Fetching…' : 'Fetch'}
+              {isFetching ? t.input_fetching : t.input_fetch_preview}
             </button>
           </div>
 
@@ -194,15 +206,55 @@ export function PaperInputBox() {
         />
       )}
 
-      {/* ── PDF ready card ── */}
-      {stage.kind === 'pdf_ready' && (
-        <PreviewCard
-          eyebrow={`PDF  ·  ${formatBytes(stage.file.size)}`}
-          title={stage.file.name.replace(/\.pdf$/i, '')}
-          abstract="Embedding will start after confirmation. We'll extract and index the full text of your PDF."
-          onConfirm={handleConfirm}
-          onCancel={reset}
-        />
+      {/* ── PDF ready — full-screen preview ── */}
+      {stage.kind === 'pdf_ready' && pdfPreviewUrl && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 100,
+          display: 'flex', flexDirection: 'column', background: '#fff',
+        }}>
+          {/* Top bar */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '0 16px', height: 52, flexShrink: 0,
+            borderBottom: '1px solid #e4e4e7', background: '#fff',
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 600, color: '#111',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {stage.file.name.replace(/\.pdf$/i, '')}
+              </div>
+              <div style={{ fontSize: 11, color: '#aaa' }}>{formatBytes(stage.file.size)}</div>
+            </div>
+            <button
+              onClick={reset}
+              style={{
+                padding: '6px 14px', borderRadius: 7,
+                border: '1px solid #e4e4e7', background: '#fff',
+                color: '#52525b', fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              {t.common_cancel}
+            </button>
+            <button
+              onClick={handleConfirm}
+              style={{
+                padding: '6px 18px', borderRadius: 7, border: 'none',
+                background: '#111', color: '#fff',
+                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              {t.input_confirm} →
+            </button>
+          </div>
+          {/* PDF viewer */}
+          <iframe
+            src={pdfPreviewUrl}
+            style={{ flex: 1, border: 'none', display: 'block' }}
+            title="PDF preview"
+          />
+        </div>
       )}
 
       {/* ── Confirming (spinner) ── */}
@@ -212,7 +264,7 @@ export function PaperInputBox() {
           display: 'flex', alignItems: 'center', gap: 12, color: '#666', fontSize: 13,
         }}>
           <SpinnerIcon size={16} />
-          <span>Processing <em style={{ color: '#1a1a1a', fontStyle: 'normal', fontWeight: 600 }}>{stage.label}</em>…</span>
+          <span>{t.input_processing} <em style={{ color: '#1a1a1a', fontStyle: 'normal', fontWeight: 600 }}>{stage.label}</em></span>
         </div>
       )}
 
@@ -241,7 +293,7 @@ export function PaperInputBox() {
                 border: 'none', cursor: 'pointer', padding: '2px 6px',
               }}
             >
-              Change
+              {t.input_reset}
             </button>
           </div>
 
@@ -249,17 +301,17 @@ export function PaperInputBox() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <ModeCard
               icon={<ReviewIcon />}
-              title="審查論文"
-              sub="Paper Review"
-              description="Multi-agent critical review — methods, literature, novelty, statistics."
+              title={t.input_mode_review}
+              sub={t.input_start_review}
+              description={t.input_mode_review_desc}
               onClick={() => launch('review')}
               accent="#111"
             />
             <ModeCard
               icon={<DebateIcon />}
-              title="對抗辯論"
-              sub="Adversarial Debate"
-              description="Two opposing councils argue for and against the paper's claims."
+              title={t.input_mode_debate}
+              sub={t.input_start_debate}
+              description={t.input_mode_debate_desc}
               onClick={() => launch('debate')}
               accent="#1e3a8a"
             />
@@ -291,6 +343,7 @@ function PreviewCard({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const t = useUiLocale()
   return (
     <div style={{ border: '1.5px solid #e4e4e7', borderRadius: 10, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid #f0f0f2' }}>
@@ -311,13 +364,13 @@ function PreviewCard({
           border: '1px solid #e4e4e7', borderRadius: 7, padding: '6px 14px',
           background: '#fff', color: '#52525b', fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
         }}>
-          Cancel
+          {t.common_cancel}
         </button>
         <button onClick={onConfirm} style={{
           border: 'none', borderRadius: 7, padding: '6px 18px',
           background: '#111', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
         }}>
-          Confirm
+          {t.input_confirm}
         </button>
       </div>
     </div>

@@ -2,41 +2,21 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams, useParams } from 'next/navigation'
+import { useUiLocale } from '@/lib/i18n/ui-locale-context'
 
 type ReviewMode = 'critique' | 'gap'
 type Domain = 'general' | 'materials' | 'biomedical' | 'physics'
 
-const DOMAIN_OPTIONS: { value: Domain; label: string; sub: string }[] = [
-  { value: 'general',    label: 'General',    sub: 'Multidisciplinary' },
-  { value: 'materials',  label: 'Materials',  sub: 'Chemistry & Engineering' },
-  { value: 'biomedical', label: 'Biomedical', sub: 'Life Sciences' },
-  { value: 'physics',    label: 'Physics',    sub: 'Devices & Systems' },
-]
-
-const MODE_OPTIONS: { value: ReviewMode; label: string; sub: string; description: string }[] = [
-  {
-    value: 'critique',
-    label: 'Critical Review',
-    sub: 'Methods · Literature · Novelty',
-    description: 'Multi-agent panel scrutinises methodology, related work, statistical validity, and novelty claims.',
-  },
-  {
-    value: 'gap',
-    label: 'Gap Analysis',
-    sub: 'Opportunities · Missing work',
-    description: 'Agents identify research gaps, missing controls, and opportunities for follow-up studies.',
-  },
-]
-
-const ROUND_OPTIONS: { value: 1 | 2; label: string; sub: string }[] = [
-  { value: 1, label: '1 Round', sub: 'Fast — 8–12 min' },
-  { value: 2, label: '2 Rounds', sub: 'Deep — 20–30 min' },
+const ROUND_OPTIONS: { value: 1 | 2; sub: string }[] = [
+  { value: 1, sub: 'Fast — 8–12 min' },
+  { value: 2, sub: 'Deep — 20–30 min' },
 ]
 
 export default function ReviewSetupPage() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
+  const t = useUiLocale()
   const assetId = params.assetId as string
 
   const [domain, setDomain] = useState<Domain>((searchParams.get('domain') ?? 'general') as Domain)
@@ -44,6 +24,18 @@ export default function ReviewSetupPage() {
   const [rounds, setRounds] = useState<1 | 2>(1)
   const [launching, setLaunching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const DOMAIN_OPTIONS = [
+    { value: 'general' as Domain,    label: t.domain_general,    sub: 'Multidisciplinary' },
+    { value: 'materials' as Domain,  label: t.domain_materials,  sub: 'Chemistry & Engineering' },
+    { value: 'biomedical' as Domain, label: t.domain_biomedical, sub: 'Life Sciences' },
+    { value: 'physics' as Domain,    label: t.domain_physics,    sub: 'Devices & Systems' },
+  ]
+
+  const MODE_OPTIONS = [
+    { value: 'critique' as ReviewMode, label: t.setup_mode_critique, sub: 'Methods · Literature · Novelty', description: t.setup_mode_critique_desc },
+    { value: 'gap' as ReviewMode, label: t.setup_mode_gap, sub: 'Opportunities · Missing work', description: t.setup_mode_gap_desc },
+  ]
 
   const handleLaunch = async () => {
     setLaunching(true)
@@ -80,7 +72,7 @@ export default function ReviewSetupPage() {
             fontSize: 12.5, cursor: 'pointer', padding: 0, marginBottom: 32,
           }}
         >
-          ← Back
+          ← {t.common_back}
         </button>
 
         {/* Header */}
@@ -89,12 +81,12 @@ export default function ReviewSetupPage() {
             fontSize: 22, fontWeight: 800, color: '#111', letterSpacing: '-0.04em',
             margin: '0 0 4px', fontFamily: "'Georgia', serif",
           }}>
-            Configure Review
+            {t.setup_mode_critique}
           </h1>
         </div>
 
         {/* Domain */}
-        <SectionLabel>Research Domain</SectionLabel>
+        <SectionLabel>{t.home_domain_label}</SectionLabel>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
           {DOMAIN_OPTIONS.map(opt => {
             const active = domain === opt.value
@@ -137,7 +129,7 @@ export default function ReviewSetupPage() {
         </div>
 
         {/* Rounds */}
-        <SectionLabel>Rounds</SectionLabel>
+        <SectionLabel>{t.setup_rounds_label}</SectionLabel>
         <div style={{ display: 'flex', gap: 8, marginBottom: 32 }}>
           {ROUND_OPTIONS.map(opt => (
             <button
@@ -151,7 +143,7 @@ export default function ReviewSetupPage() {
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 600, color: rounds === opt.value ? '#fff' : '#111' }}>
-                {opt.label}
+                {opt.value === 1 ? t.setup_rounds_1 : t.setup_rounds_2}
               </div>
               <div style={{ fontSize: 11, color: rounds === opt.value ? '#aaa' : '#a1a1aa', marginTop: 2 }}>
                 {opt.sub}
@@ -181,7 +173,7 @@ export default function ReviewSetupPage() {
             letterSpacing: '-0.01em', transition: 'background 150ms',
           }}
         >
-          {launching ? 'Launching…' : 'Launch Review →'}
+          {launching ? t.setup_launching : `${t.setup_launch} →`}
         </button>
 
       </div>

@@ -27,6 +27,7 @@ function LanguageSelector({
 
   const handleChange = async (next: string) => {
     onLangChange(next)
+    document.cookie = `ui-lang=${next}; path=/; max-age=31536000; SameSite=Lax`
     setSaving(true)
     await fetch('/api/me', {
       method: 'PATCH',
@@ -136,18 +137,21 @@ function PlusSquareIcon({ active }: { active: boolean }) {
   )
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, initialLang = 'en' }: { children: ReactNode; initialLang?: string }) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
   const [collapsed, setCollapsed] = useState(false)
-  const [lang, setLang] = useState('en')
+  const [lang, setLang] = useState(initialLang)
   const [tier, setTier] = useState<'free' | 'pro'>('free')
   const [upgrading, setUpgrading] = useState(false)
 
   useEffect(() => {
     fetch('/api/me').then((r) => r.json()).then((data) => {
-      if (data?.preferredLanguage) setLang(data.preferredLanguage)
+      if (data?.preferredLanguage) {
+        setLang(data.preferredLanguage)
+        document.cookie = `ui-lang=${data.preferredLanguage}; path=/; max-age=31536000; SameSite=Lax`
+      }
     }).catch(() => {})
   }, [])
 
@@ -254,7 +258,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div style={{ padding: '12px 10px', flexShrink: 0 }}>
           <button
-            onClick={() => router.push('/home')}
+            onClick={() => router.push('/analyze')}
             style={{
               width: '100%',
               height: 34,
@@ -432,7 +436,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflow: 'auto', height: '100vh' }}>
+      <main style={{ flex: 1, overflow: 'auto', height: '100vh', position: 'relative' }}>
         {children}
       </main>
     </div>

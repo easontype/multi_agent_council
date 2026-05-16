@@ -70,6 +70,65 @@ export interface UiMessages {
   compare_new: string
   compare_verdict: string
 
+  // Status labels
+  status_concluded: string
+  status_running: string
+  status_pending: string
+  status_failed: string
+  status_ready: string
+  status_processing: string
+
+  // Table headers
+  table_title: string
+  table_status: string
+  table_when: string
+  table_paper: string
+  table_sessions: string
+  table_updated: string
+  table_topic: string
+  table_divergence: string
+  table_rounds: string
+  table_dimension: string
+
+  // Actions
+  action_new_review: string
+  action_view_all_reviews: string
+  action_delete: string
+  action_retry: string
+  action_search_reviews: string
+  action_search_papers: string
+  action_start_first: string
+
+  // Home stats
+  home_stat_total: string
+  home_stat_all_time: string
+  home_stat_this_week: string
+  home_stat_weekly_limit: string
+  home_stat_concluded: string
+  home_stat_completed: string
+  home_no_sessions: string
+  home_sessions_today: string
+  home_upgrade_banner: string
+
+  // Page headings
+  page_papers: string
+  page_papers_subtitle: string
+  page_new_analysis: string
+  page_new_analysis_subtitle: string
+  page_configure_review: string
+  page_configure_debate: string
+
+  // Debate setup extra
+  debate_positions_label: string
+  debate_side_a: string
+  debate_side_b: string
+  debate_side_a_placeholder: string
+  debate_side_b_placeholder: string
+  debate_context_optional_label: string
+  debate_roles_selected: string
+  debate_error_sides: string
+  debate_error_roles: string
+
   // Common
   common_loading: string
   common_error: string
@@ -77,6 +136,8 @@ export interface UiMessages {
   common_cancel: string
   common_save: string
   common_or: string
+  common_search: string
+  common_no_results: string
 }
 
 const en: UiMessages = {
@@ -142,12 +203,67 @@ const en: UiMessages = {
   compare_new: 'New comparison',
   compare_verdict: 'Synthesis Verdict',
 
+  status_concluded: 'Concluded',
+  status_running: 'Running',
+  status_pending: 'Pending',
+  status_failed: 'Failed',
+  status_ready: 'Ready',
+  status_processing: 'Processing',
+
+  table_title: 'Title',
+  table_status: 'Status',
+  table_when: 'When',
+  table_paper: 'Paper',
+  table_sessions: 'Sessions',
+  table_updated: 'Updated',
+  table_topic: 'Topic',
+  table_divergence: 'Divergence',
+  table_rounds: 'Rounds',
+  table_dimension: 'Dimension',
+
+  action_new_review: 'New Review',
+  action_view_all_reviews: 'View all reviews →',
+  action_delete: 'Delete',
+  action_retry: 'Retry',
+  action_search_reviews: 'Search reviews…',
+  action_search_papers: 'Search papers or arXiv ID',
+  action_start_first: 'Start the first one.',
+
+  home_stat_total: 'Total sessions',
+  home_stat_all_time: 'all time',
+  home_stat_this_week: 'This week',
+  home_stat_weekly_limit: 'weekly limit',
+  home_stat_concluded: 'Concluded',
+  home_stat_completed: 'completed',
+  home_no_sessions: 'No sessions yet today',
+  home_sessions_today: 'session(s) today',
+  home_upgrade_banner: 'Welcome to Pro! You now have 50 reviews/day. Enjoy.',
+
+  page_papers: 'Papers',
+  page_papers_subtitle: 'Cached paper assets and the review sessions attached to them',
+  page_new_analysis: 'New Analysis',
+  page_new_analysis_subtitle: 'Enter an arXiv ID, URL, or upload a PDF to get started.',
+  page_configure_review: 'Configure Review',
+  page_configure_debate: 'Configure Debate',
+
+  debate_positions_label: 'Positions',
+  debate_side_a: 'Side A — For',
+  debate_side_b: 'Side B — Against',
+  debate_side_a_placeholder: 'e.g. The methodology is sound',
+  debate_side_b_placeholder: 'e.g. The results are overstated',
+  debate_context_optional_label: 'Context (optional)',
+  debate_roles_selected: 'Expert Roles',
+  debate_error_sides: 'Both sides are required',
+  debate_error_roles: 'Select at least one expert role',
+
   common_loading: 'Loading…',
   common_error: 'Something went wrong.',
   common_back: 'Back',
   common_cancel: 'Cancel',
   common_save: 'Save',
   common_or: 'or',
+  common_search: 'Search…',
+  common_no_results: 'No results found.',
 }
 
 const zhTW: UiMessages = {
@@ -213,12 +329,67 @@ const zhTW: UiMessages = {
   compare_new: '新比較',
   compare_verdict: '綜合裁決',
 
+  status_concluded: '已完成',
+  status_running: '進行中',
+  status_pending: '排隊中',
+  status_failed: '失敗',
+  status_ready: '就緒',
+  status_processing: '處理中',
+
+  table_title: '標題',
+  table_status: '狀態',
+  table_when: '時間',
+  table_paper: '論文',
+  table_sessions: '工作階段',
+  table_updated: '更新時間',
+  table_topic: '主題',
+  table_divergence: '分歧度',
+  table_rounds: '輪次',
+  table_dimension: '維度',
+
+  action_new_review: '新增審查',
+  action_view_all_reviews: '查看全部審查 →',
+  action_delete: '刪除',
+  action_retry: '重試',
+  action_search_reviews: '搜尋審查…',
+  action_search_papers: '搜尋論文或 arXiv ID',
+  action_start_first: '開始第一個。',
+
+  home_stat_total: '工作階段總數',
+  home_stat_all_time: '全部時間',
+  home_stat_this_week: '本週',
+  home_stat_weekly_limit: '每週上限',
+  home_stat_concluded: '已完成',
+  home_stat_completed: '已結束',
+  home_no_sessions: '今天還沒有工作階段',
+  home_sessions_today: '個工作階段',
+  home_upgrade_banner: '歡迎升級 Pro！您每天可進行 50 次審查。',
+
+  page_papers: '論文庫',
+  page_papers_subtitle: '已快取的論文及其關聯的審查階段',
+  page_new_analysis: '新增分析',
+  page_new_analysis_subtitle: '輸入 arXiv ID、網址，或上傳 PDF 以開始分析。',
+  page_configure_review: '設定審查',
+  page_configure_debate: '設定辯論',
+
+  debate_positions_label: '立場',
+  debate_side_a: '正方 — 支持',
+  debate_side_b: '反方 — 反對',
+  debate_side_a_placeholder: '例：研究方法合理',
+  debate_side_b_placeholder: '例：研究結果被過度解讀',
+  debate_context_optional_label: '辯論背景（選填）',
+  debate_roles_selected: '專家角色',
+  debate_error_sides: '正反方立場均為必填',
+  debate_error_roles: '請至少選擇一個專家角色',
+
   common_loading: '載入中…',
   common_error: '發生錯誤。',
   common_back: '返回',
   common_cancel: '取消',
   common_save: '儲存',
   common_or: '或',
+  common_search: '搜尋…',
+  common_no_results: '找不到結果。',
 }
 
 const zhCN: UiMessages = {
@@ -271,11 +442,39 @@ const zhCN: UiMessages = {
   compare_running: '比较中…',
   compare_new: '新比较',
   compare_verdict: '综合裁决',
+  page_papers: '论文库',
+  page_papers_subtitle: '已缓存的论文及其关联的审查阶段',
+  page_new_analysis: '新建分析',
+  page_new_analysis_subtitle: '输入 arXiv ID、网址，或上传 PDF 以开始分析。',
+  page_configure_review: '配置审查',
+  page_configure_debate: '配置辩论',
+  action_new_review: '新建审查',
+  action_view_all_reviews: '查看全部审查 →',
+  action_search_reviews: '搜索审查…',
+  action_search_papers: '搜索论文或 arXiv ID',
+  home_upgrade_banner: '欢迎升级 Pro！您每天可进行 50 次审查。',
+  home_stat_total: '工作阶段总数',
+  home_stat_this_week: '本周',
+  home_stat_weekly_limit: '每周上限',
+  home_stat_concluded: '已完成',
+  home_stat_completed: '已结束',
+  home_no_sessions: '今天还没有工作阶段',
+  debate_positions_label: '立场',
+  debate_side_a: '正方 — 支持',
+  debate_side_b: '反方 — 反对',
+  debate_side_a_placeholder: '例：研究方法合理',
+  debate_side_b_placeholder: '例：研究结果被过度解读',
+  debate_context_optional_label: '辩论背景（选填）',
+  debate_roles_selected: '专家角色',
+  debate_error_sides: '正反方立场均为必填',
+  debate_error_roles: '请至少选择一个专家角色',
   common_loading: '加载中…',
   common_error: '出现错误。',
   common_back: '返回',
   common_cancel: '取消',
   common_save: '保存',
+  common_search: '搜索…',
+  common_no_results: '未找到结果。',
 }
 
 const ja: UiMessages = {
@@ -341,12 +540,61 @@ const ja: UiMessages = {
   compare_new: '新しい比較',
   compare_verdict: '総合評価',
 
+  status_concluded: '完了',
+  status_running: '実行中',
+  status_pending: '待機中',
+  status_failed: '失敗',
+  status_ready: '準備完了',
+  status_processing: '処理中',
+  table_title: 'タイトル',
+  table_status: 'ステータス',
+  table_when: '日時',
+  table_paper: '論文',
+  table_sessions: 'セッション',
+  table_updated: '更新日',
+  table_topic: 'トピック',
+  table_divergence: '乖離度',
+  table_rounds: 'ラウンド',
+  table_dimension: '次元',
+  action_new_review: '新しいレビュー',
+  action_view_all_reviews: 'すべてのレビューを表示 →',
+  action_delete: '削除',
+  action_retry: '再試行',
+  action_search_reviews: 'レビューを検索…',
+  action_search_papers: '論文またはarXiv IDを検索',
+  action_start_first: '最初のレビューを始めましょう。',
+  home_stat_total: '総セッション数',
+  home_stat_all_time: '全期間',
+  home_stat_this_week: '今週',
+  home_stat_weekly_limit: '週間制限',
+  home_stat_concluded: '完了',
+  home_stat_completed: '完了済み',
+  home_no_sessions: '今日はまだセッションがありません',
+  home_sessions_today: 'セッション',
+  home_upgrade_banner: 'Proへようこそ！1日50回のレビューが可能です。',
+  page_papers: '論文ライブラリ',
+  page_papers_subtitle: 'キャッシュされた論文とそのレビューセッション',
+  page_new_analysis: '新しい分析',
+  page_new_analysis_subtitle: 'arXiv IDまたはURLを入力するか、PDFをアップロードしてください。',
+  page_configure_review: 'レビュー設定',
+  page_configure_debate: '討論設定',
+  debate_positions_label: 'ポジション',
+  debate_side_a: '賛成側',
+  debate_side_b: '反対側',
+  debate_side_a_placeholder: '例：この手法は合理的です',
+  debate_side_b_placeholder: '例：結果は誇張されています',
+  debate_context_optional_label: 'コンテキスト（任意）',
+  debate_roles_selected: '専門家の役割',
+  debate_error_sides: '両サイドの入力が必要です',
+  debate_error_roles: '少なくとも1つの役割を選択してください',
   common_loading: '読み込み中…',
   common_error: 'エラーが発生しました。',
   common_back: '戻る',
   common_cancel: 'キャンセル',
   common_save: '保存',
   common_or: 'または',
+  common_search: '検索…',
+  common_no_results: '結果が見つかりません。',
 }
 
 const ko: UiMessages = {
@@ -412,12 +660,61 @@ const ko: UiMessages = {
   compare_new: '새 비교',
   compare_verdict: '종합 평결',
 
+  status_concluded: '완료',
+  status_running: '실행 중',
+  status_pending: '대기 중',
+  status_failed: '실패',
+  status_ready: '준비 완료',
+  status_processing: '처리 중',
+  table_title: '제목',
+  table_status: '상태',
+  table_when: '시간',
+  table_paper: '논문',
+  table_sessions: '세션',
+  table_updated: '업데이트',
+  table_topic: '주제',
+  table_divergence: '분기도',
+  table_rounds: '라운드',
+  table_dimension: '차원',
+  action_new_review: '새 리뷰',
+  action_view_all_reviews: '모든 리뷰 보기 →',
+  action_delete: '삭제',
+  action_retry: '재시도',
+  action_search_reviews: '리뷰 검색…',
+  action_search_papers: '논문 또는 arXiv ID 검색',
+  action_start_first: '첫 번째를 시작하세요.',
+  home_stat_total: '총 세션 수',
+  home_stat_all_time: '전체 기간',
+  home_stat_this_week: '이번 주',
+  home_stat_weekly_limit: '주간 한도',
+  home_stat_concluded: '완료',
+  home_stat_completed: '완료됨',
+  home_no_sessions: '오늘 아직 세션이 없습니다',
+  home_sessions_today: '세션',
+  home_upgrade_banner: 'Pro에 오신 것을 환영합니다! 하루 50번 리뷰가 가능합니다.',
+  page_papers: '논문 라이브러리',
+  page_papers_subtitle: '캐시된 논문 및 관련 리뷰 세션',
+  page_new_analysis: '새 분석',
+  page_new_analysis_subtitle: 'arXiv ID, URL을 입력하거나 PDF를 업로드하세요.',
+  page_configure_review: '리뷰 설정',
+  page_configure_debate: '토론 설정',
+  debate_positions_label: '입장',
+  debate_side_a: '찬성 측',
+  debate_side_b: '반대 측',
+  debate_side_a_placeholder: '예: 이 방법론은 타당합니다',
+  debate_side_b_placeholder: '예: 결과가 과장되었습니다',
+  debate_context_optional_label: '맥락 (선택 사항)',
+  debate_roles_selected: '전문가 역할',
+  debate_error_sides: '양측 입장 모두 필수입니다',
+  debate_error_roles: '최소 하나의 전문가 역할을 선택하세요',
   common_loading: '로딩 중…',
   common_error: '오류가 발생했습니다.',
   common_back: '뒤로',
   common_cancel: '취소',
   common_save: '저장',
   common_or: '또는',
+  common_search: '검색…',
+  common_no_results: '결과가 없습니다.',
 }
 
 const TRANSLATIONS: Record<SupportedLocale, UiMessages> = { en, 'zh-TW': zhTW, 'zh-CN': zhCN, ja, ko }

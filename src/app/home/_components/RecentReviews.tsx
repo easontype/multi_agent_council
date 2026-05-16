@@ -1,5 +1,6 @@
 "use client";
 
+import { useUiLocale } from "@/lib/i18n/ui-locale-context";
 import { STATUS_DOT, STATUS_LABEL, timeAgo, truncate } from "./utils";
 
 interface SessionItem {
@@ -16,32 +17,33 @@ interface RecentReviewsProps {
 }
 
 export function RecentReviews({ sessions, loadingSessions, onSessionClick }: RecentReviewsProps) {
+  const t = useUiLocale();
   const recent = sessions.slice(0, 5);
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", color: "#bbb", textTransform: "uppercase" }}>
-          Recent Reviews
+          {t.home_recent_reviews}
         </span>
         {sessions.length > 0 && (
           <a href="/home/reviews" style={{ fontSize: 12, color: "#888", textDecoration: "none", fontWeight: 500, transition: "color 150ms" }}
             onMouseEnter={e => e.currentTarget.style.color = "#111"}
             onMouseLeave={e => e.currentTarget.style.color = "#888"}
           >
-            View all {sessions.length} →
+            {t.action_view_all_reviews}
           </a>
         )}
       </div>
 
       {loadingSessions ? (
-        <div style={{ padding: "20px 0", color: "#ccc", fontSize: 13 }}>Loading…</div>
+        <div style={{ padding: "20px 0", color: "#ccc", fontSize: 13 }}>{t.common_loading}</div>
       ) : recent.length === 0 ? (
         <div style={{
           padding: "32px 20px", border: "1px dashed #ebebed", borderRadius: 10,
           textAlign: "center", color: "#ccc", fontSize: 13, lineHeight: 1.6,
         }}>
-          Search for a paper above to start your first review
+          {t.home_no_sessions}
         </div>
       ) : (
         <div>
@@ -90,7 +92,7 @@ export function RecentReviews({ sessions, loadingSessions, onSessionClick }: Rec
               onMouseEnter={e => { e.currentTarget.style.color = "#111"; e.currentTarget.style.borderColor = "#ccc"; }}
               onMouseLeave={e => { e.currentTarget.style.color = "#888"; e.currentTarget.style.borderColor = "#ebebed"; }}
             >
-              View all reviews →
+              {t.action_view_all_reviews}
             </a>
           )}
         </div>

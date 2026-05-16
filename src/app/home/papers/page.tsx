@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUiLocale } from "@/lib/i18n/ui-locale-context";
 
 interface PaperAssetItem {
   id: string;
@@ -14,13 +15,6 @@ interface PaperAssetItem {
   updated_at: string;
   session_count: number;
 }
-
-const STATUS_STYLE: Record<PaperAssetItem["status"], { bg: string; text: string; label: string }> = {
-  ready: { bg: "#ecfdf5", text: "#166534", label: "Ready" },
-  processing: { bg: "#fffbeb", text: "#92400e", label: "Processing" },
-  pending: { bg: "#f5f5f4", text: "#57534e", label: "Pending" },
-  failed: { bg: "#fef2f2", text: "#b91c1c", label: "Failed" },
-};
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -36,6 +30,13 @@ function timeAgo(dateStr: string) {
 
 export default function PapersPage() {
   const router = useRouter();
+  const t = useUiLocale();
+  const STATUS_STYLE: Record<PaperAssetItem["status"], { bg: string; text: string; label: string }> = {
+    ready:      { bg: "#ecfdf5", text: "#166534", label: t.status_ready },
+    processing: { bg: "#fffbeb", text: "#92400e", label: t.status_processing },
+    pending:    { bg: "#f5f5f4", text: "#57534e", label: t.status_pending },
+    failed:     { bg: "#fef2f2", text: "#b91c1c", label: t.status_failed },
+  };
   const [papers, setPapers] = useState<PaperAssetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -68,10 +69,10 @@ export default function PapersPage() {
           margin: "0 0 4px",
           fontFamily: "'Georgia', 'Times New Roman', serif",
         }}>
-          Papers
+          {t.page_papers}
         </h1>
         <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
-          Cached paper assets and the review sessions attached to them
+          {t.page_papers_subtitle}
         </p>
       </div>
 
@@ -85,7 +86,7 @@ export default function PapersPage() {
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search papers or arXiv id"
+          placeholder={t.action_search_papers}
           style={{
             width: 280,
             maxWidth: "100%",
@@ -112,12 +113,12 @@ export default function PapersPage() {
             cursor: "pointer",
           }}
         >
-          New Review
+          {t.action_new_review}
         </button>
       </div>
 
       {loading ? (
-        <div style={{ padding: "32px 0", color: "#a1a1aa", fontSize: 13 }}>Loading papers...</div>
+        <div style={{ padding: "32px 0", color: "#a1a1aa", fontSize: 13 }}>{t.common_loading}</div>
       ) : filtered.length === 0 ? (
         <div style={{
           padding: "48px 24px",
@@ -127,7 +128,7 @@ export default function PapersPage() {
           color: "#a1a1aa",
           fontSize: 13,
         }}>
-          {query.trim() ? "No papers match this search." : "No cached papers yet."}
+          {t.common_no_results}
         </div>
       ) : (
         <div style={{ border: "1px solid #f0f0f2", borderRadius: 10, overflow: "hidden" }}>
@@ -143,10 +144,10 @@ export default function PapersPage() {
             color: "#bbb",
             textTransform: "uppercase",
           }}>
-            <span>Paper</span>
-            <span>Status</span>
-            <span>Sessions</span>
-            <span>Updated</span>
+            <span>{t.table_paper}</span>
+            <span>{t.table_status}</span>
+            <span>{t.table_sessions}</span>
+            <span>{t.table_updated}</span>
           </div>
 
           {filtered.map((paper, index) => {
