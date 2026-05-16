@@ -30,6 +30,30 @@ async function isSessionEmbeddingReady(sessionId: string): Promise<boolean> {
   return Boolean((rows[0] as { ready: boolean }).ready);
 }
 
+// When rerunning after a paper-dedup bug, seats may carry a stale library_id.
+// Refresh all seats to use the paper asset's current primary_library_id.
+async function refreshSessionSeatsLibraryId(sessionId: string): Promise<void> {
+  await db.query(
+    `UPDATE council_sessions cs
+     SET seats = (
+       SELECT jsonb_agg(
+         CASE
+           WHEN pa.primary_library_id IS NOT NULL
+           THEN seat || jsonb_build_object('library_id', pa.primary_library_id)
+           ELSE seat
+         END
+       )
+       FROM jsonb_array_elements(cs.seats) AS seat
+       CROSS JOIN paper_assets pa
+       WHERE pa.id = cs.paper_asset_id
+     ),
+     updated_at = NOW()
+     WHERE cs.id = $1
+       AND cs.paper_asset_id IS NOT NULL`,
+    [sessionId],
+  );
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -82,6 +106,11 @@ export async function POST(
 
   // Get or start the background job — execution is decoupled from this HTTP connection.
   const job = existingJob ?? registerSessionJob(id, async (emit) => {
+    // On forceRestart, refresh seats' library_id from the current paper asset so
+    // reruns of sessions created during the paper-dedup bug use the correct library.
+    if (options.forceRestart) {
+      await refreshSessionSeatsLibraryId(id).catch(() => {});
+    }
     const embedStart = Date.now();
     while (!(await isSessionEmbeddingReady(id))) {
       if (Date.now() - embedStart > EMBED_TIMEOUT_MS) break;

@@ -247,12 +247,20 @@ async function ensurePaperAssetSource(input: {
   checksumSha256?: string | null;
   uploadedFileId?: string | null;
 }): Promise<void> {
+  // Use WHERE NOT EXISTS to skip insert when an identical row already exists.
+  // ON CONFLICT DO NOTHING alone doesn't help because `id` is always a fresh nanoid.
   await db.query(
     `INSERT INTO paper_asset_sources (
        id, paper_asset_id, source_kind, source_locator, checksum_sha256, uploaded_file_id
      )
-     VALUES ($1,$2,$3,$4,$5,$6)
-     ON CONFLICT DO NOTHING`,
+     SELECT $1,$2,$3,$4,$5,$6
+     WHERE NOT EXISTS (
+       SELECT 1 FROM paper_asset_sources
+       WHERE paper_asset_id = $2
+         AND source_kind    = $3
+         AND (source_locator  IS NOT DISTINCT FROM $4)
+         AND (checksum_sha256 IS NOT DISTINCT FROM $5)
+     )`,
     [
       nanoid(),
       input.paperAssetId,
@@ -290,7 +298,9 @@ export async function resolvePaperAsset(input: {
   if (!asset && normalizedChecksum && input.sourceKind === "pdf_url") {
     asset = await findPaperAssetBySourceChecksum("pdf_url", normalizedChecksum, ownerScope);
   }
-  if (!asset && normalizedLocator && input.sourceKind !== "text") {
+  // "upload" is not a unique locator (every PDF upload uses it as the locator string).
+  // For uploads, checksum is the proper dedup key — skip locator lookup to avoid cross-paper collisions.
+  if (!asset && normalizedLocator && input.sourceKind !== "text" && input.sourceKind !== "upload") {
     asset = await findPaperAssetByLocator(input.sourceKind, normalizedLocator, ownerScope);
   }
 
