@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runLLM } from "@/lib/llm/claude";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { getWorkspaceTierByEmail } from "@/lib/workspace-tier";
 import { toSafeError } from "@/lib/utils/text";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { ensureAnonymousVisitorIdentity } from "@/lib/anonymous-access";
@@ -51,6 +52,15 @@ async function fetchArxivMeta(arxivId: string): Promise<PaperMeta | null> {
 export async function POST(req: NextRequest) {
   const account = await resolveAuthAccountContext();
   const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req);
+
+  const compareTier = account ? await getWorkspaceTierByEmail(account.email) : "free";
+  if (compareTier !== "pro") {
+    return NextResponse.json(
+      { error: "Paper comparison is a Pro feature. Upgrade to unlock it." },
+      { status: 403 },
+    );
+  }
+
   const quota = await checkEntitlement(req, "web_analyze", anonymousVisitor ?? undefined);
   if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 

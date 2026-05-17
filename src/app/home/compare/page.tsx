@@ -460,6 +460,11 @@ export default function ComparePage() {
       })
       const data = await res.json() as { papers?: PaperMeta[]; comparison?: PaperComparison; error?: string }
 
+      if (res.status === 403) {
+        setError(data.error ?? 'Paper comparison is a Pro feature. Please upgrade your plan.')
+        setPhase('error')
+        return
+      }
       if (!res.ok || data.error) {
         setError(data.error ?? 'Comparison failed')
         setPhase('error')
@@ -655,7 +660,7 @@ export default function ComparePage() {
             {/* Paper cards */}
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
               {papers.map((p, i) => (
-                <PaperCard key={p.arxivId} paper={p} index={i} />
+                <PaperCard key={p.arxivId ?? `upload-${i}`} paper={p} index={i} />
               ))}
             </div>
 

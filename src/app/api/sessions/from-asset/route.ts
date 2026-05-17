@@ -7,6 +7,7 @@ import { createCouncilSession } from "@/lib/core/council";
 import { resolveAuthAccountContext } from "@/lib/auth-account";
 import { createCouncilAnonymousAccess, attachCouncilSessionCookie } from "@/lib/core/council-access";
 import { applyEntitlementResponse, checkEntitlement, quotaDenied } from "@/lib/entitlements";
+import { getWorkspaceTierByEmail } from "@/lib/workspace-tier";
 import { DEFAULT_GEMMA_MODEL } from "@/lib/llm/gemma-models";
 import { resolvePaperTopicSelection } from "@/lib/paper-topics";
 import type { CouncilSeat } from "@/lib/core/council-types";
@@ -72,8 +73,6 @@ function buildPhysicsSeats(model: string): CouncilSeat[] {
 export async function POST(req: NextRequest) {
   const account = await resolveAuthAccountContext();
   const anonymousVisitor = account ? null : ensureAnonymousVisitorIdentity(req);
-  const quota = await checkEntitlement(req, "review_run", anonymousVisitor ?? undefined);
-  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
 
   let body: Record<string, unknown>;
   try {
@@ -88,6 +87,20 @@ export async function POST(req: NextRequest) {
   }
 
   const sessionType: "review" | "debate" = body.sessionType === "debate" ? "debate" : "review";
+
+  if (sessionType === "debate") {
+    const tier = account ? await getWorkspaceTierByEmail(account.email) : "free";
+    if (tier !== "pro") {
+      return NextResponse.json(
+        { error: "Adversarial Debate is a Pro feature. Upgrade to unlock it." },
+        { status: 403 },
+      );
+    }
+  }
+
+  const quota = await checkEntitlement(req, "review_create", anonymousVisitor ?? undefined);
+  if (!quota.ok) return quotaDenied(quota.error, quota.retryAfterSeconds, quota.anonymousVisitorIdToSet);
+
   const mode: "critique" | "gap" = body.mode === "gap" ? "gap" : "critique";
   const rounds: 1 | 2 = body.rounds === 2 ? 2 : 1;
   const domain = (typeof body.domain === "string" ? body.domain : "general") as ReviewDomain;

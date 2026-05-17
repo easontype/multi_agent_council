@@ -87,6 +87,11 @@ export default function DebateSetupPage() {
         }),
       })
       const data = await res.json()
+      if (res.status === 403) {
+        setError(data.error ?? 'Adversarial Debate is a Pro feature. Please upgrade your plan.')
+        setLaunching(false)
+        return
+      }
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       router.push(`/review/${encodeURIComponent(data.sessionId)}`)
     } catch (err) {
