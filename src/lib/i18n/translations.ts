@@ -69,6 +69,15 @@ export interface UiMessages {
   compare_running: string
   compare_new: string
   compare_verdict: string
+  compare_research_tool: string
+  compare_fetching_msg: string
+  compare_view_arxiv: string
+  compare_pdf_upload: string
+  compare_row_methodology: string
+  compare_row_data: string
+  compare_row_contributions: string
+  compare_row_limitations: string
+  compare_row_novelty: string
 
   // Status labels
   status_concluded: string
@@ -202,6 +211,15 @@ const en: UiMessages = {
   compare_running: 'Comparing…',
   compare_new: 'New comparison',
   compare_verdict: 'Synthesis Verdict',
+  compare_research_tool: 'Research Tool',
+  compare_fetching_msg: 'Fetching abstracts and generating comparison…',
+  compare_view_arxiv: 'View on arXiv →',
+  compare_pdf_upload: 'PDF Upload',
+  compare_row_methodology: 'Methodology',
+  compare_row_data: 'Data & Experiments',
+  compare_row_contributions: 'Contributions',
+  compare_row_limitations: 'Limitations',
+  compare_row_novelty: 'Novelty',
 
   status_concluded: 'Concluded',
   status_running: 'Running',
@@ -328,6 +346,15 @@ const zhTW: UiMessages = {
   compare_running: '比較中…',
   compare_new: '新比較',
   compare_verdict: '綜合裁決',
+  compare_research_tool: '研究工具',
+  compare_fetching_msg: '擷取摘要並生成比較中…',
+  compare_view_arxiv: '在 arXiv 查看 →',
+  compare_pdf_upload: 'PDF 上傳',
+  compare_row_methodology: '方法論',
+  compare_row_data: '數據與實驗',
+  compare_row_contributions: '主要貢獻',
+  compare_row_limitations: '局限性',
+  compare_row_novelty: '新穎性',
 
   status_concluded: '已完成',
   status_running: '進行中',
@@ -442,6 +469,15 @@ const zhCN: UiMessages = {
   compare_running: '比较中…',
   compare_new: '新比较',
   compare_verdict: '综合裁决',
+  compare_research_tool: '研究工具',
+  compare_fetching_msg: '获取摘要并生成比较中…',
+  compare_view_arxiv: '在 arXiv 查看 →',
+  compare_pdf_upload: 'PDF 上传',
+  compare_row_methodology: '方法论',
+  compare_row_data: '数据与实验',
+  compare_row_contributions: '主要贡献',
+  compare_row_limitations: '局限性',
+  compare_row_novelty: '新颖性',
   page_papers: '论文库',
   page_papers_subtitle: '已缓存的论文及其关联的审查阶段',
   page_new_analysis: '新建分析',
@@ -539,6 +575,15 @@ const ja: UiMessages = {
   compare_running: '比較中…',
   compare_new: '新しい比較',
   compare_verdict: '総合評価',
+  compare_research_tool: '研究ツール',
+  compare_fetching_msg: '要旨を取得して比較を生成中…',
+  compare_view_arxiv: 'arXivで見る →',
+  compare_pdf_upload: 'PDFアップロード',
+  compare_row_methodology: '方法論',
+  compare_row_data: 'データと実験',
+  compare_row_contributions: '貢献',
+  compare_row_limitations: '限界',
+  compare_row_novelty: '新規性',
 
   status_concluded: '完了',
   status_running: '実行中',
@@ -659,6 +704,15 @@ const ko: UiMessages = {
   compare_running: '비교 중…',
   compare_new: '새 비교',
   compare_verdict: '종합 평결',
+  compare_research_tool: '연구 도구',
+  compare_fetching_msg: '초록을 가져와 비교를 생성하는 중…',
+  compare_view_arxiv: 'arXiv에서 보기 →',
+  compare_pdf_upload: 'PDF 업로드',
+  compare_row_methodology: '방법론',
+  compare_row_data: '데이터 및 실험',
+  compare_row_contributions: '기여도',
+  compare_row_limitations: '한계',
+  compare_row_novelty: '신규성',
 
   status_concluded: '완료',
   status_running: '실행 중',

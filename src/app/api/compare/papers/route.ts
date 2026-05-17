@@ -100,12 +100,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not retrieve at least 2 papers" }, { status: 422 });
   }
 
+  const lang = req.cookies.get('ui-lang')?.value ?? 'en';
+  const langNames: Record<string, string> = {
+    'en': 'English',
+    'zh-TW': 'Traditional Chinese (繁體中文)',
+    'zh-CN': 'Simplified Chinese (简体中文)',
+    'ja': 'Japanese (日本語)',
+    'ko': 'Korean (한국어)',
+  };
+  const outputLang = langNames[lang] ?? 'English';
+
   const n = papers.length;
   const sections = papers
     .map((p, i) => `PAPER ${i + 1}: "${p.title}"${p.arxivId ? ` (arXiv:${p.arxivId})` : ''}\n${p.abstract}`)
     .join("\n\n---\n\n");
 
   const prompt = `You are a rigorous academic analyst. Carefully read the following ${n} paper abstracts and produce a structured comparison in JSON (no markdown fences, no extra text).
+
+IMPORTANT: Write ALL text values in the JSON in ${outputLang}.
 
 Return exactly this JSON shape:
 {

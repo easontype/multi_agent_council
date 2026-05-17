@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { reviewTheme } from '@/components/review/review-theme'
 import { useUiLocale } from '@/lib/i18n/ui-locale-context'
+import type { UiMessages } from '@/lib/i18n/translations'
 import type { PaperMeta, PaperComparison } from '@/app/api/compare/papers/route'
 
 type Phase = 'idle' | 'loading' | 'done' | 'error'
@@ -14,12 +15,12 @@ type Slot = ArxivSlot | UploadSlot
 function emptyArxiv(): ArxivSlot { return { kind: 'arxiv', id: '' } }
 function emptyUpload(): UploadSlot { return { kind: 'upload', uploading: false, title: null, abstract: null, err: null } }
 
-const COMPARISON_ROWS: { key: keyof Omit<PaperComparison, 'verdict'>; label: string; color: string }[] = [
-  { key: 'methodology',      label: 'Methodology',      color: '#1d4ed8' },
-  { key: 'data_experiments', label: 'Data & Experiments', color: '#7c3aed' },
-  { key: 'contributions',    label: 'Contributions',    color: '#065f46' },
-  { key: 'limitations',      label: 'Limitations',      color: '#9a3412' },
-  { key: 'novelty',          label: 'Novelty',          color: '#92400e' },
+const COMPARISON_ROWS: { key: keyof Omit<PaperComparison, 'verdict'>; tKey: keyof UiMessages; color: string }[] = [
+  { key: 'methodology',      tKey: 'compare_row_methodology',    color: '#1d4ed8' },
+  { key: 'data_experiments', tKey: 'compare_row_data',           color: '#7c3aed' },
+  { key: 'contributions',    tKey: 'compare_row_contributions',  color: '#065f46' },
+  { key: 'limitations',      tKey: 'compare_row_limitations',    color: '#9a3412' },
+  { key: 'novelty',          tKey: 'compare_row_novelty',        color: '#92400e' },
 ]
 
 const TEAM_COLORS = ['#1d4ed8', '#065f46', '#7c3aed', '#9a3412']
@@ -75,6 +76,7 @@ function PaperSlotInput({
 }) {
   const color = TEAM_COLORS[index] ?? '#555'
   const fileRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
 
   const handleFile = async (file: File) => {
     if (file.type !== 'application/pdf') {
@@ -123,94 +125,84 @@ function PaperSlotInput({
     </button>
   )
 
-  // Kind toggle
-  const kindToggle = (
-    <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: `1px solid ${reviewTheme.colors.border}`, flexShrink: 0 }}>
-      {(['arxiv', 'upload'] as const).map(k => (
-        <button
-          key={k}
-          type="button"
-          onClick={() => onSlotChange(k === 'arxiv' ? emptyArxiv() : emptyUpload())}
-          style={{
-            padding: '4px 10px', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700,
-            background: slot.kind === k ? color : '#fff',
-            color: slot.kind === k ? '#fff' : '#999',
-            transition: 'background 120ms, color 120ms',
-            letterSpacing: '0.04em', textTransform: 'uppercase',
-          }}
-        >
-          {k === 'arxiv' ? 'arXiv' : 'PDF'}
-        </button>
-      ))}
-    </div>
-  )
+  const isUploadActive = slot.kind === 'upload' && (slot.uploading || slot.title !== null)
+  const hasErr = slot.kind === 'upload' && !!slot.err
 
-  if (slot.kind === 'arxiv') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {badge}
-        {kindToggle}
-        <input
-          type="text"
-          value={slot.id}
-          onChange={(e) => onSlotChange({ kind: 'arxiv', id: e.target.value })}
-          placeholder="arXiv ID or URL (e.g. 2401.12345)"
-          style={{
-            flex: 1, border: `1.5px solid ${reviewTheme.colors.border}`, borderRadius: 10,
-            padding: '10px 13px', fontSize: 13, fontFamily: 'monospace',
-            color: reviewTheme.colors.ink, outline: 'none', background: '#fff', transition: 'border-color 150ms',
-          }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.accent }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.border }}
-        />
-        {removeBtn}
-      </div>
-    )
-  }
-
-  // Upload slot
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {badge}
-        {kindToggle}
         <div
           style={{
-            flex: 1, border: `1.5px dashed ${slot.err ? '#fca5a5' : reviewTheme.colors.border}`,
-            borderRadius: 10, padding: '9px 14px',
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: slot.title ? `${color}06` : '#fafafa',
-            cursor: slot.uploading ? 'default' : 'pointer',
-            transition: 'border-color 150ms, background 150ms',
+            flex: 1,
+            border: `1.5px solid ${hasErr ? '#fca5a5' : dragging ? color : reviewTheme.colors.border}`,
+            borderRadius: 10,
+            display: 'flex', alignItems: 'center',
+            background: isUploadActive && slot.kind === 'upload' && slot.title ? `${color}06` : '#fff',
+            transition: 'border-color 150ms',
+            overflow: 'hidden',
           }}
-          onClick={() => !slot.uploading && fileRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
         >
-          <span style={{ color: '#aaa', flexShrink: 0 }}><UploadIcon /></span>
-          {slot.uploading ? (
-            <span style={{ fontSize: 12, color: '#aaa' }}><SpinnerIcon /> 上傳中…</span>
-          ) : slot.title ? (
-            <span style={{ fontSize: 12, fontWeight: 600, color: reviewTheme.colors.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {slot.title}
-            </span>
+          {isUploadActive ? (
+            <>
+              <span style={{ color: '#aaa', padding: '0 10px', flexShrink: 0 }}><UploadIcon /></span>
+              {slot.kind === 'upload' && slot.uploading ? (
+                <span style={{ fontSize: 12, color: '#aaa', flex: 1 }}><SpinnerIcon /> 上傳中…</span>
+              ) : (
+                <span style={{ fontSize: 12, fontWeight: 600, color: reviewTheme.colors.ink, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '10px 0' }}>
+                  {slot.kind === 'upload' && slot.title}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => onSlotChange(emptyArxiv())}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 16, padding: '0 12px', flexShrink: 0 }}
+              >
+                ×
+              </button>
+            </>
           ) : (
-            <span style={{ fontSize: 12, color: '#bbb' }}>拖放 PDF 或點擊上傳</span>
-          )}
-          {slot.title && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onSlotChange(emptyUpload()) }}
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 11, flexShrink: 0 }}
-            >
-              ×
-            </button>
+            <>
+              <input
+                type="text"
+                value={slot.kind === 'arxiv' ? slot.id : ''}
+                onChange={(e) => onSlotChange({ kind: 'arxiv', id: e.target.value })}
+                placeholder={dragging ? '拖放 PDF 至此' : 'arXiv ID or URL (e.g. 2401.12345)'}
+                style={{
+                  flex: 1, border: 'none', outline: 'none',
+                  padding: '10px 13px', fontSize: 13, fontFamily: 'monospace',
+                  color: reviewTheme.colors.ink, background: 'transparent',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '5px 9px', margin: 4,
+                  border: `1px solid ${reviewTheme.colors.border}`, borderRadius: 7,
+                  background: '#fafafa', cursor: 'pointer',
+                  fontSize: 11, color: '#888', fontWeight: 600,
+                  flexShrink: 0, transition: 'border-color 120ms, color 120ms',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = reviewTheme.colors.border; e.currentTarget.style.color = '#888' }}
+              >
+                <UploadIcon /> PDF
+              </button>
+            </>
           )}
         </div>
         {removeBtn}
       </div>
-      {slot.err && <div style={{ fontSize: 11, color: '#dc2626', paddingLeft: 32 }}>{slot.err}</div>}
-      {slot.abstract && (
+      {slot.kind === 'upload' && slot.err && (
+        <div style={{ fontSize: 11, color: '#dc2626', paddingLeft: 32 }}>{slot.err}</div>
+      )}
+      {slot.kind === 'upload' && slot.abstract && (
         <div style={{
           marginLeft: 32, padding: '8px 12px', borderRadius: 8,
           background: `${color}08`, border: `1px solid ${color}20`,
@@ -220,13 +212,15 @@ function PaperSlotInput({
           {slot.abstract.slice(0, 200)}{slot.abstract.length > 200 ? '…' : ''}
         </div>
       )}
-      <input ref={fileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+      <input ref={fileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
     </div>
   )
 }
 
 function PaperCard({ paper, index }: { paper: PaperMeta; index: number }) {
   const color = TEAM_COLORS[index] ?? '#555'
+  const t = useUiLocale()
   return (
     <div style={{
       flex: 1,
@@ -244,7 +238,7 @@ function PaperCard({ paper, index }: { paper: PaperMeta; index: number }) {
         color,
         marginBottom: 6,
       }}>
-        Paper {index + 1}{paper.arxivId ? ` · arXiv:${paper.arxivId}` : ' · PDF Upload'}
+        {t.table_paper} {index + 1}{paper.arxivId ? ` · arXiv:${paper.arxivId}` : ` · ${t.compare_pdf_upload}`}
       </div>
       <div style={{
         fontSize: 13,
@@ -266,7 +260,7 @@ function PaperCard({ paper, index }: { paper: PaperMeta; index: number }) {
           rel="noreferrer"
           style={{ fontSize: 11, color, textDecoration: 'none', fontWeight: 600 }}
         >
-          View on arXiv →
+          {t.compare_view_arxiv}
         </a>
       )}
     </div>
@@ -304,7 +298,7 @@ function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison:
                 color: '#a1a1aa',
                 textTransform: 'uppercase',
               }}>
-                Dimension
+                {t.table_dimension}
               </th>
               {papers.map((p, i) => (
                 <th key={i} style={{
@@ -321,7 +315,7 @@ function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison:
                     textTransform: 'uppercase',
                     marginBottom: 3,
                   }}>
-                    Paper {i + 1}
+                    {t.table_paper} {i + 1}
                   </div>
                   <div style={{
                     fontSize: 12,
@@ -359,7 +353,7 @@ function CompareTable({ papers, comparison }: { papers: PaperMeta[]; comparison:
                     borderRadius: 4,
                     padding: '2px 7px',
                   }}>
-                    {row.label}
+                    {t[row.tKey]}
                   </span>
                 </td>
                 {papers.map((_, i) => (
@@ -507,7 +501,7 @@ export default function ComparePage() {
             color: reviewTheme.colors.softMuted,
             marginBottom: 8,
           }}>
-            Research Tool
+            {t.compare_research_tool}
           </div>
           <h1 style={{
             margin: 0,
@@ -651,7 +645,7 @@ export default function ComparePage() {
             <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
               <SpinnerIcon />
             </div>
-            Fetching abstracts and generating comparison…
+            {t.compare_fetching_msg}
           </div>
         )}
 
