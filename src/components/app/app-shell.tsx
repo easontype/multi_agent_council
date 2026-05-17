@@ -147,6 +147,13 @@ export function AppShell({ children, initialLang = 'en' }: { children: ReactNode
   const [upgrading, setUpgrading] = useState(false)
 
   useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('council-tier') as 'free' | 'pro' | null
+      if (cached) setTier(cached)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
     fetch('/api/me').then((r) => r.json()).then((data) => {
       if (data?.preferredLanguage) {
         setLang(data.preferredLanguage)
@@ -158,7 +165,10 @@ export function AppShell({ children, initialLang = 'en' }: { children: ReactNode
   useEffect(() => {
     if (!session?.user) return
     fetch('/api/stripe/session').then((r) => r.json()).then((data) => {
-      if (data?.tier) setTier(data.tier)
+      if (data?.tier) {
+        setTier(data.tier)
+        try { sessionStorage.setItem('council-tier', data.tier) } catch {}
+      }
     }).catch(() => {})
   }, [session])
 
