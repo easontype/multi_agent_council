@@ -27,6 +27,7 @@ const FREE_LIMITS: Record<EntitlementAction, QuotaWindow[]> = {
   ],
   review_run: [
     { limit: 10, windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 3,  windowSeconds: 24 * 60 * 60,         label: "day" },
   ],
   web_analyze: [
     { limit: 3,  windowSeconds: 10 * 60,              label: "10 minutes" },
@@ -50,6 +51,7 @@ const PRO_LIMITS: Record<EntitlementAction, QuotaWindow[]> = {
   ],
   review_run: [
     { limit: 50, windowSeconds: 10 * 60,              label: "10 minutes" },
+    { limit: 20, windowSeconds: 24 * 60 * 60,         label: "day" },
   ],
   web_analyze: [
     { limit: 10, windowSeconds: 10 * 60,              label: "10 minutes" },
