@@ -150,7 +150,7 @@ function PaperSlotInput({
             <>
               <span style={{ color: '#aaa', padding: '0 10px', flexShrink: 0 }}><UploadIcon /></span>
               {slot.kind === 'upload' && slot.uploading ? (
-                <span style={{ fontSize: 12, color: '#aaa', flex: 1 }}><SpinnerIcon /> 上傳中…</span>
+                <span style={{ fontSize: 12, color: '#aaa', flex: 1 }}><SpinnerIcon /> Uploading…</span>
               ) : (
                 <span style={{ fontSize: 12, fontWeight: 600, color: reviewTheme.colors.ink, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '10px 0' }}>
                   {slot.kind === 'upload' && slot.title}

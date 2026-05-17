@@ -1,8 +1,43 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { getCouncilSessionBundle } from '@/lib/core/council'
 import { db } from '@/lib/db/db'
 import type { CouncilConclusion, CouncilTurn } from '@/lib/core/council-types'
 import { MarkdownContent } from '@/components/council/markdown-content'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const { rows } = await db.query(
+    `SELECT title, topic, is_public FROM council_sessions WHERE id = $1`,
+    [id],
+  )
+  if (!rows.length || !(rows[0] as { is_public: boolean }).is_public) return {}
+  const row = rows[0] as { title: string; topic: string | null; is_public: boolean }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://councilai.app'
+  const description = row.topic
+    ? `AI peer review: ${row.topic}`
+    : 'Multi-agent AI peer review session'
+  return {
+    title: `${row.title} — Council`,
+    description,
+    openGraph: {
+      title: row.title,
+      description,
+      url: `${appUrl}/share/${id}`,
+      siteName: 'Council',
+      type: 'article',
+    },
+    twitter: {
+      card: 'summary',
+      title: row.title,
+      description,
+    },
+  }
+}
 
 async function getPublicBundle(id: string) {
   const { rows } = await db.query(

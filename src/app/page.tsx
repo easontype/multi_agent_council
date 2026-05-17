@@ -112,7 +112,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 40px 64px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+      <section className="lp-hero-grid" style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 40px 64px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
         <div>
           {/* Eyebrow */}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 12px", borderRadius: 999, border: `1px solid ${T.border}`, background: T.panel, marginBottom: 28 }}>
@@ -328,7 +328,7 @@ export default function LandingPage() {
           <h2 style={{ fontFamily: serif, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: T.ink, marginBottom: 8 }}>More than an opinion — a revision plan</h2>
           <p style={{ fontSize: 14, color: T.muted, marginBottom: 48, maxWidth: 540 }}>Every session produces a structured report plus tools to dig deeper into the evidence.</p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 20 }}>
+          <div className="lp-outputs-grid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 20 }}>
             {/* Verdict mock — left, tall */}
             <div style={{ background: T.panelStrong, border: `1px solid ${T.border}`, borderRadius: 18, boxShadow: "0 8px 28px rgba(63,43,24,0.07)", overflow: "hidden" }}>
               <div style={{
@@ -385,7 +385,7 @@ export default function LandingPage() {
 
       {/* ── Adversarial debate callout ────────────────────────────────────── */}
       <section style={{ maxWidth: 1080, margin: "0 auto", padding: "64px 40px 48px" }}>
-        <div style={{
+        <div className="lp-debate-grid" style={{
           borderRadius: 20, border: `1.5px solid #c4dcd5`,
           background: "linear-gradient(135deg, #edf4f1 0%, #e0efeb 100%)",
           overflow: "hidden", display: "grid", gridTemplateColumns: "1fr auto",
@@ -416,7 +416,7 @@ export default function LandingPage() {
             </a>
           </div>
           {/* Right visual */}
-          <div style={{ padding: "36px 40px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, minWidth: 200, borderLeft: `1px solid #c4dcd5` }}>
+          <div className="lp-debate-aside" style={{ padding: "36px 40px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, minWidth: 200, borderLeft: `1px solid #c4dcd5` }}>
             {[
               { side: "TEAM A", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
               { side: "TEAM B", color: "#dc2626", bg: "#fef2f2", border: "#fecaca" },
@@ -453,7 +453,7 @@ export default function LandingPage() {
           <div style={{ marginBottom: 10, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: T.softMuted, textAlign: "center" }}>PRICING</div>
           <h2 style={{ fontFamily: serif, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: T.ink, textAlign: "center", marginBottom: 6 }}>Simple pricing</h2>
           <p style={{ fontSize: 14, color: T.muted, textAlign: "center", marginBottom: 40 }}>Cancel anytime. No seat fees.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="lp-pricing-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {/* Free */}
             <div style={{ padding: "28px 26px", borderRadius: 16, border: `1.5px solid ${T.border}`, background: T.panelStrong, display: "flex", flexDirection: "column", gap: 20 }}>
               <div>
@@ -495,6 +495,16 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <style>{`
+        @media (max-width: 680px) {
+          .lp-hero-grid { grid-template-columns: 1fr !important; gap: 32px !important; padding: 48px 20px 40px !important; }
+          .lp-outputs-grid { grid-template-columns: 1fr !important; }
+          .lp-debate-grid { grid-template-columns: 1fr !important; }
+          .lp-debate-aside { display: none !important; }
+          .lp-pricing-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer style={{ padding: "40px", textAlign: "center", borderTop: `1px solid ${T.border}` }}>

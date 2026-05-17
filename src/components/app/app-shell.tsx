@@ -185,6 +185,14 @@ export function AppShell({ children, initialLang = 'en' }: { children: ReactNode
     }
   }
 
+  async function handleManageBilling() {
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json() as { url?: string }
+      if (data.url) window.location.href = data.url
+    } catch {}
+  }
+
   const t = getTranslations(lang)
 
   const NAV = [
@@ -407,6 +415,33 @@ export function AppShell({ children, initialLang = 'en' }: { children: ReactNode
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
               {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
+            </button>
+          )}
+          {!collapsed && session?.user && tier === 'pro' && (
+            <button
+              onClick={() => { void handleManageBilling() }}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: '1px solid #e0e0f0',
+                borderRadius: 6,
+                padding: '7px 10px',
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#6366f1',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                transition: 'border-color 150ms, color 150ms',
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                <line x1="1" y1="10" x2="23" y2="10" />
+              </svg>
+              Manage Billing
             </button>
           )}
           <LanguageSelector collapsed={collapsed} lang={lang} onLangChange={setLang} />

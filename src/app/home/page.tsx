@@ -27,6 +27,8 @@ export default function DashboardPage() {
 
   const firstName = (session?.user?.name || session?.user?.email || "Researcher").split(" ")[0];
   const todayCount = sessions.filter(s => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0, 0, 0, 0);
+  const weekCount = sessions.filter(s => new Date(s.created_at) >= weekStart).length;
   const concludedCount = sessions.filter(s => s.status === "concluded").length;
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function DashboardPage() {
 
   const stats = [
     { label: t.home_stat_total, value: loadingSessions ? "—" : String(sessions.length), sub: t.home_stat_all_time },
-    { label: t.home_stat_this_week, value: loadingSessions ? "—" : `${todayCount} / 10`, sub: t.home_stat_weekly_limit },
+    { label: t.home_stat_this_week, value: loadingSessions ? "—" : `${weekCount} / 10`, sub: t.home_stat_weekly_limit },
     { label: t.home_stat_concluded, value: loadingSessions ? "—" : String(concludedCount), sub: t.home_stat_completed },
   ];
 
