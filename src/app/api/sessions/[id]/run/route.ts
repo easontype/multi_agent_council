@@ -21,7 +21,7 @@ async function isSessionEmbeddingReady(sessionId: string): Promise<boolean> {
        END AS ready
      FROM council_sessions cs
      LEFT JOIN paper_assets pa ON pa.id = cs.paper_asset_id
-     LEFT JOIN documents d ON d.id = pa.document_id
+     LEFT JOIN documents d ON d.id = pa.document_id::uuid
      WHERE cs.id = $1
      LIMIT 1`,
     [sessionId],
