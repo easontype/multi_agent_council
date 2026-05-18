@@ -93,7 +93,7 @@ export default function DebateSetupPage() {
         return
       }
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
-      router.push(`/review/${encodeURIComponent(data.sessionId)}`)
+      router.push(`/debate/${encodeURIComponent(data.sessionId)}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to launch debate')
       setLaunching(false)
