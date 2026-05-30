@@ -13,12 +13,14 @@ interface Props {
 
 export function PaperReaderShell({ paper }: Props) {
   const [content, setContent] = useState<ParsedPaper | null>(paper.contentJson)
-  const [loading, setLoading] = useState(!paper.contentJson)
+  // PDF papers render via canvas — content is optional (TOC only)
+  const needsContentFetch = paper.sourceType !== "pdf" && !paper.contentJson
+  const [loading, setLoading] = useState(needsContentFetch)
   const [error, setError] = useState("")
   const [activeSectionId, setActiveSectionId] = useState<string>("")
 
   useEffect(() => {
-    if (content) return
+    if (!needsContentFetch) return
     fetch(`/api/reader/papers/${paper.id}/content`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -30,7 +32,7 @@ export function PaperReaderShell({ paper }: Props) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [paper.id, content])
+  }, [paper.id, needsContentFetch])
 
   if (loading) {
     return (
