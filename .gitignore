@@ -47,3 +47,5 @@ coverage/
 .tmp-playwright-dev.log
 *.tsbuildinfo
 .codex-ui-edit/
+uploads/
+public/pdf.worker.min.mjs

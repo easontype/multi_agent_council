@@ -11,6 +11,7 @@ import {
 } from "@/lib/reader/db"
 import { fetchArxivMeta } from "@/lib/reader/arxiv-parser"
 import { parsePdfBuffer } from "@/lib/reader/pdf-parser"
+import { savePdf } from "@/lib/reader/pdf-storage"
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024 // 20 MB
 
@@ -47,10 +48,11 @@ export async function POST(req: NextRequest) {
       sourceType: "pdf",
     })
 
-    // Parse inline (PDF is small enough; move to background queue if needed later)
     try {
+      // Save raw PDF to disk (for client-side canvas rendering)
+      await savePdf(paper.id, buffer)
+      // Extract text structure for AI interactions
       const parsed = await parsePdfBuffer(buffer, paper.id, file.name)
-      // Backfill title/abstract from parsed content
       await saveReaderPaperContent(paper.id, parsed)
       return NextResponse.json({ ...paper, title: parsed.title, abstract: parsed.abstract }, { status: 201 })
     } catch (err) {
