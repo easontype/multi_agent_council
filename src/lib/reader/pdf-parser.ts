@@ -5,14 +5,12 @@
  * Sections are detected by heuristics (numbered headings, ALL CAPS lines).
  */
 
-import pdfParse from "pdf-parse"
 import { nanoid } from "nanoid"
 import type {
   ParsedPaper,
   PaperSection,
   ContentBlock,
   TextBlock,
-  HeadingBlock,
   Sentence,
 } from "./types"
 
@@ -123,6 +121,41 @@ function extractTitle(text: string): string {
   return candidates[0] ?? "Untitled"
 }
 
+// ── Text extraction: pdfjs-dist primary, pdf-parse fallback ──────────────────
+
+async function extractTextWithPdfjs(buffer: Buffer): Promise<string> {
+  // Dynamic import avoids SSR/worker config issues
+  const pdfjs = await import("pdfjs-dist")
+  // No workerSrc needed in Node.js — runs in main thread
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    useSystemFonts: true,
+    verbosity: 0,
+  }).promise
+
+  const pages: string[] = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i)
+    const content = await page.getTextContent()
+    const text = content.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+    pages.push(text)
+  }
+  return pages.join("\n\n")
+}
+
+async function extractRawText(buffer: Buffer): Promise<string> {
+  try {
+    return await extractTextWithPdfjs(buffer)
+  } catch {
+    // Fallback to pdf-parse for PDFs that pdfjs-dist can't handle
+    const pdfParse = (await import("pdf-parse")).default
+    const data = await pdfParse(buffer, { max: 0 })
+    return data.text
+  }
+}
+
 // ── Main entry ────────────────────────────────────────────────────────────────
 
 export async function parsePdfBuffer(
@@ -130,8 +163,7 @@ export async function parsePdfBuffer(
   paperId: string,
   filename?: string
 ): Promise<ParsedPaper> {
-  const data = await pdfParse(buffer, { max: 0 })
-  const rawText = data.text
+  const rawText = await extractRawText(buffer)
 
   const title = extractTitle(rawText) || filename?.replace(/\.pdf$/i, "") || "Untitled"
   const abstract = extractAbstract(rawText)
