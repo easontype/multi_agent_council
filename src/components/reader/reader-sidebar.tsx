@@ -24,7 +24,7 @@ export function ReaderSidebar({ paper, activeSectionId, onSectionClick }: Props)
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2">
-        {paper.sections.map((section) => (
+        {paper.sections.filter(s => !/^abstract$/i.test(s.title.trim())).map((section) => (
           <button
             key={section.id}
             onClick={() => scrollTo(section.id)}
