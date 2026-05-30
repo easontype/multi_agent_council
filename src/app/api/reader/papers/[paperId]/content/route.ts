@@ -1,6 +1,5 @@
 // GET /api/reader/papers/[paperId]/content
-// Returns parsed paper content (ParsedPaper).
-// If not yet parsed, triggers parsing and returns 202 while work is in progress.
+// Returns ParsedPaper. Triggers parsing if not yet done.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getReaderPaper, saveReaderPaperContent } from "@/lib/reader/db"
@@ -22,17 +21,24 @@ export async function GET(
     return NextResponse.json(paper.contentJson)
   }
 
-  // Trigger parsing for arXiv papers
+  // arXiv: parse from ar5iv on demand
   if (paper.sourceType === "arxiv" && paper.arxivId) {
     try {
       const parsed = await parseArxivPaper(paper.arxivId, paperId)
       await saveReaderPaperContent(paperId, parsed)
       return NextResponse.json(parsed)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Parse failed"
-      return NextResponse.json({ error: message }, { status: 502 })
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Parse failed" },
+        { status: 502 }
+      )
     }
   }
 
-  return NextResponse.json({ error: "Cannot parse this paper type yet" }, { status: 422 })
+  // PDF: content should have been parsed at upload time
+  // If missing (e.g. upload interrupted), return 422
+  return NextResponse.json(
+    { error: "PDF content not available — re-upload the file" },
+    { status: 422 }
+  )
 }
