@@ -48,16 +48,22 @@ export async function POST(req: NextRequest) {
       sourceType: "pdf",
     })
 
+    // Save PDF to disk — required for canvas rendering, must not fail
     try {
-      // Save raw PDF to disk (for client-side canvas rendering)
       await savePdf(paper.id, buffer)
-      // Extract text structure for AI interactions
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save PDF"
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
+
+    // Extract text structure (TOC + AI) — best effort, failure is non-fatal
+    try {
       const parsed = await parsePdfBuffer(buffer, paper.id, file.name)
       await saveReaderPaperContent(paper.id, parsed)
       return NextResponse.json({ ...paper, title: parsed.title, abstract: parsed.abstract }, { status: 201 })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "PDF parse failed"
-      return NextResponse.json({ error: message }, { status: 502 })
+    } catch {
+      // Text extraction failed but canvas rendering still works
+      return NextResponse.json(paper, { status: 201 })
     }
   }
 

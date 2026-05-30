@@ -149,10 +149,15 @@ async function extractRawText(buffer: Buffer): Promise<string> {
   try {
     return await extractTextWithPdfjs(buffer)
   } catch {
-    // Fallback to pdf-parse for PDFs that pdfjs-dist can't handle
-    const pdfParse = (await import("pdf-parse")).default
-    const data = await pdfParse(buffer, { max: 0 })
-    return data.text
+    try {
+      const pdfParse = (await import("pdf-parse")).default
+      const data = await pdfParse(buffer, { max: 0 })
+      return data.text
+    } catch {
+      // Both extractors failed (e.g. invalid Unicode in PDF metadata).
+      // Return empty string — canvas rendering still works without text.
+      return ""
+    }
   }
 }
 
