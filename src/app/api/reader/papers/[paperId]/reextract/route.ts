@@ -3,8 +3,9 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getReaderPaper, saveReaderPaperContent } from "@/lib/reader/db"
-import { pdfExists } from "@/lib/reader/pdf-storage"
+import { pdfExists, loadPdf } from "@/lib/reader/pdf-storage"
 import { parsePdfBuffer } from "@/lib/reader/pdf-parser"
+import { parsePdfViaMarkerAPI } from "@/lib/reader/marker-parser"
 import { join } from "path"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ paperId: string }> }) {
@@ -24,7 +25,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pap
   const pdfPath = join(process.cwd(), "uploads", "reader-pdfs", `${paperId}.pdf`)
 
   try {
-    const parsed = await parsePdfBuffer(Buffer.alloc(0), paperId, pdfPath, paper.title)
+    let parsed
+    if (process.env.MARKER_API_KEY) {
+      const buffer = await loadPdf(paperId)
+      if (!buffer) throw new Error("PDF file not found on disk")
+      parsed = await parsePdfViaMarkerAPI(buffer, paperId, paper.title)
+    } else {
+      parsed = await parsePdfBuffer(Buffer.alloc(0), paperId, pdfPath, paper.title)
+    }
     await saveReaderPaperContent(paperId, parsed)
     return NextResponse.json({ ok: true, title: parsed.title, sections: parsed.sections.length })
   } catch (err) {

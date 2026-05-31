@@ -11,6 +11,7 @@ import {
 } from "@/lib/reader/db"
 import { fetchArxivMeta } from "@/lib/reader/arxiv-parser"
 import { parsePdfBuffer } from "@/lib/reader/pdf-parser"
+import { parsePdfViaMarkerAPI } from "@/lib/reader/marker-parser"
 import { savePdf } from "@/lib/reader/pdf-storage"
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024 // 20 MB
@@ -48,21 +49,23 @@ export async function POST(req: NextRequest) {
       sourceType: "pdf",
     })
 
-    // Save PDF to disk — required for canvas rendering, must not fail
+    // Save PDF to disk — required for extraction, must not fail
+    let pdfPath: string
     try {
-      await savePdf(paper.id, buffer)
+      pdfPath = await savePdf(paper.id, buffer)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save PDF"
       return NextResponse.json({ error: message }, { status: 500 })
     }
 
-    // Extract text structure (TOC + AI) — best effort, failure is non-fatal
+    // Extract text structure — Marker API if key is set, else PyMuPDF
     try {
-      const parsed = await parsePdfBuffer(buffer, paper.id, file.name)
+      const parsed = process.env.MARKER_API_KEY
+        ? await parsePdfViaMarkerAPI(buffer, paper.id, file.name)
+        : await parsePdfBuffer(buffer, paper.id, pdfPath, file.name)
       await saveReaderPaperContent(paper.id, parsed)
       return NextResponse.json({ ...paper, title: parsed.title, abstract: parsed.abstract }, { status: 201 })
     } catch {
-      // Text extraction failed but canvas rendering still works
       return NextResponse.json(paper, { status: 201 })
     }
   }
