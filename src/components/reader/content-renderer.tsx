@@ -56,6 +56,39 @@ function BlockView({ block, paperId }: { block: ContentBlock; paperId: string })
           <code>{block.content}</code>
         </pre>
       )
+    case "caption":
+      return (
+        <p className="text-xs text-muted-foreground italic mb-4 leading-relaxed">
+          {block.text}
+        </p>
+      )
+    case "table":
+      return (
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                {block.headers.map((h, i) => (
+                  <th key={i} className="text-left py-2 pr-4 font-medium text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, ri) => (
+                <tr key={ri} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
+                  {row.map((cell, ci) => (
+                    <td key={ci} className="py-2 pr-4 text-sm text-foreground/80 align-top">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
     default:
       return null
   }

@@ -18,15 +18,16 @@ export type MathBlock = {
   type: "math"
   id: string
   latex: string
-  display: boolean // true = block equation, false = inline
+  display: boolean
 }
 
 export type FigureBlock = {
   type: "figure"
   id: string
-  src: string        // data URI or URL
+  src: string
   caption: string
   alt: string
+  description?: string  // Marker AI description paragraph (verbose, for inspection)
   width?: number
   height?: number
 }
@@ -45,6 +46,19 @@ export type CodeBlock = {
   content: string
 }
 
+export type CaptionBlock = {
+  type: "caption"
+  id: string
+  text: string
+}
+
+export type TableBlock = {
+  type: "table"
+  id: string
+  headers: string[]
+  rows: string[][]
+}
+
 export type ContentBlock =
   | TextBlock
   | HeadingBlock
@@ -52,6 +66,8 @@ export type ContentBlock =
   | FigureBlock
   | ListBlock
   | CodeBlock
+  | CaptionBlock
+  | TableBlock
 
 export type Sentence = {
   id: string
@@ -65,15 +81,28 @@ export type PaperSection = {
   title: string
   level: number
   blocks: ContentBlock[]
+  collapsible?: boolean   // Acknowledgements etc — collapsed by default
+  isReferences?: boolean  // References section — fold + enable [N] nav
+}
+
+export type AuthorDetail = {
+  name: string
+  affiliations: string[]
+  isCorresponding: boolean
+  equalContribution: boolean
 }
 
 export type ParsedPaper = {
   paperId: string
   title: string
   authors: string[]
+  authorDetails?: AuthorDetail[]  // PDF only — full name + affiliations
   abstract: string
+  journal?: string
+  publishedDate?: string
+  keywords?: string[]             // from ## ARTICLE INFO
   sections: PaperSection[]
-  figures: FigureBlock[]   // all figures indexed for sidebar
+  figures: FigureBlock[]
   sourceType: "arxiv" | "pdf"
   arxivId?: string
   parsedAt: string
@@ -99,8 +128,8 @@ export type AskAIRequest = {
   paperId: string
   selectionText: string
   blockId: string
-  context: string   // surrounding paragraph for grounding
-  question?: string // if user typed custom question
+  context: string
+  question?: string
 }
 
 export type AskAIResponse = {
