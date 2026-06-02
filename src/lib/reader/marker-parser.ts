@@ -44,9 +44,9 @@ const MARKER_API_BASE = "https://www.datalab.to/api/v1/marker"
 const POLL_INTERVAL_MS = 3000
 const POLL_MAX_ATTEMPTS = 60
 
-// Sections to skip entirely
+// Sections to skip entirely (prefix-match with \b.* to catch long titles)
 const SKIP_SECTION =
-  /^(references?|credit|cr[eé]dit\s+authorship|declaration\s+of\s+competing|appendix(\s+\w+)?|supplementary(\s+data)?|data\s+availability|article\s+info)$/i
+  /^(references?|credit\b.*|cr[eé]dit\b.*|declaration\s+of\s+competing.*|appendix\b.*|supplementary\b.*|data\s+availability.*|article\s+info.*)$/i
 
 // Sections to keep but collapse in UI
 const COLLAPSIBLE_SECTION = /^acknowledgements?$/i
@@ -384,6 +384,8 @@ function buildSections(
         ...(currentIsReferences && { isReferences: true }),
       })
     }
+    currentTitle = ""
+    currentLevel = 0
     currentLines = []
     currentCollapsible = false
     currentIsReferences = false

@@ -43,11 +43,11 @@ function BlockView({ block, paperId }: { block: ContentBlock; paperId: string })
     case "list":
       return block.ordered ? (
         <ol className="list-decimal list-inside space-y-1 mb-4 text-sm">
-          {block.items.map((item, i) => <li key={i}>{item}</li>)}
+          {block.items.map((item, i) => <li key={i}>{renderText(item)}</li>)}
         </ol>
       ) : (
         <ul className="list-disc list-inside space-y-1 mb-4 text-sm">
-          {block.items.map((item, i) => <li key={i}>{item}</li>)}
+          {block.items.map((item, i) => <li key={i}>{renderText(item)}</li>)}
         </ul>
       )
     case "code":
