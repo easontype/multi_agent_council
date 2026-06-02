@@ -19,7 +19,7 @@ function InlineMath({ latex }: { latex: string }) {
   return <span ref={ref} className="inline-block align-middle mx-0.5" />
 }
 
-function renderText(text: string): React.ReactNode[] {
+export function renderText(text: string): React.ReactNode[] {
   const parts = text.split(/(\$[^$\n]+\$)/g)
   return parts.map((part, i) => {
     if (part.length > 2 && part.startsWith("$") && part.endsWith("$")) {

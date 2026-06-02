@@ -1,7 +1,7 @@
 "use client"
 
 import type { PaperSection, ContentBlock } from "@/lib/reader/types"
-import { TextBlockView } from "./text-block"
+import { TextBlockView, renderText } from "./text-block"
 import { MathBlockView } from "./math-block"
 import { FigureBlockView } from "./figure-block"
 
@@ -14,9 +14,9 @@ export function ContentRenderer({ section, paperId }: Props) {
   return (
     <div className="mb-10">
       {section.level <= 2 ? (
-        <h2 className="text-xl font-semibold mt-8 mb-4">{section.title}</h2>
+        <h2 className="text-xl font-semibold mt-8 mb-4">{renderText(section.title)}</h2>
       ) : (
-        <h3 className="text-base font-semibold mt-6 mb-3 text-foreground/80">{section.title}</h3>
+        <h3 className="text-base font-semibold mt-6 mb-3 text-foreground/80">{renderText(section.title)}</h3>
       )}
 
       {section.blocks.map((block) => (
@@ -37,7 +37,7 @@ function BlockView({ block, paperId }: { block: ContentBlock; paperId: string })
     case "heading":
       return (
         <h4 className="font-medium mt-4 mb-2 text-sm text-muted-foreground uppercase tracking-wide">
-          {block.text}
+          {renderText(block.text)}
         </h4>
       )
     case "list":
