@@ -147,7 +147,13 @@ function toSup(s: string): string {
 }
 
 function stripMd(text: string): string {
-  return text
+  // Mask $...$ before italic/underscore regexes to prevent cross-formula matches
+  const maths: string[] = []
+  let t = text.replace(/\$[^$\n]+\$/g, (m) => {
+    maths.push(m)
+    return `\x01${maths.length - 1}\x01`
+  })
+  t = t
     .replace(/<sub>([^<]*)<\/sub>/g, (_, c) => toSub(c))
     .replace(/<sup>([^<]*)<\/sup>/g, (_, c) => toSup(c))
     .replace(/<[^>]+>/g, "")
@@ -158,6 +164,7 @@ function stripMd(text: string): string {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
     .trim()
+  return t.replace(/\x01(\d+)\x01/g, (_, idx) => maths[Number(idx)] ?? "")
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
@@ -439,15 +446,26 @@ function parseBlocks(
       continue
     }
 
-    // Block math $$ ... $$
-    if (line.trim() === "$$") {
-      const mathLines: string[] = []
-      i++
-      while (i < lines.length && lines[i].trim() !== "$$") { mathLines.push(lines[i]); i++ }
-      i++
-      if (mathLines.length)
-        blocks.push({ type: "math", id: nanoid(8), latex: mathLines.join("\n"), display: true } as MathBlock)
-      continue
+    // Block math $$ ... $$ (single-line or multi-line)
+    if (line.trim().startsWith("$$")) {
+      const trimmed = line.trim()
+      // Single-line: $$...$$
+      if (trimmed.length > 4 && trimmed.endsWith("$$") && trimmed !== "$$") {
+        const latex = trimmed.slice(2, -2).trim()
+        if (latex) blocks.push({ type: "math", id: nanoid(8), latex, display: true } as MathBlock)
+        i++
+        continue
+      }
+      // Multi-line: opening $$ on its own line
+      if (trimmed === "$$") {
+        const mathLines: string[] = []
+        i++
+        while (i < lines.length && lines[i].trim() !== "$$") { mathLines.push(lines[i]); i++ }
+        i++
+        if (mathLines.length)
+          blocks.push({ type: "math", id: nanoid(8), latex: mathLines.join("\n"), display: true } as MathBlock)
+        continue
+      }
     }
 
     // Fenced code block
