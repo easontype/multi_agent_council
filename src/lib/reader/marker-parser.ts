@@ -611,24 +611,48 @@ function parseMarkdownTable(tableLines: string[]): TableBlock | null {
 
 // ── Column-break paragraph merger ─────────────────────────────────────────────
 
+function joinTexts(a: string, b: string): string {
+  const t = a.trimEnd()
+  // Hyphenated line-break: "bag-" + "breathing" → "bag-breathing"
+  if (t.endsWith("-")) return t.slice(0, -1) + b.trimStart()
+  return t + " " + b.trimStart()
+}
+
 function mergeFragmentedParagraphs(blocks: ContentBlock[]): ContentBlock[] {
   const result: ContentBlock[] = []
-  for (const block of blocks) {
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]
     const prev = result[result.length - 1]
+
+    // Normal: consecutive paragraphs where previous doesn't end a sentence
     if (
       block.type === "paragraph" &&
       prev?.type === "paragraph" &&
       !/[.!?:]\s*$/.test(prev.text.trimEnd())
     ) {
-      const merged = prev.text.trimEnd() + " " + block.text.trimStart()
-      result[result.length - 1] = {
-        ...prev,
-        text: merged,
-        sentences: tokenizeSentences(merged),
-      }
-    } else {
-      result.push(block)
+      const merged = joinTexts(prev.text, block.text)
+      result[result.length - 1] = { ...prev, text: merged, sentences: tokenizeSentences(merged) }
+      continue
     }
+
+    // Figure-interrupted paragraph: dangling para → figure → lowercase continuation
+    if (
+      block.type === "figure" &&
+      prev?.type === "paragraph" &&
+      !/[.!?:]\s*$/.test(prev.text.trimEnd()) &&
+      i + 1 < blocks.length &&
+      blocks[i + 1].type === "paragraph" &&
+      /^[a-z]/.test((blocks[i + 1] as { text: string }).text.trimStart())
+    ) {
+      const continuation = blocks[i + 1] as { text: string; id: string; sentences: Sentence[] }
+      const merged = joinTexts(prev.text, continuation.text)
+      result[result.length - 1] = { ...prev, text: merged, sentences: tokenizeSentences(merged) }
+      result.push(block)  // figure goes after the merged paragraph
+      i++                 // skip the continuation block
+      continue
+    }
+
+    result.push(block)
   }
   return result
 }
