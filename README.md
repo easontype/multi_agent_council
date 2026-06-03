@@ -8,10 +8,10 @@ Council simulates a peer review committee for your paper — or lets two AI team
 
 ## What it does
 
-### Academic Critique (`/review/new`)
+The application provides three primary workspaces for academic research and paper evaluation:
 
-Upload a paper (arXiv ID or PDF), choose a research domain, and a panel of 5 specialist AI reviewers debates your work in two rounds. A moderator synthesises the debate into a structured report:
-
+### 1. Academic Critique (`/analyze` / `/review`)
+Submit a paper (via arXiv ID or PDF upload), choose a research domain, and configure a panel of 5 domain-specialist AI reviewers to debate your work in two rounds. The Moderator synthesizes the debate into a structured evaluation:
 - **Editorial decision** — Accept / Minor Revision / Major Revision / Reject
 - **Questions to prepare** — each flagged issue traced to literature, with a suggested response
 - **Consensus & dissent** — where reviewers agree, where they split, and the resolution path
@@ -26,11 +26,13 @@ Four domain-specific panels are available:
 | Biomedical & Life Sci | Safety Examiner, Translational Skeptic, Regulatory Analyst, Competing Therapy Auditor, Clinical Benchmarker |
 | Physics & Devices | Device Integrator, Efficiency Auditor, Fabrication Skeptic, Reliability Examiner, System Benchmarker |
 
-### Adversarial Debate (`/debate/new`)
+### 2. Adversarial Debate (`/debate`)
+Compare two options, theories, materials, or models (e.g. *Option A vs Option B*) within a paper's context. AI specialists are split into two teams (advocating for Option A and Option B respectively) to debate, overseen by a neutral AI Moderator who delivers an evidence-based verdict.
 
-Compare any two options — materials, methods, models, or approaches. Pick a domain and 2–3 specialist roles. Each role is mirrored into two teams: one advocates for Option A, one for Option B. A moderator delivers an evidence-based verdict.
-
-Example: *MXene vs Graphene* → Material Rationalist (MXene) vs Material Rationalist (Graphene), Synthesis Skeptic (MXene) vs Synthesis Skeptic (Graphene), + neutral Moderator.
+### 3. Paper Reader (`/reader`)
+An interactive HTML Reflow reader that converts dual-column PDFs into a clean, responsive single-column layout using local PyMuPDF or datalab.to Marker API.
+- **Sentence-Level Hover AI** — Hover over any sentence in the paper to invoke quick AI options: *Explain*, *Challenge*, or *Ask Questions* with full paragraph context awareness.
+- **LaTeX Math & Tables** — Renders academic math equations and complex scientific tables directly in the reflow view.
 
 ---
 
@@ -38,12 +40,12 @@ Example: *MXene vs Graphene* → Material Rationalist (MXene) vs Material Ration
 
 | Layer | Tech |
 |---|---|
-| Framework | Next.js (App Router), React 19 |
+| Framework | Next.js 16 (App Router), React 19 |
 | Styling | Tailwind CSS v4, shadcn/ui |
 | Database | PostgreSQL (Docker, port 5433) |
-| LLM | Google Gemini (via API) |
+| LLM | Google Gemini (default: `gemini-3.1-flash-lite-preview` via API) |
 | Streaming | Server-Sent Events (SSE) |
-| Auth | NextAuth.js |
+| Auth | NextAuth.js (v5 Beta) |
 | Payments | Stripe |
 | Testing | Jest, Playwright |
 
@@ -70,7 +72,7 @@ docker compose up -d
 npm run dev
 ```
 
-App runs at `http://localhost:3000`.
+App runs at `http://localhost:3001`.
 
 ### Required environment variables (`.env.local`)
 
@@ -83,7 +85,7 @@ GEMINI_API_KEY=...
 
 # Auth
 NEXTAUTH_SECRET=...
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:3001
 
 # Stripe (optional for local)
 STRIPE_SECRET_KEY=...
@@ -111,33 +113,40 @@ npx playwright test  # Playwright e2e tests
 src/
 ├── app/                        # Next.js App Router pages
 │   ├── page.tsx                # Landing page
-│   ├── review/new/             # Paper review entry (draft + team setup)
-│   ├── review/[id]/            # Session workspace
-│   ├── debate/new/             # Adversarial debate wizard
-│   ├── home/                   # Authenticated dashboard
-│   └── api/                    # API routes
-│       ├── papers/upload/      # Paper ingestion + session creation
-│       ├── sessions/[id]/      # Session streaming, export, chat
-│       └── ...
+│   ├── analyze/                # Primary paper review setup UI
+│   ├── review/[id]/            # Session workspace UI
+│   ├── debate/[assetId]/       # New adversarial debate setup wizard
+│   ├── home/                   # Authenticated dashboard, paper search
+│   └── api/                    # API routes (papers, sessions, stripe, etc.)
 ├── components/
-│   ├── review/                 # Review flow UI (draft layout, session workspace)
-│   ├── council/                # Shared debate UI (timeline, compare, map, agents)
-│   └── debate/                 # Adversarial debate wizard components
+│   ├── review/                 # Review flow UI layouts and setups
+│   ├── council/                # Shared debate timeline, compare charts, and maps
+│   └── debate/                 # Debate setup wizard components
 ├── lib/
 │   ├── core/
-│   │   ├── council-academic.ts # All domain seat definitions (4 domains × 5 seats)
+│   │   ├── council-academic.ts # Seat definitions for academic domains
 │   │   ├── council.ts          # Session orchestrator
-│   │   ├── council-types.ts    # Shared types (CouncilSeat, CouncilSession, etc.)
-│   │   └── debate-strategy.ts  # DebateStrategy abstraction (critique / adversarial)
+│   │   ├── council-types.ts    # Shared TS types (CouncilSeat, etc.)
+│   │   └── debate-strategy.ts  # Critique / Adversarial debate strategy logic
 │   ├── prompts/
-│   │   ├── review-presets.ts   # buildDomainTeam(), buildEditableTeam(), ReviewDomain
-│   │   └── debate-presets.ts   # buildAdversarialTeam(), AdversarialDebateConfig
-│   └── db/                     # Database layer (council-db.ts, account-db.ts, etc.)
+│   │   ├── review-presets.ts   # Critique session prompt presets
+│   │   └── debate-presets.ts   # Adversarial debate prompt presets
+│   └── db/                     # DB layer (pg client, schema bootstrap, CRUD)
 ├── hooks/
-│   └── use-council-review.ts   # Main debate lifecycle hook (start/load/resume/rerun)
+│   └── use-council-review.ts   # Main debate lifecycle SSE sync hook
 └── types/
-    └── council.ts              # UI-facing types (AgentUI, DEFAULT_AGENTS, etc.)
+    └── council.ts              # Frontend/UI TS types and constants
 ```
+
+---
+
+## Documentation
+
+Detailed design specifications, optimization reports, and system architectures can be found in the [docs](file:///d:/council/docs) folder:
+- [pdf_hover_architecture.md](file:///d:/council/docs/pdf_hover_architecture.md) — HTML Reflow rendering & sentence-level Hover AI integration.
+- [pdf_parsing_evaluation.md](file:///d:/council/docs/pdf_parsing_evaluation.md) — PDF parsing engines comparison (PyMuPDF vs Marker vs Docling) and local optimization.
+- `docs/architecture/` — Static architecture explanation diagrams.
+- `docs/archive/` — Historical plans, specifications, and archived red team reviews.
 
 ---
 

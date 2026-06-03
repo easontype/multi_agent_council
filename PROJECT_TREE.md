@@ -1,6 +1,6 @@
 # Council Project Tree
 
-Updated: 2026-05-01
+Updated: 2026-06-02
 
 This file is the current structural map of the repository. It is meant to support cleanup decisions without mixing old roadmap assumptions into active implementation notes.
 
@@ -12,12 +12,14 @@ Active project files:
 - `next.config.ts`, `middleware.ts`, `proxy.ts` - Next.js app configuration and request plumbing.
 - `tsconfig.json`, `jest.config.ts`, `playwright.config.ts` - TypeScript and test configuration.
 - `components.json`, `postcss.config.mjs`, `src/app/globals.css` - UI and styling configuration.
-- `docs/architecture/` - static architecture explanation artifacts.
+- `docs/` - project documentation and architecture designs:
+  - `docs/pdf_hover_architecture.md` - HTML reflow rendering & sentence hover AI design.
+  - `docs/pdf_parsing_evaluation.md` - PDF parsing engines evaluation and integration strategy.
+  - `docs/architecture/` - static architecture explanation artifacts.
+  - `docs/archive/` - archived specifications, plans, and historical logs.
 - `references/design-system/` - design-system reference package.
 - `references/experiments/` - sidecar or archived experimental projects kept out of the main app/runtime path.
 - `.env.local.example` - environment template.
-- `PRODUCT_SPEC.md` - product shape and original spec.
-- `PROJECT_STATUS.md` - current progress and verification notes.
 - `COMMIT_GUIDE.md` - commit workflow notes.
 - `CLAUDE.md` - project/agent context notes.
 
@@ -58,17 +60,22 @@ Next.js App Router entrypoints.
 - `src/app/keys/` - API key / pricing flow pages.
 - `src/app/login/` - login UI and server actions.
 - `src/app/share/[id]/` - public/shared session page.
+- `src/app/reader/` - Paper Reader document library catalog page.
+- `src/app/reader/[paperId]/` - HTML Reflow document reader workspace page.
 - `src/app/api/` - route handlers.
 
 Important API groups:
 
 - `api/sessions` - current session create/list/get/run/chat/export routes.
 - `api/papers` - paper ingest and PDF/arXiv upload routes.
-- `api/search/papers` - paper search.
+- `api/search` - paper search and details fetch via OpenAlex / Semantic Scholar.
 - `api/team-templates` and `api/teams/builder` - team template and builder routes.
 - `api/keys` - API key routes.
 - `api/stripe` - billing checkout/session/webhook routes.
 - `api/public/v1` - public/API-facing analyze and session routes.
+- `api/reader` - paper list, details, extraction, re-extraction, and images.
+- `api/compare` - session and paper comparison routes.
+- `api/admin` - admin maintenance endpoints.
 
 ### `src/components`
 
@@ -77,17 +84,15 @@ UI components.
 - `src/components/ui/` - generic UI primitives.
 - `src/components/council/` - review timeline, source panel, chat, compare view, evidence annotation, and review setup UI.
 - `src/components/council/review-setup/` - agent/team setup modal components.
-
-Main council UI flow:
-
-- `discussion-timeline.tsx`
-- `agent-message.tsx`
-- `evidence-annotated-markdown.tsx`
-- `source-panel.tsx`
-- `review-sidebar.tsx`
-- `chat-with-paper.tsx`
-- `compare-view.tsx`
-- `debate-map.tsx`
+- `src/components/reader/` - Paper Reader specific UI components:
+  - `paper-reader-shell.tsx` - reader workspace overall frame
+  - `content-renderer.tsx` - markdown with LaTeX equation renderer
+  - `text-block.tsx` - sentence-level hover detection and interaction
+  - `hover-ai-popover.tsx` - quick-access sentence AI action popover
+  - `pdf-canvas-viewer.tsx` - visual PDF canvas overlay
+  - `figure-block.tsx` - visual figure and table image rendering
+  - `math-block.tsx` - LaTeX blocks rendering
+  - `reader-sidebar.tsx` - reader sidebar navigation
 
 ### `src/hooks`
 
@@ -98,7 +103,7 @@ Client state and workflow hooks.
 
 ### `src/lib`
 
-Core implementation. Canonical imports now point directly at the subdirectories below; the old top-level compatibility wrappers were removed.
+Core implementation. Canonical imports point directly at the subdirectories below.
 
 Canonical implementation directories:
 
@@ -109,6 +114,8 @@ Canonical implementation directories:
 - `src/lib/tools/` - tool parser/display, RAG and web handlers, schemas, rate limits.
 - `src/lib/agents/` - agentic runtime and tool execution loop.
 - `src/lib/services/` - session hydration, restore, and service helpers.
+- `src/lib/reader/` - Paper Reader database model (reader_papers), local PyMuPDF extraction, datalab.to Marker API integration, and types.
+- `src/lib/i18n/` - multi-language support configuration and translations.
 
 Important standalone modules:
 
@@ -120,6 +127,9 @@ Important standalone modules:
 - `evidence-annotations.ts` - source/ref matching for inline citations.
 - `team-builder.ts`, `team-templates.ts`, `team-template-store.ts` - team generation/template support.
 - `tool-compressor.ts` - tool output compression before feeding LLMs.
+- `entitlements.ts` & `workspace-tier.ts` - subscription tiers and workspace limits.
+- `scholarly-providers.ts` - scholarly data lookup (OpenAlex / Semantic Scholar).
+- `review-cost.ts` - token cost monitoring.
 
 ### `src/stores`
 
