@@ -20,7 +20,7 @@ npm run build && npm start  # also port 3001
 **Required environment variables** (create `.env.local`):
 
 ```
-DATABASE_URL=postgresql://user:pass@localhost:5432/council
+DATABASE_URL=postgresql://user:pass@localhost:5433/council
 GEMINI_API_KEY=...           # primary seat/moderator model
 ANTHROPIC_API_KEY=...        # optional; enables native tool use for Claude seats
 AUTH_SECRET=...              # NextAuth secret (any random string)
@@ -67,6 +67,7 @@ src/components/council/   — Council-specific React components
 src/components/ui/        — shadcn/ui primitive components
 src/__tests__/            — Jest unit tests
 tests/                    — Playwright e2e tests
+docs/                     — Project specifications and design documents (reflow, parser evaluation)
 ```
 
 ## Core concepts
@@ -99,9 +100,7 @@ tests/                    — Playwright e2e tests
 
 Anonymous users can create and run sessions (rate-limited: 3 creates / 10 min, 3 runs / 10 min). A cookie-based access token ties them to their sessions. Authenticated users see all their sessions via GET.
 
-## LLM providers
-
-The default model for seats and Moderator is **`gemma-4-31b-it`** (Google Gemini API).
+The default model for seats and Moderator is **`gemini-3.1-flash-lite-preview`** (Google Gemini API).
 
 | Provider | Model prefix | Detection function | Key env var |
 |----------|--------------|--------------------|-------------|
@@ -112,7 +111,7 @@ The default model for seats and Moderator is **`gemma-4-31b-it`** (Google Gemini
 
 **Native tool use** (Anthropic structured tool calls) activates automatically when `ANTHROPIC_API_KEY` is present and the seat model is Anthropic. All other models use text-based `[TOOL_CALL]...[/TOOL_CALL]` parsing.
 
-To change the default model, edit the `DEFAULT_*_MODEL` constants in `src/lib/core/council.ts` (lines 111–114) and `src/lib/llm/gemma-models.ts`.
+To change the default model, edit the `DEFAULT_*_MODEL` constants in `src/lib/core/council.ts` and `src/lib/llm/gemma-models.ts`.
 
 ## Database
 

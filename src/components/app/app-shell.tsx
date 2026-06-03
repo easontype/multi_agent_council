@@ -118,6 +118,15 @@ function PlusIcon() {
   )
 }
 
+function ReaderIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  )
+}
+
 function CompareIcon({ active }: { active: boolean }) {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
@@ -200,6 +209,7 @@ export function AppShell({ children, initialLang = 'en' }: { children: ReactNode
     { href: '/home/reviews', label: t.nav_reviews, match: (p: string) => p.startsWith('/home/reviews'), Icon: ReviewsIcon },
     { href: '/home/papers', label: t.nav_papers, match: (p: string) => p.startsWith('/home/papers'), Icon: PapersIcon },
     { href: '/home/compare', label: t.nav_compare, match: (p: string) => p.startsWith('/home/compare'), Icon: CompareIcon },
+    { href: '/reader', label: 'Reader', match: (p: string) => p.startsWith('/reader'), Icon: ReaderIcon },
   ]
 
   const user = {

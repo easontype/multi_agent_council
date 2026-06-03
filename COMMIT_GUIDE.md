@@ -4,7 +4,8 @@
 
 1. **Only stage files you actually changed.** Never use `git add -A` blindly — check `git status` first and add specific files.
 2. **One logical change per commit.** Don't mix unrelated changes (e.g. a prompt fix and a Stripe refactor belong in separate commits).
-3. **Always append the co-author trailer** (see format below).
+3. **Keep documentation organized.** Clean up any temporary or archived planning files, and relocate them to `docs/archive/` rather than leaving them scattered in the root directory.
+4. **Always append the co-author trailer** (see format below).
 
 ## Commit message format
 

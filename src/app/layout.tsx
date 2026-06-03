@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { Providers } from "@/app/providers";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 
 export const metadata: Metadata = {
   title: "Council — AI Peer Review",
